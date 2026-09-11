@@ -7,7 +7,7 @@ const Reader = (function () {
   const state = { page: null, layout: "single", direction: "next" };
 
   function toc() { return window.TOC; }
-  function book() { return toc().book || {}; }
+  function bookInfo() { return toc().book || {}; }
   function pageInfo(num) { return toc().pages[num]; }
   function isTranslated(num) { return Boolean(pageInfo(num)) && !pageInfo(num).blank; }
   function isBlank(num) { return Boolean(pageInfo(num)) && pageInfo(num).blank; }
@@ -45,6 +45,10 @@ const Reader = (function () {
     return Pages.load(num).then((page) => Sheet.render(sheet, page, side));
   }
 
+  function renderSingle(num) {
+    return renderOne(sheets()[0], num, {});
+  }
+
   function renderSpread(num) {
     const [left, right] = sheets();
     const [leftNum, rightNum] = pairOf(num);
@@ -61,8 +65,8 @@ const Reader = (function () {
     const lastRead = Number(localStorage.getItem(LAST_PAGE_KEY)) || null;
     if (isSpread()) Sheet.renderPlaceholder(left, "", "empty");
     Sheet.renderCover(isSpread() ? right : left, toc(), isTranslated(lastRead) ? lastRead : null);
-    document.getElementById("crumb").textContent = `${book().author || ""} · İngilizce–Türkçe`;
-    document.title = `${book().title} TR — Kapak`;
+    document.getElementById("crumb").textContent = `${bookInfo().author || ""} · İngilizce–Türkçe`;
+    document.title = `${bookInfo().title} TR — Kapak`;
   }
 
   function breadcrumb(page) {
@@ -80,11 +84,11 @@ const Reader = (function () {
     sheets()[1].hidden = !isSpread();
     Controls.applyLang();
     const work = state.page === "cover" ? Promise.resolve(renderCover())
-      : renderSpread(state.page).then(function () {
+      : (isSpread() ? renderSpread : renderSingle)(state.page).then(function () {
           var anchor = canShow(state.page) && isTranslated(state.page) ? state.page : pairOf(state.page).find(isTranslated);
           return anchor ? Pages.load(anchor) : null;
         }).then(function (page) {
-          if (page) { document.getElementById("crumb").innerHTML = breadcrumb(page); document.title = `${book().title} TR — Sayfa ${state.page}`; }
+          if (page) { document.getElementById("crumb").innerHTML = breadcrumb(page); document.title = `${bookInfo().title} TR — Sayfa ${state.page}`; }
         });
     return work.then(finishRender).catch(function (error) { Panels.toast(error.message); });
   }
@@ -167,7 +171,7 @@ const Reader = (function () {
   function main() {
     if (!window.TOC) { document.querySelector(".page-body").textContent = "data/toc.js yüklenemedi."; return; }
     document.getElementById("page-total").textContent = `/ ${toc().bookTotalPages}`;
-    document.querySelector(".brand-title").textContent = `${book().title} — ${book().author}`;
+    document.querySelector(".brand-title").textContent = `${bookInfo().title} — ${bookInfo().author}`;
     Panels.init({ onSelectPage: (target) => goTo(target, "next") });
     Concepts.init();
     Controls.init({ goTo, goNext, goPrev, toggleLayout, refresh: renderCurrent, currentPage: () => state.page });
