@@ -1,0 +1,16 @@
+# PDF kitap dosyası (telif hakkı)
+*.pdf
+
+# Çeviri çalışma dizini (geçici girdi/çıktı JSON ve görseller)
+_work/
+
+# Claude Code yerel ayarları
+.claude/settings.local.json
+
+# Geçici dosyalar
+__pycache__/
+*.bak
+*.tmp
+*~
+.DS_Store
+Thumbs.db

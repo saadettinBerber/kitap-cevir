@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="tr" data-lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{TITLE}} TR — İnteraktif Okuyucu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/reader.css?v=1">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <button class="icon-btn" id="toc-btn" title="İçindekiler" aria-label="İçindekiler">☰</button>
+    <div class="brand">
+      <span class="brand-title">{{TITLE}} — {{AUTHOR}}</span>
+      <span class="brand-sub ui-pair" id="crumb">İngilizce–Türkçe</span>
+    </div>
+    <div class="page-jump">
+      <span>Sayfa</span>
+      <input id="page-input" type="text" inputmode="numeric" maxlength="3" autocomplete="off" aria-label="Sayfa numarası">
+      <span class="page-total" id="page-total"></span>
+      <div class="toast" id="toast" role="status"></div>
+    </div>
+    <div class="lang-switch" role="group" aria-label="Dil">
+      <button data-lang="tr">TR</button>
+      <button data-lang="en">EN</button>
+      <button data-lang="both">EN+TR</button>
+    </div>
+    <button class="icon-btn layout-btn" id="layout-btn" title="Tek sayfa / çift sayfa (açık kitap)" aria-label="Çift sayfa görünümü"><span class="pg-icon"></span><span class="pg-icon"></span></button>
+    <div class="font-controls">
+      <button class="icon-btn" id="font-down" title="Yazıyı küçült">A−</button>
+      <button class="icon-btn" id="font-up" title="Yazıyı büyüt">A+</button>
+    </div>
+    <button class="ui-btn" id="glossary-btn" title="Terim sözlüğü">📖 <span class="label">Sözlük</span></button>
+  </div>
+</header>
+
+<main class="desk">
+  <button class="turn turn-prev" data-nav="prev" title="Önceki sayfa (←)" aria-label="Önceki sayfa">‹</button>
+  <div class="book" id="book">
+    <article class="sheet" id="sheet-left">
+      <div class="running-head ui-pair"></div>
+      <div class="page-body"><p class="status">Yükleniyor…</p></div>
+      <section class="concepts ui-pair"></section>
+      <div class="folio"></div>
+    </article>
+    <article class="sheet" id="sheet-right" hidden>
+      <div class="running-head ui-pair"></div>
+      <div class="page-body"></div>
+      <section class="concepts ui-pair"></section>
+      <div class="folio"></div>
+    </article>
+  </div>
+  <button class="turn turn-next" data-nav="next" title="Sonraki sayfa (→)" aria-label="Sonraki sayfa">›</button>
+</main>
+
+<nav class="pager-mobile">
+  <button class="ui-btn" data-nav="prev">← Önceki</button>
+  <span id="pager-label"></span>
+  <button class="ui-btn" data-nav="next">Sonraki →</button>
+</nav>
+
+<div class="backdrop" id="backdrop"></div>
+<aside class="drawer left" id="toc-panel" aria-label="İçindekiler">
+  <div class="drawer-head"><span class="grow">İçindekiler</span><button class="icon-btn drawer-close" aria-label="Kapat">×</button></div>
+  <div class="drawer-body ui-pair" id="toc-body"></div>
+</aside>
+<aside class="drawer right" id="glossary-panel" aria-label="Sözlük">
+  <div class="drawer-head"><span class="grow">Terim Sözlüğü</span><button class="icon-btn drawer-close" aria-label="Kapat">×</button></div>
+  <input class="glossary-search" id="glossary-search" type="search" placeholder="Terim ara… (örn. refactoring)">
+  <div class="drawer-body" id="glossary-body"></div>
+</aside>
+
+<div class="modal-overlay" id="modal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header ui-pair"><h3 id="modal-title"></h3><button class="modal-close" id="modal-close" aria-label="Kapat">×</button></div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+<div id="word-tip"></div>
+
+<script src="data/toc.js?v=1"></script>
+<script src="data/glossary.js?v=1"></script>
+<script src="js/prefs.js?v=1"></script>
+<script src="js/highlight.js?v=1"></script>
+<script src="js/blocks.js?v=1"></script>
+<script src="js/pages.js?v=1"></script>
+<script src="js/sheet.js?v=1"></script>
+<script src="js/concepts.js?v=1"></script>
+<script src="js/panels.js?v=1"></script>
+<script src="js/cover.js?v=1"></script>
+<script src="js/controls.js?v=1"></script>
+<script src="js/flip.js?v=1"></script>
+<script src="js/reader.js?v=1"></script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+---
+name: kitap-cevir
+description: İngilizce bir PDF kitabı sayfa sayfa Türkçeye çevirip iki dilli, kitap görünümlü interaktif okuyucuya ekler. "init" ile yeni kitap projesi (okuyucu iskeleti + progress.json + sözlük) kurar; sayfa numarası veya "next / sıradaki sayfa" ile çeviri yapar. Tetikleyiciler - /kitap-cevir, "kitap çevir", "PDF kitabı çevir", "yeni kitap projesi", "sıradaki sayfa", "devam et", "okuyucu iskeleti".
+argument-hint: "[init | N | next | next --count K | backfill]"
+allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"]
+---
+
+# Kitap Çeviri Skill'i (PDF → iki dilli okuyucu)
+
+Skill dizini: `~/.claude/skills/kitap-cevir` (aşağıda `$SKILL`). Betikler
+`$SKILL/scripts/` altındadır ve **her zaman kitap projesinin dizininde**
+(içinde `progress.json` olan dizin) çalıştırılır; betikler kökü kendileri
+bulur (`KITAP_ROOT` ortam değişkeni ile de gösterilebilir). Dil çifti bu
+sürümde sabittir: kaynak İngilizce (`en`), hedef Türkçe (`tr`).
+
+```bash
+SKILL=~/.claude/skills/kitap-cevir
+```
+
+## Hangi mod?
+
+| `$ARGUMENTS` / istek | Mod |
+|----------------------|-----|
+| `init`, "yeni kitap projesi", "bu PDF'i kur" | **A. Kurulum** |
+| sayı (`55`), `next`, boş, "sıradaki sayfa", "devam et", `next --count 3` | **B. Sayfa çevirisi** |
+| `backfill` | Çevrilmiş sayfalara PDF görsellerini geriye dönük ekle: `python3 $SKILL/scripts/backfill_images.py [N ...]` |
+
+## Bağımlılıklar
+
+`python3`, `pip install -U opendataloader-pdf pymupdf`, Java 11+ (OpenDataLoader
+Java tabanlıdır). `ModuleNotFoundError` görürsen pip komutunu çalıştır; `java`
+yoksa kullanıcıdan kurmasını iste (`sudo apt install default-jre` vb.).
+
+## A. Kurulum (`init`)
+
+Amaç: `progress.json` + `glossary.md` + `CLAUDE.md` + okuyucu iskeleti olan bir
+kitap projesi. Kullanıcıdan PDF yolu ve hedef dizin eksikse sor; gerisini
+sen çıkar.
+
+1. **PDF'i tanı**
+   ```bash
+   python3 $SKILL/scripts/inspect_pdf.py <pdf> info
+   python3 $SKILL/scripts/inspect_pdf.py <pdf> offset
+   ```
+   `offset`, basılı sayfa numaralarından "PDF sayfası − kitap sayfası" değerini
+   oylar. En çok oy alan adayı `text` ile doğrula: PDF sayfa P'nin metninde
+   basılı numara `P − offset` olmalı (bölüm açılışlarında folyo olmayabilir,
+   normal bir gövde sayfası seç).
+2. **Bölüm tablosu**: içindekiler sayfalarını oku
+   (`inspect_pdf.py <pdf> text 5-9` gibi), her bölüm için
+   `{"num", "en", "tr", "start"}` yaz (`start` = **kitap** sayfası, PDF değil;
+   `tr` = başlığın Türkçesi). Önsöz/giriş gibi numarasız kısımlar için `num`
+   0 verilebilir. Bu listeyi geçici bir `chapters.json` dosyasına kaydet.
+3. **Toplam sayfa**: kitabın son basılı sayfa numarası (`--total`). Dizin ve
+   ekler dahil edilecekse onları da say.
+4. **Kur**:
+   ```bash
+   python3 $SKILL/scripts/init_book.py --pdf <pdf> --title "..." --author "..." \
+     --offset <N> --total <M> --chapters chapters.json --target <dizin> \
+     [--subtitle "..."] [--subtitle-tr "..."] [--series "..."] [--code-lang python]
+   ```
+   PDF projeye `book.pdf` olarak kopyalanır ve `.gitignore` ile dışarıda tutulur.
+5. **Çıkarım ayarlarını akort et**: kod içeren bir PDF sayfası ile bir bölüm
+   açılış sayfası için
+   `python3 $SKILL/scripts/inspect_pdf.py <pdf> layout <P>` çalıştır; kod fontu,
+   koşu başlığı yüksekliği ve başlık boyutlarını `references/extraction.md`'deki
+   varsayılanlarla karşılaştır. Farklıysa `progress.json` → `extraction` içine
+   yalnız değişen anahtarları yaz (kurulumda tek seferlik elle düzenleme
+   serbesttir). Sonra `python3 $SKILL/scripts/prepare_page.py 1` ile deneme
+   çıkarımı yap ve `_work/in/page-1.json`'daki blok tiplerini gözle kontrol et.
+6. Kullanıcı isterse `git init` + ilk commit. Raporla: proje yolu, ofset,
+   bölüm sayısı, okuyucu komutu (`python3 -m http.server 8000`).
+
+## B. Sayfa çevirisi
+
+1. **Sözlüğü oku**: projedeki `glossary.md`; mevcut terimler aynen kullanılır.
+2. **Hazırla**
+   ```bash
+   python3 $SKILL/scripts/prepare_page.py            # sıradaki pages_per_run sayfa
+   python3 $SKILL/scripts/prepare_page.py 55         # yalnız sayfa 55
+   python3 $SKILL/scripts/prepare_page.py next --count 3
+   ```
+   Çıktı: `_work/in/page-N.json` (blok şemasının `en` tarafı, `context.prev_tail`
+   / `context.next_head`, hazır `chapter`, tahmini `section.en`). Boş sayfalar
+   "next" akışında atlanıp `blank` işaretlenir.
+3. **Çevir — paralel çevirmen agent'lar**: hazırlanan HER sayfa için bir
+   `general-purpose` agent, hepsi TEK mesajda paralel. Her agent'a aşağıdaki
+   şablonu ver. Agent `_work/out/page-N.json` yazar.
+4. **Sonlandır** (sayfa sayfa, sırayla):
+   ```bash
+   python3 $SKILL/scripts/finalize_page.py _work/out/page-N.json
+   ```
+   `data/pages/page-N.js` yazılır, görseller kopyalanır, `progress.json`
+   ilerler, `glossary_new` terimleri `glossary.md`'ye eklenir, `data/toc.js` ve
+   `data/glossary.js` yeniden üretilir. `UYARI: ... 'tr' alanı boş` çıkarsa
+   çıktı JSON'unu düzelt ve yeniden çalıştır.
+5. **Doğrula ve raporla**: `data/pages/page-N.js`'yi kısaca kontrol et
+   (Türkçe karakterler, kod bloğu bozulmamış). Kullanıcıya hangi sayfaların
+   çevrildiğini ve sıradaki sayfa numarasını bildir.
+6. **Commit ve push**: projenin `CLAUDE.md` kuralına göre. Varsayılan mesaj:
+   `Sayfa N çevirisi eklendi — Chapter X: Title`; yapay zeka imzası yok.
+
+### Çevirmen agent şablonu
+
+```
+Sen bir teknik kitap çevirmenisin. Şu dosyaları oku:
+- $SKILL/references/FORMAT.md   (veri formatı ve çıktı sözleşmesi)
+- $SKILL/references/translation-style.md   (çeviri kuralları)
+- <proje>/glossary.md   (terim sözlüğü; mevcut karşılıklar aynen kullanılır)
+- <proje>/_work/in/page-N.json   (girdi)
+
+Görev: girdideki her `en` alanının yanına `tr` ekle (heading, para cümleleri,
+list maddeleri, caption, footnote, table hücreleri, chapter). Blok sırası ve
+sayısı aynen korunur. `code` ve `image` bloklarına DOKUNMA. `section.tr`,
+`title.en`, `title.tr`, boşsa `chapter.tr` doldur. 2-4 `concepts` kartı üret
+(kitaptakinden farklı, özgün örnekler; Java/Python/JavaScript; kötü + iyi kod,
+neden, ipucu; hepsi iki dilli). Sözlükte olmayan terimleri `glossary_new`'e yaz.
+`context` alanı yalnız bağlam içindir, çevrilmez. Özet yasaktır; her cümle tam
+çevrilir. Parantezli terminoloji, iki dilli başlıklar, doğru Türkçe karakterler.
+Çıktıyı <proje>/_work/out/page-N.json olarak UTF-8 kaydet; başka bir şey yazma.
+```
+
+## Sorun giderme
+
+| Belirti | Yapılacak |
+|---------|-----------|
+| `progress.json bulunamadı` | Proje dizininde çalıştır ya da `KITAP_ROOT=<dizin>` ver |
+| `ModuleNotFoundError` | `python3 -m pip install -U opendataloader-pdf pymupdf` |
+| "Sayfa N boş" ama değil | `pdf_offset` yanlış → `inspect_pdf.py offset` |
+| Kod paragraf olarak geliyor, başlıklar yanlış | `references/extraction.md` → `layout` ile ölç, `extraction` ayarla |
+| Okuyucu eski veriyi gösteriyor | `index.html`'deki `?v=N` sürüm ekini artır |
+
+## Ayrıntılı referanslar (gerektiğinde oku)
+
+- `references/FORMAT.md` — sayfa veri formatı, blok tipleri, agent sözleşmesi
+- `references/translation-style.md` — çeviri kuralları ve üslup
+- `references/extraction.md` — çıkarım ayarları, ölçme ve belirti/çözüm tablosu
+- `templates/project/` — `init` ile kopyalanan okuyucu iskeleti
