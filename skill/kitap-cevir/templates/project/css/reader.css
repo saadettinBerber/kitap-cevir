@@ -281,8 +281,11 @@ pre.code code { font: inherit; }
 .caption { font-family: var(--font-sans); font-size: .86rem; color: var(--ink-soft); text-align: center; margin: .4em 0 1.4em; }
 .footnotes { margin-top: 2.2em; padding-top: .8em; border-top: 1px solid var(--rule); width: 60%; min-width: 260px; }
 .footnote { font-size: .8rem; color: var(--ink-soft); line-height: 1.5; margin-bottom: .3em; }
-.book-table { border-collapse: collapse; margin: 1.2em 0; font-size: .92em; }
-.book-table td { border: 1px solid var(--rule); padding: 6px 10px; vertical-align: top; }
+.table-scroll { overflow-x: auto; margin: 1.2em 0; }
+.book-table { border-collapse: collapse; font-size: .92em; min-width: 100%; }
+.book-table td, .book-table th { border: 1px solid var(--rule); padding: 6px 10px; vertical-align: top; text-align: left; }
+.book-table th { background: var(--paper-stack); font-family: var(--font-sans); font-size: .88em; }
+.book-table tbody tr:nth-child(even) { background: rgba(27, 42, 71, .03); }
 code { font-family: var(--font-mono); font-size: .86em; background: rgba(27, 42, 71, .07); padding: 1px 5px; border-radius: 4px; color: #4a2b17; }
 pre code { background: none; padding: 0; color: inherit; }
 

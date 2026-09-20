@@ -24,6 +24,7 @@ DEFAULT_EXTRACTION = {
     "footnote_max_size": 7.5,
     "bold_heading_font": "Arial",
     "listing_caption_pattern": "^Listing \\d+-\\d+",
+    "table_caption_pattern": "^Table \\d+[-.]\\d+",
     "chapter_header_prefix": "Chapter ",
     "default_code_language": "java",
 }

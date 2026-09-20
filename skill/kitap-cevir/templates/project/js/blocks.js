@@ -106,10 +106,18 @@ const Blocks = (function () {
     return `<${tag} class="${cls} sentence" data-sid="${ctx.index}-0">${pair(block, ctx.only)}</${tag}>`;
   }
 
+  function tableRow(row, ctx, r, cellTag) {
+    const cells = row.map((cell, c) =>
+      `<${cellTag} class="sentence" data-sid="${ctx.index}-${r}-${c}">${pair(cell, ctx.only)}</${cellTag}>`).join("");
+    return `<tr>${cells}</tr>`;
+  }
+
   function renderTable(block, ctx) {
-    const rows = block.rows.map((row, r) => `<tr>${row.map((cell, c) =>
-      `<td class="sentence" data-sid="${ctx.index}-${r}-${c}">${pair(cell, ctx.only)}</td>`).join("")}</tr>`).join("");
-    return `<table class="book-table">${rows}</table>`;
+    const headerRows = block.header_rows || 0;
+    const head = block.rows.slice(0, headerRows).map((row, r) => tableRow(row, ctx, r, "th")).join("");
+    const body = block.rows.slice(headerRows).map((row, r) => tableRow(row, ctx, r + headerRows, "td")).join("");
+    const thead = head ? `<thead>${head}</thead>` : "";
+    return `<div class="table-scroll"><table class="book-table">${thead}<tbody>${body}</tbody></table></div>`;
   }
 
   function renderOne(block, ctx, next) {

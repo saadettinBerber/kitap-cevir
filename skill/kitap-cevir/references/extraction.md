@@ -7,6 +7,14 @@
 2. **PyMuPDF** (`layout_scan.py`): tek aralıklı (monospace) fontla dizilmiş
    satırları girintili kod listelerine çevirir, satır içi kod parçalarını ters
    tırnakla işaretler, ODL'nin sildiği tireleri onarır.
+3. **PyMuPDF çizim katmanı** (`table_scan.py` + `table_grid.py`): ODL yalnız
+   kenarlık çizgili tabloları tanır; e-kitap kökenli PDF'lerde hücreler zebra
+   dolgu dikdörtgenleriyle çizilir ve ODL bunları paragraf/heading yığını sanır.
+   Bu modül sütunları dolgu dikdörtgenlerinden (soldan sağa döşeyerek, satır içi
+   kod vurgularını eleyerek), satırları dolgu bantlarından ya da metin
+   aralıklarından türetir; kalın ilk satırlar `header_rows` olur. Tablo bölgesine
+   düşen ODL öğeleri ve kod blokları tek `table` bloğuyla değiştirilir.
+   Ayar gerektirmez; `Table N-M` deseni caption'ı `kind: "table"` yapar.
 
 Kitaba özgü eşikler `progress.json` içindeki `extraction` nesnesinden gelir.
 Verilmeyen anahtar için varsayılan (`scripts/project.py` → `DEFAULT_EXTRACTION`)
@@ -25,6 +33,7 @@ kullanılır; varsayılanlar 6x9 inç teknik kitap dizgisi için ayarlanmıştı
 | `footnote_max_size`        | `7.5`                 | Bu boyut ve altındaki paragraf = dipnot. |
 | `bold_heading_font`        | `"Arial"`             | Bu font adı + "Bold" içeren paragraf küçük başlık (seviye 3) sayılır. |
 | `listing_caption_pattern`  | `"^Listing \\d+-\\d+"`| Bu desene uyan başlık = kod listesi caption'ı (`kind: "listing"`). |
+| `table_caption_pattern`    | `"^Table \\d+[-.]\\d+"`| Bu desene uyan paragraf = tablo caption'ı (`kind: "table"`). |
 | `chapter_header_prefix`    | `"Chapter "`          | Koşu başlığı bu önekle başlıyorsa bölüm sayfasıdır, kesit adı değildir. |
 | `default_code_language`    | `"java"`              | Kod bloklarının vurgulama dili. |
 
@@ -56,3 +65,5 @@ Ayarları değiştirdikten sonra `prepare_page.py <sayfa>` ile bir sayfayı yeni
 | Kesit başlıkları paragraf oluyor | başlık boyut eşiği yüksek | `section_min_size` / `subsection_min_size` düşür |
 | Dipnotlar paragraf oluyor | `footnote_max_size` düşük | dipnot font boyutunu ölçüp ayarla |
 | Listing caption'ları başlık oluyor | desen uymuyor | `listing_caption_pattern` (örn. `"^Example \\d+\\.\\d+"`) |
+| Tablo düz paragraf/heading olarak geliyor | hücrelerin dolgu dikdörtgeni yok (yalnız çizgi ya da hiç) | `inspect_pdf.py <pdf> layout N` yerine `python3 -c "import fitz; print(len(fitz.open('book.pdf')[N-1].get_drawings()))"` ile dolgu var mı bak; yoksa PyMuPDF `find_tables(strategy="text")` yedeği henüz yok, hücreleri elle `table` bloğuna çevir |
+| Tablodaki uzun hücre sonrası metin ayrı paragraf oluyor | hücre içindeki boş satır satır sonu sanıldı (bantsız gövde) | Bilinen sınırlama; içerik kaybolmaz, `_work/in` JSON'unda hücreye elle taşı |

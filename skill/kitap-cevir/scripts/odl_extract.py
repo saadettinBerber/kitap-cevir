@@ -10,15 +10,16 @@ gelir; varsayılanlar project.DEFAULT_EXTRACTION içindedir.
 import os
 import re
 
+from block_merge import merge_chapter_opener, merge_footnote_markers
 from layout_scan import scan_page
 from odl_runner import extract_odl_elements
 from project import DEFAULT_EXTRACTION
+from table_scan import scan_tables
 from text_fixer import TextFixer
 from text_utils import (clean_ligatures, is_numeric_only, normalize_spaces,
                         split_sentences, strip_list_marker)
 
 CODE_OVERLAP_RATIO = 0.5
-_CHAPTER_AUTHOR = re.compile(r"^(?:by|with) [A-Z]")
 _EDGE_PAGE_NUMBER = re.compile(r"^\d+\s+|\s+\d+$")
 _BIBLIOGRAPHY_ENTRY = re.compile(r"^\[[A-Za-z0-9]+\]:")
 
@@ -27,10 +28,13 @@ def _bbox(element):
     return element.get("bounding box") or [0, 0, 0, 0]
 
 
-def _code_regions(layout):
-    height = layout["page_height"]
-    return [{"bottom": height - block["y1"], "top": height - block["y0"],
-             "code": block["code"]} for block in layout["code_blocks"]]
+def _to_odl_region(item, page_height, block):
+    """Üst orijinli PyMuPDF aralığını ODL'nin sol-alt orijinine çevirir."""
+    return {"bottom": page_height - item["y1"], "top": page_height - item["y0"], "block": block}
+
+
+def _overlaps(first, second):
+    return min(first["y1"], second["y1"]) - max(first["y0"], second["y0"]) > 0
 
 
 def _region_index(element, regions):
@@ -71,35 +75,13 @@ def _table_block(element, fixer):
     return [{"type": "table", "rows": rows}] if rows else []
 
 
-def _author_line(block):
-    if block.get("type") != "para" or len(block["sentences"]) != 1:
-        return None
-    text = block["sentences"][0]["en"]
-    return text if _CHAPTER_AUTHOR.match(text) else None
-
-
-def _merge_chapter_opener(blocks):
-    """chapter_number + chapter + 'by ...' paragrafını tek chapter bloğu yapar."""
-    merged, pending_number = [], None
-    for block in blocks:
-        if block["type"] == "chapter_number":
-            pending_number = block["num"]
-        elif block["type"] == "chapter":
-            block["num"] = pending_number
-            merged.append(block)
-        elif merged and merged[-1]["type"] == "chapter" and _author_line(block):
-            merged[-1]["author"] = _author_line(block)
-        else:
-            merged.append(block)
-    return merged
-
-
 class PageExtractor:
     """extraction ayarlarıyla ODL öğelerini blok şemasına dönüştürür."""
 
     def __init__(self, settings=None):
         self.settings = {**DEFAULT_EXTRACTION, **(settings or {})}
         self.listing_caption = re.compile(self.settings["listing_caption_pattern"])
+        self.table_caption = re.compile(self.settings["table_caption_pattern"])
         self.fixer = None
 
     def extract(self, pdf_path, pdf_page, image_dir):
@@ -108,8 +90,19 @@ class PageExtractor:
         layout = scan_page(pdf_path, pdf_page, self.settings)
         header, body = self._split_header(elements)
         self.fixer = TextFixer(layout)
-        blocks = self._build_blocks(self._drop_footer(body), layout)
+        regions = self._regions(layout, scan_tables(pdf_path, pdf_page))
+        blocks = self._build_blocks(merge_footnote_markers(self._drop_footer(body)), regions)
         return {"blocks": blocks, "running_header": header}
+
+    def _regions(self, layout, tables):
+        """Tablo bölgeleri önceliklidir: tablo hücrelerindeki tek aralıklı metin
+        ayrıca kod bloğu olarak çıkarılmaz."""
+        height = layout["page_height"]
+        regions = [_to_odl_region(t, height, t["block"]) for t in tables]
+        for code in layout["code_blocks"]:
+            if not any(_overlaps(code, t) for t in tables):
+                regions.append(_to_odl_region(code, height, self._code_block(code)))
+        return regions
 
     def _split_header(self, elements):
         header, body = None, []
@@ -158,6 +151,8 @@ class PageExtractor:
         if not text or is_numeric_only(text):
             return []
         font = element.get("font") or ""
+        if self.table_caption.match(text):
+            return [{"type": "caption", "kind": "table", "en": self.fixer.rich(text)}]
         if (element.get("font size") or 0) <= self.settings["footnote_max_size"]:
             return [{"type": "footnote", "en": self.fixer.rich(text)}]
         if self._is_bold_heading(font):
@@ -184,16 +179,16 @@ class PageExtractor:
             return _table_block(element, self.fixer)
         return []
 
-    def _build_blocks(self, elements, layout):
-        regions, emitted, blocks = _code_regions(layout), set(), []
+    def _build_blocks(self, elements, regions):
+        emitted, blocks = set(), []
         for element in elements:
             index = _region_index(element, regions)
             if index is None:
                 blocks.extend(self._element_blocks(element))
             elif index not in emitted:
                 emitted.add(index)
-                blocks.append(self._code_block(regions[index]))
-        return _merge_chapter_opener(blocks)
+                blocks.append(regions[index]["block"])
+        return merge_chapter_opener(blocks)
 
 
 def extract_page(pdf_path, pdf_page, image_dir, settings=None):

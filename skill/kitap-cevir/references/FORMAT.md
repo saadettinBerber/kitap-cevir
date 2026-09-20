@@ -37,10 +37,10 @@ tırnak parçaları okuyucuda `<code>` olarak çizilir.
 | `para`      | `sentences: [{en, tr, html?, words?}]`, `style?`               | Gövde paragrafı; cümle cümle. `style: "quote"` italik alıntı, `"reference"` kaynakça maddesi |
 | `list`      | `ordered` (bool), `items: [{en, tr, html?}]`                   | Madde listesi |
 | `code`      | `lang`, `code`, `caption?: {en, tr}`                           | Kod listesi. `code` ASLA çevrilmez; satır sonu ve girinti korunur |
-| `caption`   | `en`, `tr`, `kind?`                                            | Şekil/listing açıklaması (`kind: "listing"` → listing başlığı olarak çizilir) |
+| `caption`   | `en`, `tr`, `kind?`                                            | Şekil/listing/tablo açıklaması (`kind: "listing"` → listing başlığı olarak çizilir; `kind: "table"` → tablo başlığı) |
 | `image`     | `src`                                                          | `data/pages/page-N_images/<src>` içindeki görsel |
 | `footnote`  | `en`, `tr`                                                     | Sayfa altı dipnotu |
-| `table`     | `rows: [[{en,tr}]]`                                            | Basit tablo |
+| `table`     | `rows: [[{en,tr,html?}]]`, `header_rows?`                      | Tablo; ilk `header_rows` satır `<th>` olarak çizilir. Hücre `html: true` ise `<sup>` (dipnot işareti) ve `<br>` (hücre içi liste) içerebilir; `tr` aynı etiketleri korur |
 | `html`      | `html`                                                         | Serbest HTML (nadiren; içinde `.tr-text` / `.en-text` span'ları olabilir) |
 
 `words` (isteğe bağlı): `[{w, t}]` — cümledeki kelimeler ve bağlama uygun
@@ -74,7 +74,8 @@ yukarıdaki şemanın yalnız `en` tarafını içerir; ayrıca bağlam için
 çevrilmez. Agent:
 
 1. `blocks` listesini **aynı sırada** korur, her `en` alanının yanına `tr` ekler
-   (`code` ve `image` bloklarına dokunmaz).
+   (`code` ve `image` bloklarına dokunmaz). Tablo hücrelerinde sayı/yüzde
+   gibi çevrilmeyecek değerler için `tr` = `en`; `header_rows` aynen kalır.
 2. `section.tr`, `title.en`, `title.tr` alanlarını doldurur (`section.en`
    hazırlayıcı tarafından koşu başlığından tahmin edilir; yanlışsa düzeltir).
 3. `chapter.tr` boşsa doldurur (bölüm tablosunda çeviri varsa onu kullanır).

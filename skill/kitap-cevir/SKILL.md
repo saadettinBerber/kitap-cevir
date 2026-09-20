@@ -111,7 +111,9 @@ Sen bir teknik kitap çevirmenisin. Şu dosyaları oku:
 
 Görev: girdideki her `en` alanının yanına `tr` ekle (heading, para cümleleri,
 list maddeleri, caption, footnote, table hücreleri, chapter). Blok sırası ve
-sayısı aynen korunur. `code` ve `image` bloklarına DOKUNMA. `section.tr`,
+sayısı aynen korunur. `code` ve `image` bloklarına DOKUNMA. Tablo hücrelerinde
+sayı/yüzde için `tr` = `en`; `header_rows` ve `html: true` hücrelerdeki
+`<sup>`/`<br>` etiketleri `tr`'de de aynen kalır. `section.tr`,
 `title.en`, `title.tr`, boşsa `chapter.tr` doldur. 2-4 `concepts` kartı üret
 (kitaptakinden farklı, özgün örnekler; Java/Python/JavaScript; kötü + iyi kod,
 neden, ipucu; hepsi iki dilli). Sözlükte olmayan terimleri `glossary_new`'e yaz.
@@ -128,6 +130,7 @@ neden, ipucu; hepsi iki dilli). Sözlükte olmayan terimleri `glossary_new`'e ya
 | `ModuleNotFoundError` | `python3 -m pip install -U opendataloader-pdf pymupdf` |
 | "Sayfa N boş" ama değil | `pdf_offset` yanlış → `inspect_pdf.py offset` |
 | Kod paragraf olarak geliyor, başlıklar yanlış | `references/extraction.md` → `layout` ile ölç, `extraction` ayarla |
+| Tablo düz metin olarak geliyor | Dolgulu (zebra) tablolar `table_scan.py` ile otomatik yakalanır; çizgisiz-dolgusuz tablolar için `references/extraction.md` belirti tablosu |
 | Okuyucu eski veriyi gösteriyor | `index.html`'deki `?v=N` sürüm ekini artır |
 
 ## Ayrıntılı referanslar (gerektiğinde oku)
