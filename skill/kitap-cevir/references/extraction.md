@@ -15,6 +15,16 @@
    aralıklarından türetir; kalın ilk satırlar `header_rows` olur. Tablo bölgesine
    düşen ODL öğeleri ve kod blokları tek `table` bloğuyla değiştirilir.
    Ayar gerektirmez; `Table N-M` deseni caption'ı `kind: "table"` yapar.
+4. **Denklemler** (`math_scan.py`): MathML kökenli denklemler Type3 glif
+   fontuyla dizilir (`math_font_prefix`); ODL bu glifleri düşürür. Ayrı satır
+   denklemi PNG olarak kırpılıp `math` bloğu olur, satır içi denklem cümleye
+   `⟦eq-K⟧` yer tutucusu (basit sembol düz Unicode) olarak girer. LaTeX üretimi
+   çevirmene bırakılır; bkz. FORMAT.md "Denklemler".
+5. **Kod satırı hazırlığı** (`code_lines.py`): PyMuPDF geniş boşlukta böldüğü
+   parçaları aynı taban çizgisinde birleştirir; Courier formüllerindeki alt/üst
+   simgeleri (`10` üstünde `23`) taban çizgisi kaymasından tanıyıp `10^23`,
+   `W_K` olarak bağlar; satır başındaki tek harflik kod parçasını (`W be the
+   key...`) kod bloğu yapmaz.
 
 Kitaba özgü eşikler `progress.json` içindeki `extraction` nesnesinden gelir.
 Verilmeyen anahtar için varsayılan (`scripts/project.py` → `DEFAULT_EXTRACTION`)
@@ -34,6 +44,7 @@ kullanılır; varsayılanlar 6x9 inç teknik kitap dizgisi için ayarlanmıştı
 | `bold_heading_font`        | `"Arial"`             | Bu font adı + "Bold" içeren paragraf küçük başlık (seviye 3) sayılır. |
 | `listing_caption_pattern`  | `"^Listing \\d+-\\d+"`| Bu desene uyan başlık = kod listesi caption'ı (`kind: "listing"`). |
 | `table_caption_pattern`    | `"^Table \\d+[-.]\\d+"`| Bu desene uyan paragraf = tablo caption'ı (`kind: "table"`). |
+| `math_font_prefix`         | `"Type3"`             | Bu önekle başlayan font = denklem glifi (MathML kökenli PDF'ler). Kitapta denklem yoksa etkisizdir. |
 | `chapter_header_prefix`    | `"Chapter "`          | Koşu başlığı bu önekle başlıyorsa bölüm sayfasıdır, kesit adı değildir. |
 | `default_code_language`    | `"java"`              | Kod bloklarının vurgulama dili. |
 
@@ -66,4 +77,6 @@ Ayarları değiştirdikten sonra `prepare_page.py <sayfa>` ile bir sayfayı yeni
 | Dipnotlar paragraf oluyor | `footnote_max_size` düşük | dipnot font boyutunu ölçüp ayarla |
 | Listing caption'ları başlık oluyor | desen uymuyor | `listing_caption_pattern` (örn. `"^Example \\d+\\.\\d+"`) |
 | Tablo düz paragraf/heading olarak geliyor | hücrelerin dolgu dikdörtgeni yok (yalnız çizgi ya da hiç) | `inspect_pdf.py <pdf> layout N` yerine `python3 -c "import fitz; print(len(fitz.open('book.pdf')[N-1].get_drawings()))"` ile dolgu var mı bak; yoksa PyMuPDF `find_tables(strategy="text")` yedeği henüz yok, hücreleri elle `table` bloğuna çevir |
+| Denklem kayboluyor ya da parçalanıyor | denklem fontu `Type3` değil | `inspect_pdf.py <pdf> layout N` ile denklem satırının fontunu bul, `math_font_prefix` ayarla |
+| Formüldeki üst simge ayrı satır oluyor | üst simge kod fontunda değil (ör. italik serif) | Bilinen sınırlama: yalnız kod fontlu alt/üst simgeler bağlanır |
 | Tablodaki uzun hücre sonrası metin ayrı paragraf oluyor | hücre içindeki boş satır satır sonu sanıldı (bantsız gövde) | Bilinen sınırlama; içerik kaybolmaz, `_work/in` JSON'unda hücreye elle taşı |

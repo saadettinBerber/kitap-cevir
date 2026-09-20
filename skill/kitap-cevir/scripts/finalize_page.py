@@ -52,8 +52,14 @@ def write_page_js(project, document):
     return path
 
 
+def _image_sources(document):
+    blocks = document["blocks"]
+    sources = [b["src"] for b in blocks if b["type"] in ("image", "math")]
+    return sources + [m["src"] for m in document.get("math", [])]
+
+
 def copy_images(project, document):
-    sources = [b["src"] for b in document["blocks"] if b["type"] == "image"]
+    sources = _image_sources(document)
     if not sources:
         return 0
     src_dir = os.path.join(project.work_in, f"{document['id']}_images")

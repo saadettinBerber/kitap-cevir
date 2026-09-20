@@ -25,6 +25,7 @@ DEFAULT_EXTRACTION = {
     "bold_heading_font": "Arial",
     "listing_caption_pattern": "^Listing \\d+-\\d+",
     "table_caption_pattern": "^Table \\d+[-.]\\d+",
+    "math_font_prefix": "Type3",
     "chapter_header_prefix": "Chapter ",
     "default_code_language": "java",
 }
@@ -91,3 +92,8 @@ def extraction_settings(progress):
 
 def book_info(progress):
     return {**DEFAULT_BOOK, **progress.get("book", {})}
+
+
+def translator_has_vision(progress):
+    """Çevirmen model görsel okuyabiliyor mu (denklem PNG'sinden latex üretimi)."""
+    return bool(progress.get("translator", {}).get("vision", True))

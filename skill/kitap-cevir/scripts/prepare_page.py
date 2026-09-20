@@ -15,7 +15,7 @@ import sys
 
 from layout_scan import page_plain_text
 from odl_extract import PageExtractor
-from project import Project, extraction_settings
+from project import Project, extraction_settings, translator_has_vision
 from text_utils import normalize_spaces
 
 CONTEXT_CHARS = 700
@@ -75,6 +75,7 @@ class PagePreparer:
             "section": _section_of(self.progress, page, extracted["running_header"]),
             "title": {"en": "", "tr": ""},
             "blocks": extracted["blocks"],
+            "math": extracted["math"],
             "concepts": [], "glossary_new": [],
             "context": _context_snippets(self.pdf, pdf_page),
         }
@@ -119,11 +120,16 @@ class PagePreparer:
             return None
         return {"page": page, "pdf_page": document["pdf_page"],
                 "path": self.project.relative(self.write_input(document)),
-                "blocks": _block_summary(document)}
+                "blocks": _block_summary(document), "math": _math_count(document)}
 
 
 def _is_blank(document):
     return not any(b["type"] != "image" for b in document["blocks"])
+
+
+def _math_count(document):
+    display = sum(1 for b in document["blocks"] if b["type"] == "math")
+    return display + len(document.get("math", []))
 
 
 def _block_summary(document):
@@ -144,12 +150,20 @@ def parse_args(argv):
     return spec, count
 
 
-def _report(prepared):
+def _math_note(has_vision):
+    if has_vision:
+        return "çevirmen PNG'leri okuyup `latex` alanlarını doldursun"
+    return "translator.vision=false: `latex` boş kalır, okuyucu PNG gösterir"
+
+
+def _report(prepared, has_vision):
     scripts_dir = os.path.dirname(os.path.abspath(__file__))
     print(f"Hazırlanan sayfa sayısı: {len(prepared)}\n")
     for entry in prepared:
         print(f"  Sayfa {entry['page']} (PDF {entry['pdf_page']})  [{entry['blocks']}]")
         print(f"    girdi: {entry['path']}")
+        if entry["math"]:
+            print(f"    denklem: {entry['math']} PNG — {_math_note(has_vision)}")
     print("\nSonraki adım: her girdi için bir çevirmen agent çalıştır "
           "(sözleşme: references/FORMAT.md), çıktıyı _work/out/page-N.json yaz, "
           f"sonra: python3 {scripts_dir}/finalize_page.py _work/out/page-N.json")
@@ -162,7 +176,7 @@ def main():
     if not prepared:
         print("Hazırlanacak sayfa yok.")
         return
-    _report(prepared)
+    _report(prepared, translator_has_vision(preparer.progress))
 
 
 if __name__ == "__main__":

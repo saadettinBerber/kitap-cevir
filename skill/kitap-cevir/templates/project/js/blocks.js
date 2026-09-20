@@ -102,6 +102,37 @@ const Blocks = (function () {
     return `<figure class="figure"><img src="${src}" alt="" loading="lazy"></figure>`;
   }
 
+  function mathHtml(item, displayMode) {
+    if (!item.latex || !window.katex) return "";
+    try {
+      return window.katex.renderToString(item.latex, { displayMode, throwOnError: true });
+    } catch (error) {
+      console.warn("KaTeX çizemedi, PNG'ye düşülüyor:", item.latex, error.message);
+      return "";
+    }
+  }
+
+  function mathImage(item, pageId, cls) {
+    const src = `data/pages/${pageId}_images/${encodeURIComponent(item.src)}`;
+    return `<img class="${cls}" src="${src}" alt="${escapeHtml(item.text || "")}" loading="lazy">`;
+  }
+
+  function renderMath(block, ctx) {
+    const inner = mathHtml(block, true) || mathImage(block, ctx.pageId, "math-img");
+    return `<figure class="math-display">${inner}</figure>`;
+  }
+
+  // Cümle içindeki ⟦eq-N⟧ yer tutucuları sayfanın `math` listesinden çizilir.
+  function inlineMath(html, page) {
+    const items = {};
+    (page.math || []).forEach((item) => { items[item.id] = item; });
+    return html.replace(/⟦(eq-\d+)⟧/g, (whole, id) => {
+      const item = items[id];
+      if (!item) return whole;
+      return mathHtml(item, false) || mathImage(item, page.id, "math-inline-img");
+    });
+  }
+
   function renderUnit(block, ctx, tag, cls) {
     return `<${tag} class="${cls} sentence" data-sid="${ctx.index}-0">${pair(block, ctx.only)}</${tag}>`;
   }
@@ -131,6 +162,7 @@ const Blocks = (function () {
       case "image": return renderImage(block, ctx);
       case "footnote": return renderUnit(block, ctx, "div", "footnote");
       case "table": return renderTable(block, ctx);
+      case "math": return renderMath(block, ctx);
       case "html": return `<div class="legacy">${block.html}</div>`;
       default: return "";
     }
@@ -158,7 +190,7 @@ const Blocks = (function () {
 
   function render(page, only) {
     const html = withListingCaptions(page.blocks || [], page.id, only || null).join("\n");
-    return markDropcap(groupFootnotes(html), page.blocks || []);
+    return inlineMath(markDropcap(groupFootnotes(html), page.blocks || []), page);
   }
 
   return { render, pair, inlineCode, escapeHtml };

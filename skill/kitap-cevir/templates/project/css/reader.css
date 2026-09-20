@@ -281,6 +281,9 @@ pre.code code { font: inherit; }
 .caption { font-family: var(--font-sans); font-size: .86rem; color: var(--ink-soft); text-align: center; margin: .4em 0 1.4em; }
 .footnotes { margin-top: 2.2em; padding-top: .8em; border-top: 1px solid var(--rule); width: 60%; min-width: 260px; }
 .footnote { font-size: .8rem; color: var(--ink-soft); line-height: 1.5; margin-bottom: .3em; }
+.math-display { margin: 1.1em 0; text-align: center; overflow-x: auto; font-size: 1.05em; }
+.math-display .math-img { max-height: 3.4em; max-width: 100%; }
+.math-inline-img { height: 1.25em; vertical-align: -0.3em; }
 .table-scroll { overflow-x: auto; margin: 1.2em 0; }
 .book-table { border-collapse: collapse; font-size: .92em; min-width: 100%; }
 .book-table td, .book-table th { border: 1px solid var(--rule); padding: 6px 10px; vertical-align: top; text-align: left; }

@@ -10,8 +10,10 @@ gelir; varsayılanlar project.DEFAULT_EXTRACTION içindedir.
 import os
 import re
 
-from block_merge import merge_chapter_opener, merge_footnote_markers
+from block_merge import (drop_nested_fragments, insert_inline_math, merge_chapter_opener,
+                         merge_footnote_markers)
 from layout_scan import scan_page
+from math_scan import scan_math
 from odl_runner import extract_odl_elements
 from project import DEFAULT_EXTRACTION
 from table_scan import scan_tables
@@ -20,6 +22,7 @@ from text_utils import (clean_ligatures, is_numeric_only, normalize_spaces,
                         split_sentences, strip_list_marker)
 
 CODE_OVERLAP_RATIO = 0.5
+MAX_HEADING_CHARS = 100
 _EDGE_PAGE_NUMBER = re.compile(r"^\d+\s+|\s+\d+$")
 _BIBLIOGRAPHY_ENTRY = re.compile(r"^\[[A-Za-z0-9]+\]:")
 
@@ -29,8 +32,26 @@ def _bbox(element):
 
 
 def _to_odl_region(item, page_height, block):
-    """Üst orijinli PyMuPDF aralığını ODL'nin sol-alt orijinine çevirir."""
-    return {"bottom": page_height - item["y1"], "top": page_height - item["y0"], "block": block}
+    """Üst orijinli PyMuPDF aralığını ODL'nin sol-alt orijinine çevirir.
+    `standalone`: ODL'nin hiç görmediği içerik (Type3 denklem) — öğe eşleşmese
+    de konumuna göre yazılır; kod/tablo bölgeleri yalnız öğe eşleşince yazılır."""
+    return {"bottom": page_height - item["y1"], "top": page_height - item["y0"],
+            "block": block, "standalone": block["type"] == "math"}
+
+
+def _looks_like_paragraph(text):
+    """ODL karışık fontlu (satır içi kod/denklem) gövde satırını başlık sanabilir;
+    uzun ya da noktalamayla biten 'başlık' gövde metnidir."""
+    return len(text) > MAX_HEADING_CHARS or text.endswith((".", ":", ";", ","))
+
+
+def _regions_above(regions, top, emitted):
+    """Henüz yazılmamış ve verilen üst kenarın üstünde kalan bölgeler (sırayla)."""
+    pending = [(i, r) for i, r in enumerate(regions)
+               if i not in emitted and r["standalone"] and r["bottom"] >= top]
+    for index, _ in pending:
+        emitted.add(index)
+    return [r["block"] for _, r in sorted(pending, key=lambda ir: -ir[1]["top"])]
 
 
 def _overlaps(first, second):
@@ -90,17 +111,22 @@ class PageExtractor:
         layout = scan_page(pdf_path, pdf_page, self.settings)
         header, body = self._split_header(elements)
         self.fixer = TextFixer(layout)
-        regions = self._regions(layout, scan_tables(pdf_path, pdf_page))
-        blocks = self._build_blocks(merge_footnote_markers(self._drop_footer(body)), regions)
-        return {"blocks": blocks, "running_header": header}
+        math = scan_math(pdf_path, pdf_page, self.settings, image_dir)
+        regions = self._regions(layout, scan_tables(pdf_path, pdf_page) + math["display"])
+        body = merge_footnote_markers(drop_nested_fragments(self._drop_footer(body)))
+        body = insert_inline_math(body, math["inline"], layout["page_height"])
+        inline_images = [{k: i[k] for k in ("id", "src", "text", "latex")}
+                         for i in math["inline"] if i["kind"] == "image"]
+        return {"blocks": self._build_blocks(body, regions), "running_header": header,
+                "math": inline_images}
 
-    def _regions(self, layout, tables):
-        """Tablo bölgeleri önceliklidir: tablo hücrelerindeki tek aralıklı metin
+    def _regions(self, layout, priority):
+        """Tablo ve denklem bölgeleri önceliklidir: içlerindeki tek aralıklı metin
         ayrıca kod bloğu olarak çıkarılmaz."""
         height = layout["page_height"]
-        regions = [_to_odl_region(t, height, t["block"]) for t in tables]
+        regions = [_to_odl_region(r, height, r["block"]) for r in priority]
         for code in layout["code_blocks"]:
-            if not any(_overlaps(code, t) for t in tables):
+            if not any(_overlaps(code, r) for r in priority):
                 regions.append(_to_odl_region(code, height, self._code_block(code)))
         return regions
 
@@ -135,6 +161,8 @@ class PageExtractor:
         size = element.get("font size") or 0
         if not text:
             return []
+        if _looks_like_paragraph(text):
+            return self._paragraph_blocks(element)
         if size >= self.settings["chapter_number_min_size"] and text.isdigit():
             return [{"type": "chapter_number", "num": int(text)}]
         if size >= self.settings["chapter_title_min_size"]:
@@ -180,14 +208,18 @@ class PageExtractor:
         return []
 
     def _build_blocks(self, elements, regions):
+        """ODL öğesi düşmeyen bölgeler (ODL'nin hiç görmediği denklemler)
+        sayfa konumuna göre araya eklenir."""
         emitted, blocks = set(), []
         for element in elements:
+            blocks.extend(_regions_above(regions, _bbox(element)[3], emitted))
             index = _region_index(element, regions)
             if index is None:
                 blocks.extend(self._element_blocks(element))
             elif index not in emitted:
                 emitted.add(index)
                 blocks.append(regions[index]["block"])
+        blocks.extend(_regions_above(regions, float("-inf"), emitted))
         return merge_chapter_opener(blocks)
 
 

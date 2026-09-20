@@ -68,7 +68,10 @@ sen çıkar.
    yalnız değişen anahtarları yaz (kurulumda tek seferlik elle düzenleme
    serbesttir). Sonra `python3 $SKILL/scripts/prepare_page.py 1` ile deneme
    çıkarımı yap ve `_work/in/page-1.json`'daki blok tiplerini gözle kontrol et.
-6. Kullanıcı isterse `git init` + ilk commit. Raporla: proje yolu, ofset,
+6. Çevirmen olarak görsel okuyamayan bir model kullanılacaksa `progress.json`
+   → `translator.vision` değerini `false` yap (denklem PNG'lerinden LaTeX
+   istenmez).
+7. Kullanıcı isterse `git init` + ilk commit. Raporla: proje yolu, ofset,
    bölüm sayısı, okuyucu komutu (`python3 -m http.server 8000`).
 
 ## B. Sayfa çevirisi
@@ -85,7 +88,11 @@ sen çıkar.
    "next" akışında atlanıp `blank` işaretlenir.
 3. **Çevir — paralel çevirmen agent'lar**: hazırlanan HER sayfa için bir
    `general-purpose` agent, hepsi TEK mesajda paralel. Her agent'a aşağıdaki
-   şablonu ver. Agent `_work/out/page-N.json` yazar.
+   şablonu ver. Agent `_work/out/page-N.json` yazar. Sayfada denklem varsa
+   (`prepare_page` raporunda "denklem: K PNG") şablondaki köşeli parantezli
+   satırlardan `progress.json → translator.vision` değerine uyanı ekle:
+   görsel okuyamayan bir çevirmen (yerel/metin-only model) `latex` üretemez,
+   PNG yeter.
 4. **Sonlandır** (sayfa sayfa, sırayla):
    ```bash
    python3 $SKILL/scripts/finalize_page.py _work/out/page-N.json
@@ -111,9 +118,14 @@ Sen bir teknik kitap çevirmenisin. Şu dosyaları oku:
 
 Görev: girdideki her `en` alanının yanına `tr` ekle (heading, para cümleleri,
 list maddeleri, caption, footnote, table hücreleri, chapter). Blok sırası ve
-sayısı aynen korunur. `code` ve `image` bloklarına DOKUNMA. Tablo hücrelerinde
-sayı/yüzde için `tr` = `en`; `header_rows` ve `html: true` hücrelerdeki
-`<sup>`/`<br>` etiketleri `tr`'de de aynen kalır. `section.tr`,
+sayısı aynen korunur. `code`, `image` ve `math` bloklarına DOKUNMA; cümledeki
+`⟦eq-K⟧` yer tutucuları `tr`'de aynen kalır. Tablo hücrelerinde sayı/yüzde
+için `tr` = `en`; `header_rows` ve `html: true` hücrelerdeki `<sup>`/`<br>`
+etiketleri `tr`'de de aynen kalır.
+[translator.vision=true ise ekle:] Görsel okuyabiliyorsun: `math` bloklarının
+ve sayfa düzeyindeki `math` listesinin PNG'lerini (<proje>/_work/in/page-N_images/)
+aç, her birinin `latex` alanına KaTeX ile çizilebilir LaTeX yaz ($ işareti yok).
+[translator.vision=false ise ekle:] `latex` alanlarını boş bırak; okuyucu PNG kullanır. `section.tr`,
 `title.en`, `title.tr`, boşsa `chapter.tr` doldur. 2-4 `concepts` kartı üret
 (kitaptakinden farklı, özgün örnekler; Java/Python/JavaScript; kötü + iyi kod,
 neden, ipucu; hepsi iki dilli). Sözlükte olmayan terimleri `glossary_new`'e yaz.
@@ -130,6 +142,7 @@ neden, ipucu; hepsi iki dilli). Sözlükte olmayan terimleri `glossary_new`'e ya
 | `ModuleNotFoundError` | `python3 -m pip install -U opendataloader-pdf pymupdf` |
 | "Sayfa N boş" ama değil | `pdf_offset` yanlış → `inspect_pdf.py offset` |
 | Kod paragraf olarak geliyor, başlıklar yanlış | `references/extraction.md` → `layout` ile ölç, `extraction` ayarla |
+| Denklem kayboluyor / `latex` boş | Type3 dışı denklem fontu / çevirmen görsel okuyamıyor | `references/extraction.md` → `math_font_prefix`; `translator.vision` ayarı, PNG her zaman gösterilir |
 | Tablo düz metin olarak geliyor | Dolgulu (zebra) tablolar `table_scan.py` ile otomatik yakalanır; çizgisiz-dolgusuz tablolar için `references/extraction.md` belirti tablosu |
 | Okuyucu eski veriyi gösteriyor | `index.html`'deki `?v=N` sürüm ekini artır |
 

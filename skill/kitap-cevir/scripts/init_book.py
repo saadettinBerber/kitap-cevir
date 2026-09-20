@@ -107,6 +107,7 @@ def build_progress(args, pdf_name, pdf_total, chapters):
         "book_total_pages": args.total,
         "pdf_total_pages": pdf_total,
         "pages_per_run": args.pages_per_run,
+        "translator": {"vision": True},
         "extraction": {"default_code_language": args.code_lang},
         "last_translated_page": 0,
         "chapters": chapters,

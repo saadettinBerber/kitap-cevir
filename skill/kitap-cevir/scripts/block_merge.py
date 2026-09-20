@@ -1,6 +1,8 @@
-"""ODL öğelerini ve blokları birleştiren düzeltmeler: dipnot işaretleri ve
-bölüm açılışı (numara + başlık + yazar satırı)."""
+"""ODL öğelerini ve blokları birleştiren düzeltmeler: dipnot işaretleri,
+bölüm açılışı (numara + başlık + yazar satırı) ve satır içi denklemler."""
 import re
+
+from math_scan import placeholder
 
 _CHAPTER_AUTHOR = re.compile(r"^(?:by|with) [A-Z]")
 _FOOTNOTE_MARKER = re.compile(r"^[a-z0-9]$")
@@ -52,3 +54,51 @@ def merge_chapter_opener(blocks):
         else:
             merged.append(block)
     return merged
+
+
+def _splice(text, item, insert):
+    """insert'i ODL metninde before/after komşu kelimelerinin arasına koyar."""
+    before, after = re.escape(item["before"]), re.escape(item["after"])
+    if item["before"] and item["after"]:
+        return re.subn(before + r"\s*" + after, f"{item['before']} {insert} {item['after']}", text, count=1)
+    if item["after"]:
+        return re.subn(after, f"{insert} {item['after']}", text, count=1)
+    if item["before"]:
+        return re.subn(before, f"{item['before']} {insert}", text, count=1)
+    return f"{text} {insert}", 1
+
+
+def _hosts(element, item, page_height):
+    """Öğe, denklem kutusunu dikeyde kapsıyorsa ev sahibidir (ODL sol-alt orijin)."""
+    top, bottom = page_height - item["bbox"].y0, page_height - item["bbox"].y1
+    center = (top + bottom) / 2
+    return _bbox(element)[1] <= center <= _bbox(element)[3]
+
+
+def insert_inline_math(elements, items, page_height):
+    """Satır içi denklemleri ev sahibi ODL öğesinin metnine yerleştirir:
+    basit sembol düz metin, karmaşık denklem ⟦eq-N⟧ yer tutucusu."""
+    for item in items:
+        insert = item["text"] if item["kind"] == "text" else placeholder(item["id"])
+        host = next((e for e in elements if _hosts(e, item, page_height)), None)
+        if host is None:
+            print(f"  ! satır içi denklem için öğe bulunamadı: {insert}")
+            continue
+        host["content"], count = _splice(host.get("content") or "", item, insert)
+        if not count:
+            print(f"  ! satır içi denklem yerleştirilemedi, sona eklendi: {insert}")
+    return elements
+
+
+def _is_fragment_of(element, host):
+    """Başka öğenin kutusu içindeki tek karakterlik öğe (alt/üst simge) parçadır."""
+    inner, outer = _bbox(element), _bbox(host)
+    return (element is not host and len((element.get("content") or "").strip()) == 1
+            and outer[0] <= inner[0] and inner[2] <= outer[2]
+            and outer[1] <= inner[1] and inner[3] <= outer[3])
+
+
+def drop_nested_fragments(elements):
+    """ODL'nin ayrı paragraf yaptığı alt/üst simge parçalarını atar; metin
+    katmanı bunları zaten ev sahibi satıra bağlar (code_lines)."""
+    return [e for e in elements if not any(_is_fragment_of(e, host) for host in elements)]

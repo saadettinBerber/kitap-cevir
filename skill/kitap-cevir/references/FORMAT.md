@@ -41,7 +41,26 @@ tırnak parçaları okuyucuda `<code>` olarak çizilir.
 | `image`     | `src`                                                          | `data/pages/page-N_images/<src>` içindeki görsel |
 | `footnote`  | `en`, `tr`                                                     | Sayfa altı dipnotu |
 | `table`     | `rows: [[{en,tr,html?}]]`, `header_rows?`                      | Tablo; ilk `header_rows` satır `<th>` olarak çizilir. Hücre `html: true` ise `<sup>` (dipnot işareti) ve `<br>` (hücre içi liste) içerebilir; `tr` aynı etiketleri korur |
+| `math`      | `src`, `text`, `latex`                                         | Ayrı satır denklemi. `src` = PNG (`page-N_images/eq-K.png`, her zaman var), `text` = düzleştirilmiş ham metin (yedek), `latex` = isteğe bağlı LaTeX. Çevrilmez |
 | `html`      | `html`                                                         | Serbest HTML (nadiren; içinde `.tr-text` / `.en-text` span'ları olabilir) |
+
+Kod bloklarında PDF'teki alt/üst simgeler `x^23`, `W_K` biçiminde düz metne
+indirgenir; kod aynen korunur.
+
+## Denklemler
+
+- **Ayrı satır**: `math` bloğu. Okuyucu `latex` doluysa KaTeX ile çizer, boşsa
+  ya da hatalıysa PNG'yi gösterir.
+- **Satır içi**: cümle metninde `⟦eq-K⟧` yer tutucusu; karşılığı sayfa
+  düzeyindeki `math` listesindedir: `"math": [{ "id": "eq-K", "src", "text",
+  "latex" }]`. Yer tutucu `en` ve `tr` içinde **aynen** korunur (çevrilmez,
+  taşınmaz). Tek sembol gibi basit satır içi denklemler yer tutucusuz, düz
+  Unicode olarak metne girer (`θ`).
+- **`latex` alanını kim doldurur?** Yalnız görsel okuyabilen bir çevirmen:
+  PNG'yi açıp LaTeX yazar (`\log(\sigma(r_\theta(x, y_w) - r_\theta(x, y_l)))`).
+  Çevirmen görsel okuyamıyorsa (yerel/metin-only model) `latex` boş bırakılır;
+  boru hattı PNG ile eksiksiz çalışır. Bu ayar `progress.json → translator.vision`
+  (varsayılan `true`) ile belirtilir ve `prepare_page.py` raporunda hatırlatılır.
 
 `words` (isteğe bağlı): `[{w, t}]` — cümledeki kelimeler ve bağlama uygun
 Türkçe anlamları. Varsa okuyucu kelimeye tıklayınca anlamını gösterir.
@@ -74,8 +93,10 @@ yukarıdaki şemanın yalnız `en` tarafını içerir; ayrıca bağlam için
 çevrilmez. Agent:
 
 1. `blocks` listesini **aynı sırada** korur, her `en` alanının yanına `tr` ekler
-   (`code` ve `image` bloklarına dokunmaz). Tablo hücrelerinde sayı/yüzde
-   gibi çevrilmeyecek değerler için `tr` = `en`; `header_rows` aynen kalır.
+   (`code`, `image` ve `math` bloklarına dokunmaz; `math.latex` yalnız görsel
+   okuyabiliyorsa doldurulur). Tablo hücrelerinde sayı/yüzde gibi çevrilmeyecek
+   değerler için `tr` = `en`; `header_rows` aynen kalır. `⟦eq-K⟧` yer
+   tutucuları `tr`'de aynen durur.
 2. `section.tr`, `title.en`, `title.tr` alanlarını doldurur (`section.en`
    hazırlayıcı tarafından koşu başlığından tahmin edilir; yanlışsa düzeltir).
 3. `chapter.tr` boşsa doldurur (bölüm tablosunda çeviri varsa onu kullanır).
