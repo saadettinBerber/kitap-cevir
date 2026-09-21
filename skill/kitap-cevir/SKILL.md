@@ -126,9 +126,14 @@ etiketleri `tr`'de de aynen kalır.
 ve sayfa düzeyindeki `math` listesinin PNG'lerini (<proje>/_work/in/page-N_images/)
 aç, her birinin `latex` alanına KaTeX ile çizilebilir LaTeX yaz ($ işareti yok).
 [translator.vision=false ise ekle:] `latex` alanlarını boş bırak; okuyucu PNG kullanır. `section.tr`,
-`title.en`, `title.tr`, boşsa `chapter.tr` doldur. 2-4 `concepts` kartı üret
-(kitaptakinden farklı, özgün örnekler; Java/Python/JavaScript; kötü + iyi kod,
-neden, ipucu; hepsi iki dilli). Sözlükte olmayan terimleri `glossary_new`'e yaz.
+`title.en`, `title.tr`, boşsa `chapter.tr` doldur. 2-4 `concepts` kartı üret:
+biçimi girdideki `concepts_spec.mode` belirler — `code` kötü + iyi KOD çifti
+ister, `contrast` kötü/iyi karşıtlığı ister ama kod yerine kısa metin (`text`)
+de olabilir, `explain` yalnız tanım + ipucu ister. Kartın konusu SAYFADAN
+çıkar; kalıba uysun diye sayfanın konusunu değiştirme, ilgisiz bir kod kokusu
+uydurma. Örnekler kitaptakinden farklı ve özgün olur (Java/Python/JavaScript),
+kod yorumları `concepts_spec.code_comment_lang` dilinde yazılır, `why`/`tip`
+her zaman iki dillidir. Sözlükte olmayan terimleri `glossary_new`'e yaz.
 `context` alanı yalnız bağlam içindir, çevrilmez. Özet yasaktır; her cümle tam
 çevrilir. Parantezli terminoloji, iki dilli başlıklar, doğru Türkçe karakterler.
 Çıktıyı <proje>/_work/out/page-N.json olarak UTF-8 kaydet; başka bir şey yazma.
@@ -145,6 +150,7 @@ neden, ipucu; hepsi iki dilli). Sözlükte olmayan terimleri `glossary_new`'e ya
 | Denklem kayboluyor / `latex` boş | Type3 dışı denklem fontu / çevirmen görsel okuyamıyor | `references/extraction.md` → `math_font_prefix`; `translator.vision` ayarı, PNG her zaman gösterilir |
 | Tablo düz metin olarak geliyor | Dolgulu (zebra) tablolar `table_scan.py` ile otomatik yakalanır; çizgisiz-dolgusuz tablolar için `references/extraction.md` belirti tablosu |
 | Okuyucu eski veriyi gösteriyor | `index.html`'deki `?v=N` sürüm ekini artır |
+| Kavram kartları sayfanın konusuyla ilgisiz kod örneğine dönüşüyor | `progress.json → concepts.mode` = `contrast` ya da `explain` (`references/FORMAT.md`) |
 
 ## Ayrıntılı referanslar (gerektiğinde oku)
 

@@ -67,7 +67,14 @@ Türkçe anlamları. Varsa okuyucu kelimeye tıklayınca anlamını gösterir.
 
 ## Kavram kartları (`concepts`)
 
-Her sayfa için 2-4 kart, yapılı biçimde:
+Her sayfa için 2-4 kart. Kartın biçimini **kitap belirler**: `progress.json →
+concepts.mode` (girdi dosyasında `concepts_spec` olarak da gelir).
+
+| `mode` | Kart ne içerir | Hangi kitap |
+|--------|----------------|-------------|
+| `code` (varsayılan) | `summary` + kötü/iyi **kod** çifti + `tip` | Kod zanaatı kitapları (Clean Code, Effective Java) |
+| `contrast` | `summary` + kötü/iyi karşıtlık + `tip`; örnek kod **ya da** kısa metin olabilir | Mimari, süreç, tasarım kitapları |
+| `explain` | yalnız `summary` + `tip` | Kavramsal/anlatı ağırlıklı kitaplar |
 
 ```js
 {
@@ -80,9 +87,28 @@ Her sayfa için 2-4 kart, yapılı biçimde:
 }
 ```
 
-Örnekler kitaptakinden FARKLI ve özgün olmalıdır (kitaptaki kod kopyalanmaz);
-dil olarak Java / Python / JavaScript kullanılır. `body_html` alanı taşıyan
-eski biçimli kartlar da olduğu gibi çizilir.
+`contrast` modunda `code`/`lang` yerine `text` kullanılabilir — iki dilli
+kısa bir karşıtlık cümlesi:
+
+```js
+"bad":  { "text": { "en": "...", "tr": "..." }, "why": { "en": "...", "tr": "..." } },
+"good": { "text": { "en": "...", "tr": "..." }, "why": { "en": "...", "tr": "..." } }
+```
+
+**Kart sayfanın konusundan çıkar, kalıptan değil.** İnsan ilişkileri, ölçüm
+ya da karar anlatan bir sayfayı kod örneğine çevirmek için konuyu değiştirmek
+yasaktır; kod ancak konuyu gerçekten anlatıyorsa konur. `code` dışındaki
+modlarda `bad`/`good` alanları isteğe bağlıdır, boş bırakılabilir.
+
+Kod örnekleri kitaptakinden FARKLI ve özgün olmalıdır (kitaptaki kod
+kopyalanmaz); dil olarak Java / Python / JavaScript kullanılır.
+
+**Kod yorumlarının dili** `concepts.code_comment_lang` ile belirlenir
+(varsayılan `en`). `code` alanı tek dillidir — iki dilli `en`/`tr` çifti
+değildir — bu yüzden içindeki yorumlar okuyucunun diline göre değişmez;
+Türkçe açıklama `why` ve `tip` alanlarına yazılır.
+
+`body_html` alanı taşıyan eski biçimli kartlar da olduğu gibi çizilir.
 
 ## Çevirmen agent girdisi ve çıktısı
 

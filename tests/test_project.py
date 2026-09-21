@@ -5,7 +5,7 @@ import unittest
 
 import _paths  # noqa: F401
 from project import (DEFAULT_EXTRACTION, Project, ProjectNotFound, book_info,
-                     extraction_settings, find_root)
+                     concepts_settings, extraction_settings, find_root)
 
 
 class FindRootTest(unittest.TestCase):
@@ -39,6 +39,18 @@ class SettingsTest(unittest.TestCase):
 
     def test_book_info_has_fallback_slug(self):
         self.assertEqual(book_info({})["slug"], "kitap")
+
+    def test_concepts_default_to_code_mode(self):
+        self.assertEqual(concepts_settings({}), {"mode": "code", "code_comment_lang": "en"})
+
+    def test_concepts_mode_overrides_default(self):
+        merged = concepts_settings({"concepts": {"mode": "contrast"}})
+        self.assertEqual(merged["mode"], "contrast")
+        self.assertEqual(merged["code_comment_lang"], "en")
+
+    def test_unknown_concepts_mode_raises(self):
+        with self.assertRaises(ValueError):
+            concepts_settings({"concepts": {"mode": "kod"}})
 
     def test_pdf_path_absolute_is_kept(self):
         with tempfile.TemporaryDirectory() as root:

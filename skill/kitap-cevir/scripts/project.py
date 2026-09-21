@@ -35,6 +35,9 @@ DEFAULT_EXTRACTION = {
 DEFAULT_BOOK = {"slug": "kitap", "title": "", "subtitle": "", "subtitle_tr": "",
                 "author": "", "series": ""}
 
+CONCEPT_MODES = ("code", "contrast", "explain")
+DEFAULT_CONCEPTS = {"mode": "code", "code_comment_lang": "en"}
+
 
 class ProjectNotFound(FileNotFoundError):
     """Çalışma dizininden yukarıda progress.json bulunamadı."""
@@ -94,6 +97,15 @@ def extraction_settings(progress):
 
 def book_info(progress):
     return {**DEFAULT_BOOK, **progress.get("book", {})}
+
+
+def concepts_settings(progress):
+    """Kavram kartlarının biçimi: mode (code/contrast/explain) ve kod yorum dili."""
+    merged = {**DEFAULT_CONCEPTS, **progress.get("concepts", {})}
+    if merged["mode"] not in CONCEPT_MODES:
+        raise ValueError(f"Bilinmeyen kavram kartı modu: {merged['mode']!r}; "
+                         f"geçerli değerler: {', '.join(CONCEPT_MODES)}")
+    return merged
 
 
 def translator_has_vision(progress):

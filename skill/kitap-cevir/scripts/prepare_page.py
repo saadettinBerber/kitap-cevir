@@ -15,7 +15,8 @@ import sys
 
 from layout_scan import page_plain_text
 from odl_extract import PageExtractor
-from project import Project, extraction_settings, translator_has_vision
+from project import (Project, concepts_settings, extraction_settings,
+                     translator_has_vision)
 from text_utils import normalize_spaces
 
 CONTEXT_CHARS = 700
@@ -76,7 +77,8 @@ class PagePreparer:
             "title": {"en": "", "tr": ""},
             "blocks": extracted["blocks"],
             "math": extracted["math"],
-            "concepts": [], "glossary_new": [],
+            "concepts": [], "concepts_spec": concepts_settings(self.progress),
+            "glossary_new": [],
             "context": _context_snippets(self.pdf, pdf_page),
         }
 
@@ -150,15 +152,24 @@ def parse_args(argv):
     return spec, count
 
 
+_CONCEPT_NOTES = {
+    "code": "her kart kötü + iyi KOD çifti taşır",
+    "contrast": "kötü/iyi karşıtlığı; kod yerine kısa metin de olabilir (`text`)",
+    "explain": "yalnız tanım + ipucu; kötü/iyi örnek istenmez",
+}
+
+
 def _math_note(has_vision):
     if has_vision:
         return "çevirmen PNG'leri okuyup `latex` alanlarını doldursun"
     return "translator.vision=false: `latex` boş kalır, okuyucu PNG gösterir"
 
 
-def _report(prepared, has_vision):
+def _report(prepared, has_vision, concepts):
     scripts_dir = os.path.dirname(os.path.abspath(__file__))
-    print(f"Hazırlanan sayfa sayısı: {len(prepared)}\n")
+    print(f"Hazırlanan sayfa sayısı: {len(prepared)}")
+    print(f"kavram kartı modu: {concepts['mode']} — {_CONCEPT_NOTES[concepts['mode']]}; "
+          f"kod yorumları {concepts['code_comment_lang']}\n")
     for entry in prepared:
         print(f"  Sayfa {entry['page']} (PDF {entry['pdf_page']})  [{entry['blocks']}]")
         print(f"    girdi: {entry['path']}")
@@ -176,7 +187,8 @@ def main():
     if not prepared:
         print("Hazırlanacak sayfa yok.")
         return
-    _report(prepared, translator_has_vision(preparer.progress))
+    _report(prepared, translator_has_vision(preparer.progress),
+            concepts_settings(preparer.progress))
 
 
 if __name__ == "__main__":

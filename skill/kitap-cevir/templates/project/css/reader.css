@@ -359,7 +359,8 @@ pre code { background: none; padding: 0; color: inherit; }
 .label-bad, .label-good { display: inline-block; padding: 3px 10px; border-radius: 4px; font: 700 .74rem var(--font-sans); margin-bottom: 6px; }
 .label-bad { background: var(--bad-bg); color: var(--bad); }
 .label-good { background: var(--good-bg); color: var(--good); }
-.why { font-family: var(--font-sans); font-size: .86rem; color: var(--ink-soft); margin: -4px 0 14px; padding-left: 12px; border-left: 3px solid var(--rule); }
+.sample-text { font-family: var(--font-sans); font-size: .92rem; margin: 0 0 8px; }
+.why { font-family:  var(--font-sans); font-size: .86rem; color: var(--ink-soft); margin: -4px 0 14px; padding-left: 12px; border-left: 3px solid var(--rule); }
 .tip { background: var(--gold-soft); border-left: 4px solid var(--gold); padding: 12px 16px; border-radius: 0 8px 8px 0; margin-top: 16px; font-size: .92rem; color: #5b4510; }
 .tip strong { display: block; margin-bottom: 4px; font-family: var(--font-sans); font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; }
 .explanation { background: rgba(27,42,71,.05); border-left: 3px solid var(--ink-soft); padding: 10px 16px; border-radius: 0 8px 8px 0; margin-bottom: 12px; font-size: .9rem; }

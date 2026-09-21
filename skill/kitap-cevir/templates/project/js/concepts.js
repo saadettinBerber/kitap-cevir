@@ -19,21 +19,30 @@ const Concepts = (function () {
     return `<span class="en-text">${en}</span><span class="tr-text">${tr}</span>`;
   }
 
-  function codeSample(sample, badge, badgeClass) {
-    if (!sample || !sample.code) return "";
+  const BAD_SAMPLE = { heading: ["Bad example (before)", "Kötü örnek (Before)"],
+                       badge: ["BAD", "KÖTÜ"], css: "label-bad" };
+  const GOOD_SAMPLE = { heading: ["Good example (after)", "İyi örnek (After)"],
+                        badge: ["GOOD", "İYİ"], css: "label-good" };
+
+  function sampleBody(sample) {
+    if (!sample) return "";
+    if (sample.code) return `<pre><code>${Highlight.render(sample.code, sample.lang)}</code></pre>`;
+    if (sample.text) return `<p class="sample-text">${Blocks.pair(sample.text)}</p>`;
+    return "";
+  }
+
+  function example(sample, spec) {
+    const body = sampleBody(sample);
+    if (!body) return "";
     const why = sample.why ? `<p class="why">${Blocks.pair(sample.why)}</p>` : "";
-    return `<span class="${badgeClass}">${badge}</span>` +
-      `<pre><code>${Highlight.render(sample.code, sample.lang)}</code></pre>${why}`;
+    return `<h4>${label(...spec.heading)}</h4>` +
+      `<span class="${spec.css}">${label(...spec.badge)}</span>${body}${why}`;
   }
 
   function structuredBody(concept) {
     const summary = concept.summary ? `<h4>${label("Concept", "Kavram")}</h4><p>${Blocks.pair(concept.summary)}</p>` : "";
-    const bad = concept.bad ? `<h4>${label("Bad example (before)", "Kötü örnek (Before)")}</h4>` +
-      codeSample(concept.bad, label("BAD", "KÖTÜ"), "label-bad") : "";
-    const good = concept.good ? `<h4>${label("Good example (after)", "İyi örnek (After)")}</h4>` +
-      codeSample(concept.good, label("GOOD", "İYİ"), "label-good") : "";
     const tip = concept.tip ? `<div class="tip"><strong>${label("Practical tip", "Pratik ipucu")}</strong>${Blocks.pair(concept.tip)}</div>` : "";
-    return summary + bad + good + tip;
+    return summary + example(concept.bad, BAD_SAMPLE) + example(concept.good, GOOD_SAMPLE) + tip;
   }
 
   function open(concept) {

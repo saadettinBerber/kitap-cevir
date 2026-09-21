@@ -60,6 +60,16 @@ class InitBookTest(unittest.TestCase):
         self.assertEqual(progress["book"]["slug"], "demo-kitap")
         self.assertEqual(progress["chapters"][0]["en"], "One")
 
+    def test_concepts_mode_defaults_to_code(self):
+        self._run()
+        progress = json.load(open(os.path.join(self.target, "progress.json"), encoding="utf-8"))
+        self.assertEqual(progress["concepts"], {"mode": "code", "code_comment_lang": "en"})
+
+    def test_concepts_mode_can_be_chosen(self):
+        self._run(["--concepts-mode", "contrast"])
+        progress = json.load(open(os.path.join(self.target, "progress.json"), encoding="utf-8"))
+        self.assertEqual(progress["concepts"]["mode"], "contrast")
+
     def test_placeholders_are_filled(self):
         self._run()
         html = open(os.path.join(self.target, "index.html"), encoding="utf-8").read()

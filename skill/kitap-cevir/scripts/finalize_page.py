@@ -15,7 +15,7 @@ from project import Project
 from toc_builder import add_glossary_terms, write_glossary_js, write_toc
 
 _TRANSLATABLE_TYPES = ("heading", "caption", "footnote", "chapter")
-_PRIVATE_FIELDS = ("context", "glossary_new")
+_PRIVATE_FIELDS = ("context", "concepts_spec", "glossary_new")
 _REQUIRED_FIELDS = ("id", "page", "pdf_page", "blocks")
 
 
