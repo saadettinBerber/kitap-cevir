@@ -34,7 +34,7 @@ def flatten_nested_lists(elements):
             flat.append(element)
             continue
         for item in items:
-            flat.append({**item, "type": "paragraph", "nested": True})
+            flat.append({**item, "nested": True})
             flat += [{**kid, "nested": True} for kid in item.get("kids", [])]
     return flat
 

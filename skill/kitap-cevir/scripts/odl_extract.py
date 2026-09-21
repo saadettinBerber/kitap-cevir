@@ -26,6 +26,7 @@ MAX_HEADING_CHARS = 100
 _EDGE_PAGE_NUMBER = re.compile(r"^\d+\s+|\s+\d+$")
 _EDGE_SEPARATOR = re.compile(r"^[|·•]\s*|\s*[|·•]$")
 _BIBLIOGRAPHY_ENTRY = re.compile(r"^\[[A-Za-z0-9]+\]:")
+_LIST_MARKER = re.compile(r"^(\d+[.)])\s")
 
 
 def _bbox(element):
@@ -227,11 +228,24 @@ class PageExtractor:
         return (element.get("nested")
                 and (element.get("font size") or 0) >= self.settings["subsection_min_size"])
 
+    def _list_item_blocks(self, element):
+        """Liste maddesi paragrafa dönüşürken numarası korunur ('2. If the shop
+        offers...'): numara tek başına cümle sayılıp düşerse madde, altındaki
+        açıklama paragrafıyla eşleşemez."""
+        blocks = self._paragraph_blocks(element)
+        marker = _LIST_MARKER.match(self.fixer.plain(element.get("content")))
+        if marker and blocks and blocks[0]["type"] == "para":
+            first = blocks[0]["sentences"][0]
+            first["en"] = f"{marker.group(1)} {first['en']}"
+        return blocks
+
     def _element_blocks(self, element):
         label = self._chapter_label(element)
         if label:
             return [label]
         kind = element.get("type")
+        if kind == "list item":
+            return self._list_item_blocks(element)
         if kind == "heading" or (kind == "paragraph" and self._is_nested_heading(element)):
             return self._heading_blocks(element)
         if kind == "paragraph":

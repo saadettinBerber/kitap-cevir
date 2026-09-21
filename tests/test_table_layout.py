@@ -114,7 +114,7 @@ class NestedListTest(unittest.TestCase):
 
     def test_nested_content_returns_to_the_stream(self):
         flat = flatten_nested_lists([self._list_with_kids()])
-        self.assertEqual([e["type"] for e in flat], ["paragraph", "paragraph", "heading"])
+        self.assertEqual([e["type"] for e in flat], ["list item", "paragraph", "heading"])
         self.assertEqual(flat[0]["content"], "Table 4-2. Structural characteristics")
         self.assertTrue(all(e["nested"] for e in flat))
 
