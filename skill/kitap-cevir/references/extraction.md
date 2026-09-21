@@ -36,6 +36,7 @@ kullanılır; varsayılanlar 6x9 inç teknik kitap dizgisi için ayarlanmıştı
 | `code_max_font_size`       | `9.5`                 | Bu boyutun altındaki kod fontu gövde kodudur; daha büyüğü başlık/dosya adı sayılır. |
 | `header_zone_bottom`       | `610`                 | ODL y (sol-alt orijin) bu değerin üstündeki ilk öğe koşu başlığıdır. |
 | `footer_zone_top`          | `30`                  | ODL y bu değerin altındaki öğeler alt bilgidir, atılır. |
+| `header_at_bottom`         | `false`               | Koşu başlığı sayfanın ALTINDAysa (O'Reilly dizgisi: `Kesit Adı \| 201`, çift sayfada `200 \| Chapter 14: ...`) `true` yap; kesit adı alt bilgi bölgesinden okunur. |
 | `chapter_number_min_size`  | `40`                  | Bu boyut ve üstünde tek başına sayı = bölüm numarası. |
 | `chapter_title_min_size`   | `20`                  | Bu boyut ve üstündeki başlık = bölüm başlığı (`chapter` bloğu). |
 | `section_min_size`         | `13.5`                | Başlık seviyesi 1 eşiği. |
@@ -46,6 +47,7 @@ kullanılır; varsayılanlar 6x9 inç teknik kitap dizgisi için ayarlanmıştı
 | `table_caption_pattern`    | `"^Table \\d+[-.]\\d+"`| Bu desene uyan paragraf = tablo caption'ı (`kind: "table"`). |
 | `math_font_prefix`         | `"Type3"`             | Bu önekle başlayan font = denklem glifi (MathML kökenli PDF'ler). Kitapta denklem yoksa etkisizdir. |
 | `chapter_header_prefix`    | `"Chapter "`          | Koşu başlığı bu önekle başlıyorsa bölüm sayfasıdır, kesit adı değildir. |
+| `chapter_label_pattern`    | `""` (kapalı)         | Bölüm açılışındaki etiket satırı (`"^CHAPTER (\\d+)$"`); eşleşen satır paragraf değil bölüm numarası olur ve bölüm başlığıyla birleşir. |
 | `default_code_language`    | `"java"`              | Kod bloklarının vurgulama dili. |
 
 ## Ayarları ölçmek

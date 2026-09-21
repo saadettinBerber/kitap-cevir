@@ -24,6 +24,7 @@ from text_utils import (clean_ligatures, is_numeric_only, normalize_spaces,
 CODE_OVERLAP_RATIO = 0.5
 MAX_HEADING_CHARS = 100
 _EDGE_PAGE_NUMBER = re.compile(r"^\d+\s+|\s+\d+$")
+_EDGE_SEPARATOR = re.compile(r"^[|·•]\s*|\s*[|·•]$")
 _BIBLIOGRAPHY_ENTRY = re.compile(r"^\[[A-Za-z0-9]+\]:")
 
 
@@ -103,6 +104,8 @@ class PageExtractor:
         self.settings = {**DEFAULT_EXTRACTION, **(settings or {})}
         self.listing_caption = re.compile(self.settings["listing_caption_pattern"])
         self.table_caption = re.compile(self.settings["table_caption_pattern"])
+        label = self.settings["chapter_label_pattern"]
+        self.chapter_label = re.compile(label) if label else None
         self.fixer = None
 
     def extract(self, pdf_path, pdf_page, image_dir):
@@ -131,6 +134,10 @@ class PageExtractor:
         return regions
 
     def _split_header(self, elements):
+        """Koşu başlığı üstte (varsayılan) ya da altta olabilir; alttaki öğeleri
+        gövdeden ayrıca ayıklamak gerekmez, _drop_footer zaten atar."""
+        if self.settings["header_at_bottom"]:
+            return self._bottom_header(elements), list(elements)
         header, body = None, []
         for element in elements:
             if _bbox(element)[1] > self.settings["header_zone_bottom"] and header is None:
@@ -139,8 +146,19 @@ class PageExtractor:
                 body.append(element)
         return header, body
 
+    def _bottom_header(self, elements):
+        """Alt koşu başlığı ("Kesit Adı | 201", "200 | Chapter 14: ..."): alt
+        bölgedeki öğeler okuma sırasında birleştirilir. Yalnız sayfa numarası
+        varsa bölüm açılış sayfasıdır, kesit yoktur."""
+        footer_top = self.settings["footer_zone_top"]
+        parts = [e.get("content", "") or "" for e in elements if _bbox(e)[3] < footer_top]
+        header = self._running_header(" ".join(parts))
+        title = header["text"]
+        return header if title and not is_numeric_only(title) else None
+
     def _running_header(self, text):
         title = _EDGE_PAGE_NUMBER.sub("", normalize_spaces(clean_ligatures(text)))
+        title = _EDGE_SEPARATOR.sub("", title).strip()
         prefix = self.settings["chapter_header_prefix"]
         return {"text": title, "is_chapter": title.startswith(prefix)}
 
@@ -191,7 +209,18 @@ class PageExtractor:
             block["style"] = style
         return [block] if block["sentences"] else []
 
+    def _chapter_label(self, element):
+        """Bölüm etiketi satırı (CHAPTER 7 gibi); ODL kimi kitapta bunu paragraf
+        sanar, merge_chapter_opener numarayı bölüm başlığına taşır."""
+        if self.chapter_label is None:
+            return None
+        match = self.chapter_label.match(self.fixer.plain(element.get("content")))
+        return {"type": "chapter_number", "num": int(match.group(1))} if match else None
+
     def _element_blocks(self, element):
+        label = self._chapter_label(element)
+        if label:
+            return [label]
         kind = element.get("type")
         if kind == "heading":
             return self._heading_blocks(element)

@@ -17,6 +17,7 @@ DEFAULT_EXTRACTION = {
     "code_max_font_size": 9.5,
     "header_zone_bottom": 610,
     "footer_zone_top": 30,
+    "header_at_bottom": False,
     "chapter_number_min_size": 40,
     "chapter_title_min_size": 20,
     "section_min_size": 13.5,
@@ -27,6 +28,7 @@ DEFAULT_EXTRACTION = {
     "table_caption_pattern": "^Table \\d+[-.]\\d+",
     "math_font_prefix": "Type3",
     "chapter_header_prefix": "Chapter ",
+    "chapter_label_pattern": "",
     "default_code_language": "java",
 }
 
