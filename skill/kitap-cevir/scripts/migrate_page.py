@@ -43,10 +43,19 @@ def _fill_block(block, translations, pending, path):
         fill_unit(block, translations, pending, path)
 
 
+def _carry_latex(document, old):
+    """Eski sayfada aynı PNG için LaTeX yazılmışsa yeni yapıya taşınır."""
+    known = {m["src"]: m.get("latex", "") for m in old.get("math", [])}
+    known.update({b["src"]: b.get("latex", "") for b in old["blocks"] if b["type"] == "math"})
+    for item in [b for b in document["blocks"] if b["type"] == "math"] + document.get("math", []):
+        item["latex"] = item.get("latex") or known.get(item["src"], "")
+
+
 def _math_items(document):
     items = [{"path": f"blocks[{i}]", "src": b["src"]}
-             for i, b in enumerate(document["blocks"]) if b["type"] == "math"]
-    items += [{"path": f"math[{i}]", "src": m["src"]} for i, m in enumerate(document.get("math", []))]
+             for i, b in enumerate(document["blocks"]) if b["type"] == "math" and not b["latex"]]
+    items += [{"path": f"math[{i}]", "src": m["src"]}
+              for i, m in enumerate(document.get("math", [])) if not m["latex"]]
     return items
 
 
@@ -58,6 +67,7 @@ def migrate(document, old, fixes):
         _fill_block(block, translations, pending, f"blocks[{index}]")
     for field in _COPY_FIELDS:
         document[field] = old.get(field, document.get(field))
+    _carry_latex(document, old)
     if not document.get("chapter", {}).get("tr"):
         document["chapter"] = old.get("chapter", document["chapter"])
     document["glossary_new"] = []
