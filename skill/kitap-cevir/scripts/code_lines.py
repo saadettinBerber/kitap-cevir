@@ -8,6 +8,15 @@ SAME_BASELINE_TOLERANCE = 2.0     # bu kadar yakın taban çizgisi = aynı satı
 SCRIPT_SIZE_RATIO = 0.85          # ev sahibi puntosunun altındaki kaydırılmış parça = alt/üst simge
 SCRIPT_SHIFT_RATIO = 0.12         # taban çizgisi kayması / punto: bunun üstü üst (^) ya da alt (_) simge
 MIN_STANDALONE_CODE_CHARS = 12    # düz metinle aynı satırdaki kod parçası bundan kısaysa satır içi koddur
+PROSE_SCRIPT_MIN_SIZE_RATIO = 0.7 # gövde metninde bundan küçük parça dipnot işaretidir, simge değil
+PROSE_SCRIPT_MAX_GAP = 1.5        # simge, ev sahibi parçanın sağ kenarına bu kadar yakın başlar
+SCRIPT_RUN_MAX_GAP = 2.0          # aynı taban çizgisinde bu kadar uzak parçalar ayrı simgelerdir
+PROSE_SCRIPT_MAX_HOST_CHARS = 2   # gövde metninde simge sembole yapışır; uzun sözcüğünki dipnot göndermesidir
+
+SUPERSCRIPTS = str.maketrans("0123456789abcdefghijklmnoprstuvwxyz+-=()",
+                             "⁰¹²³⁴⁵⁶⁷⁸⁹ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ⁺⁻⁼⁽⁾")
+SUBSCRIPTS = str.maketrans("0123456789aehijklmnoprstuvx+-=()",
+                           "₀₁₂₃₄₅₆₇₈₉ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ₊₋₌₍₎")
 
 
 def line_spans(line, code_font):
@@ -87,14 +96,46 @@ def _merge_same_baseline(lines):
     return merged
 
 
+def _script_sized(line, host_size, is_code_host):
+    """Kod satırında her küçük parça simge sayılır; gövde metninde dipnot
+    işaretini (çok daha küçük punto) dışarıda bırakmak için alt sınır vardır."""
+    ratio = line["spans"][0]["size"] / host_size
+    if is_code_host:
+        return ratio < SCRIPT_SIZE_RATIO
+    return PROSE_SCRIPT_MIN_SIZE_RATIO <= ratio < SCRIPT_SIZE_RATIO
+
+
+def _host_token(line, x0):
+    """Verilen x konumunun solunda kalan son sözcük."""
+    head = "".join(span["text"] for span in line["spans"]
+                   if span["bbox"][2] <= x0 + PROSE_SCRIPT_MAX_GAP).split()
+    return head[-1] if head else ""
+
+
+def _is_prose_script(line, host):
+    """Gövde metninde simge bir sembole yapışır ('mᵃ'): ev sahibi parça simgenin
+    başladığı yerde biter ve kısa bir semboldür. Sözcüğün ya da cümlenin
+    sonundaki küçük işaret ('Photos.²²') dipnot göndermesidir, simge değil."""
+    touches = any(abs(span["bbox"][2] - line["bbox"][0]) <= PROSE_SCRIPT_MAX_GAP
+                  for span in host["spans"])
+    token = _host_token(host, line["bbox"][0])
+    return touches and 0 < len(token) <= PROSE_SCRIPT_MAX_HOST_CHARS and token.isalnum()
+
+
+def _script_placed(line, host, host_size):
+    """Kod satırında simge satırın sağ ucuna kadar herhangi bir yerde olabilir;
+    gövde metninde cümlenin ortasında, sembolün hemen sağındadır."""
+    if host["is_code"]:
+        reach = host["bbox"][2] + host_size * MONO_CHAR_WIDTH_RATIO
+        return host["bbox"][0] <= line["bbox"][0] <= reach
+    return _is_prose_script(line, host)
+
+
 def _script_marker(line, host):
-    """line, kod satırı host'un üst simgesiyse '^', alt simgesiyse '_' verir;
-    değilse boş. Simgenin fontu kod olmayabilir (serif üst simge)."""
+    """line, host satırının üst simgesiyse '^', alt simgesiyse '_' verir;
+    değilse boş. Simgenin fontu ev sahibininkinden farklı olabilir."""
     host_size = host["spans"][0]["size"]
-    small = line["spans"][0]["size"] < host_size * SCRIPT_SIZE_RATIO
-    reach = host["bbox"][2] + host_size * MONO_CHAR_WIDTH_RATIO
-    inside = host["bbox"][0] <= line["bbox"][0] <= reach
-    if not (host["is_code"] and small and inside):
+    if not _script_sized(line, host_size, host["is_code"]) or not _script_placed(line, host, host_size):
         return ""
     shift = host["baseline"] - line["baseline"]
     if abs(shift) > host_size:
@@ -102,18 +143,42 @@ def _script_marker(line, host):
     return "^" if shift > host_size * SCRIPT_SHIFT_RATIO else "_" if -shift > host_size * SCRIPT_SHIFT_RATIO else ""
 
 
+def _script_runs(line):
+    """Aynı taban çizgisindeki uzak parçalar ayrı simgelerdir: bir cümlede iki
+    ayrı üst simge ('cᵉ ... cᵃ') tek parça gibi gelir."""
+    runs = [[line["spans"][0]]]
+    for span in line["spans"][1:]:
+        if span["bbox"][0] - runs[-1][-1]["bbox"][2] > SCRIPT_RUN_MAX_GAP:
+            runs.append([span])
+        else:
+            runs[-1].append(span)
+    return runs
+
+
+def _host_of(part, lines, source):
+    hosts = ((h, _script_marker(part, h)) for h in lines if h is not source)
+    return next(((h, m) for h, m in hosts if m), (None, ""))
+
+
 def _attach_scripts(lines):
-    """Kod formülündeki alt/üst simgeler ('10' üstünde '23') ayrı satır gelir;
+    """Alt/üst simgeler ('10' üstünde '23', cümlede 'mᵃ') ayrı satır gelir;
     ev sahibi satıra x konumuna göre '^23' / '_K' olarak bağlanır."""
     kept = []
     for line in lines:
-        hosts = ((h, _script_marker(line, h)) for h in lines if h is not line)
-        host, marker = next(((h, m) for h, m in hosts if m), (None, ""))
-        if host is None:
+        orphans, attached = [], 0
+        for run in _script_runs(line):
+            part = _line_of(run, line["is_code"])
+            host, marker = _host_of(part, lines, line)
+            if host is None:
+                orphans += run
+                continue
+            attached += 1
+            host["scripts"].append({"x0": part["bbox"][0], "x1": part["bbox"][2],
+                                    "text": marker + line_text(run).strip()})
+        if not attached:
             kept.append(line)
-        else:
-            host["scripts"].append({"x0": line["bbox"][0], "x1": line["bbox"][2],
-                                    "text": marker + line_text(line["spans"]).strip()})
+        elif orphans:
+            kept.append({**_line_of(orphans, line["is_code"]), "scripts": line["scripts"]})
     return kept
 
 
@@ -151,12 +216,18 @@ def _demote_inline_code(lines):
     return lines
 
 
+def uses_script_layout(line):
+    """Kod satırı ve kod formülü içeren satır boşlukla dizilir; gövde metninin
+    simgesi satır metnine değil yalnız sözcük düzeltmesine gider."""
+    return line["is_code"] or bool(line["scripts"] and any(sp["is_code"] for sp in line["spans"]))
+
+
 def page_lines(page, code_font):
     split = [part for line in _raw_lines(page, code_font) for part in _split_leading_code(line)]
     split.sort(key=lambda ln: (round(ln["bbox"][1]), ln["bbox"][0]))
     lines = _demote_inline_code(_merge_same_baseline(_attach_scripts(split)))
     for line in lines:
-        line["text"] = _spaced_text(line) if line["is_code"] or line["scripts"] else line_text(line["spans"])
+        line["text"] = _spaced_text(line) if uses_script_layout(line) else line_text(line["spans"])
     return lines
 
 
@@ -164,4 +235,35 @@ def script_fixes(lines):
     """Düz metne düşürülen simgeli kod parçaları için {ODL metni: simgeli metin}
     eşlemesi ('3.14 × 10' -> '3.14 × 10^23'); TextFixer.plain uygular."""
     return {line_text(line["spans"]).strip(): line["text"].strip()
-            for line in lines if not line["is_code"] and line["scripts"]}
+            for line in lines if not line["is_code"] and uses_script_layout(line)}
+
+
+def _as_script(text, marker):
+    """Simgeyi Unicode karşılığıyla verir; karşılığı olmayan karakter varsa
+    kod tarafındaki '^' / '_' gösterimine düşer."""
+    table = SUPERSCRIPTS if marker == "^" else SUBSCRIPTS
+    if text and all(ord(char) in table for char in text):
+        return text.translate(table)
+    return marker + text
+
+
+def _script_word(line, script):
+    """Simgenin solundaki sözcükle simgeyi birleştirir: ODL metninde 'ma' olarak
+    duran parçanın düzeltmesi ('ma' -> 'mᵃ')."""
+    word = _host_token(line, script["x0"])
+    marker, text = script["text"][:1], script["text"][1:]
+    if not word or not text:
+        return None
+    return word + text, word + _as_script(text, marker)
+
+
+def prose_script_fixes(lines):
+    """Gövde metnindeki alt/üst simgeler için {düz sözcük: simgeli sözcük}
+    eşlemesi; ODL simgeyi normal karakter olarak düzleştirir."""
+    fixes = {}
+    for line in lines:
+        if uses_script_layout(line):
+            continue
+        for pair in filter(None, (_script_word(line, s) for s in line["scripts"])):
+            fixes[pair[0]] = pair[1]
+    return fixes

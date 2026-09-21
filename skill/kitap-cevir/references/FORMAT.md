@@ -50,7 +50,8 @@ indirgenir; kod aynen korunur.
 ## Denklemler
 
 - **Ayrı satır**: `math` bloğu. Okuyucu `latex` doluysa KaTeX ile çizer, boşsa
-  ya da hatalıysa PNG'yi gösterir.
+  ya da hatalıysa PNG'yi gösterir. Denklemin başlığı (`Equation 3-3. ...`)
+  bloğun dışında, `kind: "equation"` caption'ı olarak gelir ve çevrilir.
 - **Satır içi**: cümle metninde `⟦eq-K⟧` yer tutucusu; karşılığı sayfa
   düzeyindeki `math` listesindedir: `"math": [{ "id": "eq-K", "src", "text",
   "latex" }]`. Yer tutucu `en` ve `tr` içinde **aynen** korunur (çevrilmez,

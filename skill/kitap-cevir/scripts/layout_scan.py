@@ -9,7 +9,8 @@ import re
 
 import fitz
 
-from code_lines import MONO_CHAR_WIDTH_RATIO, page_lines, script_fixes
+from code_lines import (MONO_CHAR_WIDTH_RATIO, page_lines, prose_script_fixes,
+                        script_fixes, uses_script_layout)
 from project import DEFAULT_EXTRACTION
 
 BLANK_LINE_GAP_RATIO = 1.6        # bu oranın üstündeki dikey boşluk = boş satır
@@ -82,7 +83,7 @@ def _inline_code_tokens(lines):
     for line in lines:
         if line["is_code"]:
             continue
-        if line["scripts"]:
+        if uses_script_layout(line):
             tokens.append(line["text"].strip())
             continue
         for span in line["spans"]:
@@ -123,6 +124,7 @@ def scan_page(pdf_path, pdf_page, settings=None):
             "code_blocks": [_code_block(g) for g in _group_code_lines(lines)],
             "inline_code": _inline_code_tokens(lines),
             "hyphen_fixes": {**_hyphenated_names(lines), **script_fixes(lines)},
+            "script_fixes": prose_script_fixes(lines),
         }
     finally:
         document.close()

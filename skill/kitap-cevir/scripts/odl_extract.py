@@ -104,6 +104,7 @@ class PageExtractor:
         self.settings = {**DEFAULT_EXTRACTION, **(settings or {})}
         self.listing_caption = re.compile(self.settings["listing_caption_pattern"])
         self.table_caption = re.compile(self.settings["table_caption_pattern"])
+        self.equation_caption = re.compile(self.settings["equation_caption_pattern"])
         label = self.settings["chapter_label_pattern"]
         self.chapter_label = re.compile(label) if label else None
         self.fixer = None
@@ -199,6 +200,8 @@ class PageExtractor:
         font = element.get("font") or ""
         if self.table_caption.match(text):
             return [{"type": "caption", "kind": "table", "en": self.fixer.rich(text)}]
+        if self.equation_caption.match(text):
+            return [{"type": "caption", "kind": "equation", "en": self.fixer.rich(text)}]
         if (element.get("font size") or 0) <= self.settings["footnote_max_size"]:
             return [{"type": "footnote", "en": self.fixer.rich(text)}]
         if self._is_bold_heading(font):

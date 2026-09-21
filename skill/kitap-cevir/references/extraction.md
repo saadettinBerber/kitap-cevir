@@ -16,14 +16,22 @@
    düşen ODL öğeleri ve kod blokları tek `table` bloğuyla değiştirilir.
    Ayar gerektirmez; `Table N-M` deseni caption'ı `kind: "table"` yapar.
 4. **Denklemler** (`math_scan.py`): MathML kökenli denklemler Type3 glif
-   fontuyla dizilir (`math_font_prefix`); ODL bu glifleri düşürür. Ayrı satır
+   fontuyla dizilir (`math_font_prefix`); ODL bu glifleri düşürür. Denklemi düz
+   metinle dizen kitaplarda font ipucu yoktur, tetikleyici geometridir
+   (`math_geometry`): kesir çizgisi çizim katmanında dar bir yatay çizgidir,
+   çevresindeki satırlar (pay, payda, denklemin sol yanı, toplam limitleri) tek
+   bölge olur. Tablo kenarlığı ile alt bilgi kuralı sütun kenarından başlar ya
+   da sütunun çoğunu kaplar; ayrım aynı hizadaki parçaların toplamına bakılarak
+   yapılır (parçaya bakmak yetmez). Ayrı satır
    denklemi PNG olarak kırpılıp `math` bloğu olur, satır içi denklem cümleye
    `⟦eq-K⟧` yer tutucusu (basit sembol düz Unicode) olarak girer. LaTeX üretimi
    çevirmene bırakılır; bkz. FORMAT.md "Denklemler".
 5. **Kod satırı hazırlığı** (`code_lines.py`): PyMuPDF geniş boşlukta böldüğü
    parçaları aynı taban çizgisinde birleştirir; Courier formüllerindeki alt/üst
    simgeleri (`10` üstünde `23`) taban çizgisi kaymasından tanıyıp `10^23`,
-   `W_K` olarak bağlar; satır başındaki tek harflik kod parçasını (`W be the
+   `W_K` olarak bağlar; gövde metnindeki simgeleri (`mᵃ`, `cᵉ`, `UR²`) Unicode
+   karşılığıyla onarır — yalnız kısa bir sembole yapışanları, çünkü sözcük
+   sonundaki küçük işaret (`Photos.²²`) dipnot göndermesidir; satır başındaki tek harflik kod parçasını (`W be the
    key...`) kod bloğu yapmaz.
 
 Kitaba özgü eşikler `progress.json` içindeki `extraction` nesnesinden gelir.
@@ -45,7 +53,9 @@ kullanılır; varsayılanlar 6x9 inç teknik kitap dizgisi için ayarlanmıştı
 | `bold_heading_font`        | `"Arial"`             | Bu font adı + "Bold" içeren paragraf küçük başlık (seviye 3) sayılır. |
 | `listing_caption_pattern`  | `"^Listing \\d+-\\d+"`| Bu desene uyan başlık = kod listesi caption'ı (`kind: "listing"`). |
 | `table_caption_pattern`    | `"^Table \\d+[-.]\\d+"`| Bu desene uyan paragraf = tablo caption'ı (`kind: "table"`). |
+| `equation_caption_pattern` | `"^Equation \\d+[-.]\\d+"`| Bu desene uyan paragraf = denklem caption'ı (`kind: "equation"`); denklem bölgesine yutulmaz, ayrıca çevrilir. |
 | `math_font_prefix`         | `"Type3"`             | Bu önekle başlayan font = denklem glifi (MathML kökenli PDF'ler). Kitapta denklem yoksa etkisizdir. |
+| `math_geometry`            | `false`               | Denklemleri düz metinle dizen kitaplarda (Type3 fontu yok) denklemi kesir çizgisinden bul: dar, yatay, sütun kenarından başlamayan çizginin çevresindeki satırlar tek `math` bloğu (PNG) olur. |
 | `chapter_header_prefix`    | `"Chapter "`          | Koşu başlığı bu önekle başlıyorsa bölüm sayfasıdır, kesit adı değildir. |
 | `chapter_label_pattern`    | `""` (kapalı)         | Bölüm açılışındaki etiket satırı (`"^CHAPTER (\\d+)$"`); eşleşen satır paragraf değil bölüm numarası olur ve bölüm başlığıyla birleşir. |
 | `default_code_language`    | `"java"`              | Kod bloklarının vurgulama dili. |
