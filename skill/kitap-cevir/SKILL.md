@@ -148,6 +148,8 @@ her zaman iki dillidir. Sözlükte olmayan terimleri `glossary_new`'e yaz.
 | "Sayfa N boş" ama değil | `pdf_offset` yanlış → `inspect_pdf.py offset` |
 | Kod paragraf olarak geliyor, başlıklar yanlış | `references/extraction.md` → `layout` ile ölç, `extraction` ayarla |
 | Denklem kayboluyor / `latex` boş | Type3 dışı denklem fontu / çevirmen görsel okuyamıyor | `references/extraction.md` → `math_font_prefix`; `translator.vision` ayarı, PNG her zaman gösterilir |
+| Tablonun bütün satırları tek hücrede `<br>` ile birleşik | `table_row_gap_ratio` kitaba göre ölçülmeli (`references/extraction.md`) |
+| Sayfadan koca bir bölüm (tablo, başlık, paragraf) eksik | ODL caption'ı liste sanıp altına gömmüş olabilir; `flatten_nested_lists` bunu açar, açmıyorsa ham ODL çıktısına bak |
 | Tablo düz metin olarak geliyor | Dolgulu (zebra) tablolar `table_scan.py` ile otomatik yakalanır; çizgisiz-dolgusuz tablolar için `references/extraction.md` belirti tablosu |
 | Okuyucu eski veriyi gösteriyor | `index.html`'deki `?v=N` sürüm ekini artır |
 | Kavram kartları sayfanın konusuyla ilgisiz kod örneğine dönüşüyor | `progress.json → concepts.mode` = `contrast` ya da `explain` (`references/FORMAT.md`) |

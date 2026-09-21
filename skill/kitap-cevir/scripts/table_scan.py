@@ -9,10 +9,11 @@ import html
 
 import fitz
 
+from project import DEFAULT_EXTRACTION
 from table_grid import (MIN_COLUMNS, column_of, extent, filled_columns, filled_rects,
-                        group_tables, is_background, is_table_row, row_bands, table_columns)
+                        group_tables, horizontal_rules, is_background, is_table_row,
+                        row_bands, table_columns)
 
-ROW_GAP_RATIO = 1.5          # satır arası boşluk / parça yüksekliği (ölçüm: satır içi ≤1.2, satırlar arası ≥1.6)
 SUPERSCRIPT_RATIO = 0.8      # satırın ana puntosunun altındaki parça = üst simge
 WRAP_FILL_RATIO = 0.8        # satırlar sütunu bu oranda dolduruyorsa sarılmış düz metindir
 MIN_ROWS = 2
@@ -39,20 +40,23 @@ def _band_of(span, bands):
     return next((i for i, (top, bottom) in enumerate(bands) if top <= center <= bottom), None)
 
 
-def _starts_row(span, previous, bands):
+def _starts_row(span, previous, bands, gap_ratio):
+    """Bant varsa satırı bant belirler; bantsız gövdede satır arası boşluk satır
+    içi sarma boşluğundan büyüktür. Eşik kitaba göre değişir: bir kitapta satır
+    içi 1.2 / satırlar arası 1.6, başkasında 0.93 / 1.26 ölçüldü."""
     if previous is None:
         return True
     band, previous_band = _band_of(span, bands), _band_of(previous, bands)
     if band is not None or previous_band is not None:
         return band != previous_band
     gap = span["bbox"].y0 - previous["bbox"].y0
-    return gap > previous["bbox"].height * ROW_GAP_RATIO
+    return gap > previous["bbox"].height * gap_ratio
 
 
-def _group_rows(spans, bands):
+def _group_rows(spans, bands, gap_ratio):
     rows, previous = [], None
     for span in spans:
-        if _starts_row(span, previous, bands):
+        if _starts_row(span, previous, bands, gap_ratio):
             rows.append([])
         rows[-1].append(span)
         previous = span
@@ -139,7 +143,7 @@ def _row_cells(row, columns, is_header):
 def _is_bold_row(row):
     main_size = max(s["size"] for s in row)
     body = [s for s in row if s["size"] >= main_size * SUPERSCRIPT_RATIO]
-    return all("Bold" in s["font"] for s in body)
+    return all("bold" in s["font"].lower() for s in body)
 
 
 def _header_count(rows):
@@ -163,7 +167,7 @@ def _table_from(cells, page_info):
         return None
     within = _spans_within(page_info["spans"], extent(cells, page_info))
     bands = row_bands(page_info["rects"], columns)
-    rows = _table_rows(_group_rows(within, bands), bands, columns)
+    rows = _table_rows(_group_rows(within, bands, page_info["row_gap_ratio"]), bands, columns)
     rows = _trim_single_column_rows(rows, columns)
     if len(rows) < MIN_ROWS:
         return None
@@ -174,8 +178,9 @@ def _table_from(cells, page_info):
     return {"y0": top, "y1": bottom, "block": block}
 
 
-def scan_tables(pdf_path, pdf_page):
+def scan_tables(pdf_path, pdf_page, settings=None):
     """Sayfadaki dolgu tabanlı tabloları [{y0, y1, block}] olarak döndürür."""
+    settings = {**DEFAULT_EXTRACTION, **(settings or {})}
     document = fitz.open(pdf_path)
     try:
         page = document[pdf_page - 1]
@@ -183,7 +188,9 @@ def scan_tables(pdf_path, pdf_page):
         backgrounds = [r for r in rects if is_background(r, rects)]
         cells = [r for r in rects if r not in backgrounds]
         page_info = {"spans": _page_spans(page), "backgrounds": backgrounds,
-                     "rects": rects, "page_height": page.rect.height}
+                     "rects": rects, "rules": horizontal_rules(page),
+                     "text_bottom": page.rect.height - settings["footer_zone_top"],
+                     "row_gap_ratio": settings["table_row_gap_ratio"]}
         tables = [_table_from(group, page_info) for group in group_tables(cells, backgrounds)]
         return sorted([t for t in tables if t], key=lambda t: t["y0"])
     finally:

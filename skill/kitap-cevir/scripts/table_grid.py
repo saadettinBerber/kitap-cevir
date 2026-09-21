@@ -7,12 +7,20 @@ MIN_CELL_WIDTH = 15
 MIN_CELL_HEIGHT = 8
 EDGE_TOLERANCE = 2.0
 WIDE_SPAN_RATIO = 1.2        # sütundan geniş parça = tablo dışı (caption, dipnot)
+MAX_BAND_GAP_RATIO = 3.0     # iki dolgu arası boşluk / bant yüksekliği: üstü ayrı tablodur
+RULE_MAX_HEIGHT = 2.0        # bundan kalını çizgi değil dolgudur
 MIN_COLUMNS = 2
 
 
 def filled_rects(page):
     rects = [fitz.Rect(d["rect"]) for d in page.get_drawings() if d.get("fill")]
     return [r for r in rects if r.width >= MIN_CELL_WIDTH and r.height >= MIN_CELL_HEIGHT]
+
+
+def horizontal_rules(page):
+    """Dolgusuz yatay çizgiler: tablonun alt kenarı, alt bilgi kuralı."""
+    rects = [fitz.Rect(d["rect"]) for d in page.get_drawings() if not d.get("fill")]
+    return [r for r in rects if r.height <= RULE_MAX_HEIGHT and r.width >= MIN_CELL_WIDTH]
 
 
 def is_background(rect, rects):
@@ -26,10 +34,22 @@ def _shares_column(first, second):
                for a in (first.x0, first.x1) for b in (second.x0, second.x1))
 
 
+def _near_vertically(first, second):
+    """Aynı sayfadaki iki ayrı tablo çoğu zaman aynı sol kenardan başlar; onları
+    ayıran şey aradaki dikey boşluktur. Zebra bantları zincirleme bağlandığı
+    için uzun bir tablo yine tek grup kalır."""
+    gap = max(0.0, first.y0 - second.y1, second.y0 - first.y1)
+    return gap <= max(first.height, second.height) * MAX_BAND_GAP_RATIO
+
+
+def _same_grid(first, second):
+    return _shares_column(first, second) and _near_vertically(first, second)
+
+
 def _connected_groups(cells):
     groups = []
     for rect in cells:
-        linked = [g for g in groups if any(_shares_column(rect, other) for other in g)]
+        linked = [g for g in groups if any(_same_grid(rect, other) for other in g)]
         merged = [rect] + [r for g in linked for r in g]
         groups = [g for g in groups if g not in linked] + [merged]
     return groups
@@ -95,10 +115,18 @@ def row_bands(rects, columns):
     return bands
 
 
+def _bottom_below(union, page_info):
+    """Tablo, altındaki ilk yatay çizgide biter (alt kenar); çizgi yoksa metin
+    alanının sonunda. Sayfa sonuna dek uzatmak tablonun altındaki caption'ı,
+    yan kutuyu ve koşu başlığını tabloya katıyordu."""
+    below = [rule.y0 for rule in page_info["rules"]
+             if rule.y0 > union.y1 and rule.x0 <= union.x1 and rule.x1 >= union.x0]
+    return min(below, default=page_info["text_bottom"])
+
+
 def extent(cells, page_info):
     """Arka plan varsa tablo odur. Yoksa zebra dolguda ilk satır beyaz
-    kalabilir (bir hücre yukarı) ve beyaz gövde satırları sayfa sonuna dek
-    uzayabilir; satırlar sonradan ilk tablo dışı satırda kesilir."""
+    kalabilir (bir hücre yukarı); alt sınır için _bottom_below'a bakılır."""
     union = fitz.Rect(cells[0])
     for rect in cells[1:]:
         union |= rect
@@ -106,7 +134,7 @@ def extent(cells, page_info):
         if background.contains(union):
             return background
     row_height = sorted(r.height for r in cells)[len(cells) // 2]
-    return fitz.Rect(union.x0, union.y0 - row_height, union.x1, page_info["page_height"])
+    return fitz.Rect(union.x0, union.y0 - row_height, union.x1, _bottom_below(union, page_info))
 
 
 def column_of(span, columns):

@@ -14,7 +14,12 @@
    kod vurgularını eleyerek), satırları dolgu bantlarından ya da metin
    aralıklarından türetir; kalın ilk satırlar `header_rows` olur. Tablo bölgesine
    düşen ODL öğeleri ve kod blokları tek `table` bloğuyla değiştirilir.
-   Ayar gerektirmez; `Table N-M` deseni caption'ı `kind: "table"` yapar.
+   `Table N-M` deseni caption'ı `kind: "table"` yapar. Tablo **altındaki ilk yatay
+   çizgide** biter (alt kenar); çizgi yoksa metin alanının sonunda — sayfa sonuna
+   uzatmak altındaki caption'ı, yan kutuyu ve koşu başlığını tabloya katıyordu.
+   Aynı sayfadaki iki tablo çoğu zaman aynı sol kenardan başlar; ortak kenar
+   değil aradaki dikey boşluk ayırır. Bantsız gövdede satır eşiği
+   `table_row_gap_ratio` ile kitaba göre ayarlanır.
 4. **Denklemler** (`math_scan.py`): MathML kökenli denklemler Type3 glif
    fontuyla dizilir (`math_font_prefix`); ODL bu glifleri düşürür. Denklemi düz
    metinle dizen kitaplarda font ipucu yoktur, tetikleyici geometridir
@@ -53,6 +58,7 @@ kullanılır; varsayılanlar 6x9 inç teknik kitap dizgisi için ayarlanmıştı
 | `bold_heading_font`        | `"Arial"`             | Bu font adı + "Bold" içeren paragraf küçük başlık (seviye 3) sayılır. |
 | `listing_caption_pattern`  | `"^Listing \\d+-\\d+"`| Bu desene uyan başlık = kod listesi caption'ı (`kind: "listing"`). |
 | `table_caption_pattern`    | `"^Table \\d+[-.]\\d+"`| Bu desene uyan paragraf = tablo caption'ı (`kind: "table"`). |
+| `table_row_gap_ratio`      | `1.5`                 | Bantsız tablo gövdesinde satır arası boşluk / satır yüksekliği eşiği. Kitaba göre ölçülür: bir kitapta satır içi 1.2 / satırlar arası 1.6 (eşik 1.5), başkasında 0.93 / 1.26 (eşik 1.1). Yanlışsa bütün satırlar tek hücrede `<br>` ile birleşir. |
 | `equation_caption_pattern` | `"^Equation \\d+[-.]\\d+"`| Bu desene uyan paragraf = denklem caption'ı (`kind: "equation"`); denklem bölgesine yutulmaz, ayrıca çevrilir. |
 | `math_font_prefix`         | `"Type3"`             | Bu önekle başlayan font = denklem glifi (MathML kökenli PDF'ler). Kitapta denklem yoksa etkisizdir. |
 | `math_geometry`            | `false`               | Denklemleri düz metinle dizen kitaplarda (Type3 fontu yok) denklemi kesir çizgisinden bul: dar, yatay, sütun kenarından başlamayan çizginin çevresindeki satırlar tek `math` bloğu (PNG) olur. |

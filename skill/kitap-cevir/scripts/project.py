@@ -25,6 +25,7 @@ DEFAULT_EXTRACTION = {
     "footnote_max_size": 7.5,
     "bold_heading_font": "Arial",
     "listing_caption_pattern": "^Listing \\d+-\\d+",
+    "table_row_gap_ratio": 1.5,
     "table_caption_pattern": "^Table \\d+[-.]\\d+",
     "equation_caption_pattern": "^Equation \\d+[-.]\\d+",
     "math_font_prefix": "Type3",

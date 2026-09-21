@@ -10,8 +10,8 @@ gelir; varsayılanlar project.DEFAULT_EXTRACTION içindedir.
 import os
 import re
 
-from block_merge import (drop_nested_fragments, insert_inline_math, merge_chapter_opener,
-                         merge_footnote_markers)
+from block_merge import (drop_nested_fragments, flatten_nested_lists, insert_inline_math,
+                         merge_chapter_opener, merge_footnote_markers)
 from layout_scan import scan_page
 from math_scan import scan_math
 from odl_runner import extract_odl_elements
@@ -116,8 +116,9 @@ class PageExtractor:
         header, body = self._split_header(elements)
         self.fixer = TextFixer(layout)
         math = scan_math(pdf_path, pdf_page, self.settings, image_dir)
-        regions = self._regions(layout, scan_tables(pdf_path, pdf_page) + math["display"])
-        body = merge_footnote_markers(drop_nested_fragments(self._drop_footer(body)))
+        regions = self._regions(layout, scan_tables(pdf_path, pdf_page, self.settings) + math["display"])
+        body = flatten_nested_lists(self._drop_footer(body))
+        body = merge_footnote_markers(drop_nested_fragments(body))
         body = insert_inline_math(body, math["inline"], layout["page_height"])
         inline_images = [{k: i[k] for k in ("id", "src", "text", "latex")}
                          for i in math["inline"] if i["kind"] == "image"]
@@ -191,7 +192,7 @@ class PageExtractor:
         return [{"type": "heading", "level": self._heading_level(size), "en": text}]
 
     def _is_bold_heading(self, font):
-        return self.settings["bold_heading_font"] in font and "Bold" in font
+        return self.settings["bold_heading_font"] in font and "bold" in font.lower()
 
     def _paragraph_blocks(self, element):
         text = self.fixer.plain(element.get("content"))
@@ -220,12 +221,18 @@ class PageExtractor:
         match = self.chapter_label.match(self.fixer.plain(element.get("content")))
         return {"type": "chapter_number", "num": int(match.group(1))} if match else None
 
+    def _is_nested_heading(self, element):
+        """Liste maddesine gömülmüş öğelerin tipini ODL düzleştirir (hepsi
+        paragraf olur); başlık puntosundaki bir öğe aslında başlıktır."""
+        return (element.get("nested")
+                and (element.get("font size") or 0) >= self.settings["subsection_min_size"])
+
     def _element_blocks(self, element):
         label = self._chapter_label(element)
         if label:
             return [label]
         kind = element.get("type")
-        if kind == "heading":
+        if kind == "heading" or (kind == "paragraph" and self._is_nested_heading(element)):
             return self._heading_blocks(element)
         if kind == "paragraph":
             return self._paragraph_blocks(element)

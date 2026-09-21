@@ -22,6 +22,23 @@ def _same_line(marker, element):
     return overlap > 0 and _bbox(element)[0] > _bbox(marker)[0]
 
 
+def flatten_nested_lists(elements):
+    """ODL italik bir caption'ı ("Table 4-2.") numaralı liste sanıp sonrasındaki
+    her şeyi maddenin `kids` alanına gömebilir. Gömülü içerik (tablo satırları,
+    başlık, paragraf) sıradan öğe olarak akışa döner; yoksa sessizce düşer ve
+    sayfadan koca bir bölüm eksilir."""
+    flat = []
+    for element in elements:
+        items = element.get("list items", []) if element.get("type") == "list" else []
+        if not any(item.get("kids") for item in items):
+            flat.append(element)
+            continue
+        for item in items:
+            flat.append({**item, "type": "paragraph", "nested": True})
+            flat += [{**kid, "nested": True} for kid in item.get("kids", [])]
+    return flat
+
+
 def merge_footnote_markers(elements):
     """Tek harflik dipnot işaretini ('a') aynı satırdaki metnin başına ekler."""
     merged = []
