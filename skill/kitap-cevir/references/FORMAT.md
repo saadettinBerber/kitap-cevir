@@ -79,7 +79,7 @@ Kitabın izin verdiği türler `progress.json → concepts.kinds` ile belirlenir
 | `explain` | Tanım, fikir, tarihçe, bir kavramın ne olduğu. Karşıtı ya da seçeneği olmayan her şey. | ortak alanlar |
 | `contrast` | Kavramın yanlış ve doğru uygulanışı var (anti-pattern ↔ pattern, alışkanlık ↔ ilke). | `bad`, `good`: `text` + `why` |
 | `tradeoff` | Birden çok geçerli seçenek var; doğrusu bağlama göre değişir (mimari tarz, model seçimi, maliyet ↔ kalite). | `options`: 2-3 seçenek |
-| `code` | Kavram doğrudan kodda görünür (isimlendirme, fonksiyon yapısı, API kullanımı) ve kod onu metinden iyi anlatır. | `bad`, `good`: `lang` + `code` + `why` |
+| `code` | Kavram doğrudan kodda görünür ve kod onu metinden iyi anlatır (bir API'nin kullanımı, bir algoritmanın adımı, bir yapının biçimi). | `bad`, `good`: `lang` + `code` + `why` |
 
 Ortak alanlar (her türde zorunlu, iki dilli): `id`, `kind`, `title`, `summary`,
 `tip`. `tradeoff` kartında `tip` "hangi durumda hangisi" sorusunu yanıtlar.
@@ -111,6 +111,10 @@ Kurallar:
   kavramdır. Bir türe uysun diye konu değiştirilmez: iş bilgisi, ölçüm, ekip ya
   da karar anlatan bir sayfaya uydurma bir kod örneği konmaz. Sayfada kod yoksa
   `code` kartı yalnız kavram kodla açıkça daha iyi anlaşılıyorsa yazılır.
+- **`code` kartında Önce ile Sonra arasındaki fark sayfanın kavramıdır.** Önce,
+  kavram olmadan (ya da kavramın çözdüğü sorunla) yazılmış kod; Sonra, sayfanın
+  öğrettiği yolla yazılmış kod. Genel kod temizliği (isimlendirme, sihirli sayı,
+  sabit, fonksiyon boyu) ancak sayfanın konusu buysa kartın konusu olur.
 - `explain` kartında `bad`, `good`, `options` bulunmaz.
 - `code` kartının dili `concepts_spec.code_langs` listesinden seçilir
   (varsayılan: kitabın kod dili, `extraction.default_code_language`).
