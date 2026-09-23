@@ -69,7 +69,7 @@ kullanılır; varsayılanlar 6x9 inç teknik kitap dizgisi için ayarlanmıştı
 ## Ayarları ölçmek
 
 ```bash
-python3 ~/.claude/skills/kitap-cevir/scripts/inspect_pdf.py book.pdf layout <PDF sayfası>
+python3 $SKILL/scripts/inspect_pdf.py book.pdf layout <PDF sayfası>
 ```
 
 Her satır için `y` (üst orijin), `odlY` (sol-alt orijin, ODL ile aynı), font ve
@@ -82,7 +82,8 @@ bölüm açılış sayfasına bakmak yeterlidir:
 - Bölüm numarası / bölüm başlığı / kesit başlığı boyutları → ilgili `*_min_size`.
 
 Ayarları değiştirdikten sonra `prepare_page.py <sayfa>` ile bir sayfayı yeniden
-çıkarıp `_work/in/page-N.json` dosyasındaki blok tiplerini kontrol edin.
+çıkarıp `_work/in/page-N.json` dosyasındaki blok tiplerini kontrol edin. Önceden
+çevrilmiş sayfaları yeni ayarlara taşımak için: SKILL.md → D. Taşıma.
 
 ## Belirtiler ve çözümleri
 
@@ -94,7 +95,7 @@ Ayarları değiştirdikten sonra `prepare_page.py <sayfa>` ile bir sayfayı yeni
 | Kesit başlıkları paragraf oluyor | başlık boyut eşiği yüksek | `section_min_size` / `subsection_min_size` düşür |
 | Dipnotlar paragraf oluyor | `footnote_max_size` düşük | dipnot font boyutunu ölçüp ayarla |
 | Listing caption'ları başlık oluyor | desen uymuyor | `listing_caption_pattern` (örn. `"^Example \\d+\\.\\d+"`) |
-| Tablo düz paragraf/heading olarak geliyor | hücrelerin dolgu dikdörtgeni yok (yalnız çizgi ya da hiç) | `inspect_pdf.py <pdf> layout N` yerine `python3 -c "import fitz; print(len(fitz.open('book.pdf')[N-1].get_drawings()))"` ile dolgu var mı bak; yoksa PyMuPDF `find_tables(strategy="text")` yedeği henüz yok, hücreleri elle `table` bloğuna çevir |
+| Tablo düz paragraf/heading olarak geliyor | hücrelerde ne dolgu dikdörtgeni ne ODL'nin tanıdığı kenarlık çizgisi var | `python3 -c "import fitz; print(len(fitz.open('book.pdf')[N-1].get_drawings()))"` ile çizim var mı bak. **Bilinen sınırlama:** çizimsiz tablolar için otomatik yol yok (PyMuPDF `find_tables(strategy="text")` yedeği yazılmadı); hücreleri `_work/in/page-N.json`'da elle `table` bloğuna çevir |
 | Denklem kayboluyor ya da parçalanıyor | denklem fontu `Type3` değil | `inspect_pdf.py <pdf> layout N` ile denklem satırının fontunu bul, `math_font_prefix` ayarla |
 | Formüldeki üst simge ayrı satır oluyor | üst simge kod fontunda değil (ör. italik serif) | Bilinen sınırlama: yalnız kod fontlu alt/üst simgeler bağlanır |
 | Tablodaki uzun hücre sonrası metin ayrı paragraf oluyor | hücre içindeki boş satır satır sonu sanıldı (bantsız gövde) | Bilinen sınırlama; içerik kaybolmaz, `_work/in` JSON'unda hücreye elle taşı |

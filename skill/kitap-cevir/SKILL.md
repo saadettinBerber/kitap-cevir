@@ -1,21 +1,23 @@
 ---
 name: kitap-cevir
-description: İngilizce bir PDF kitabı sayfa sayfa Türkçeye çevirip iki dilli, kitap görünümlü interaktif okuyucuya ekler. "init" ile yeni kitap projesi (okuyucu iskeleti + progress.json + sözlük) kurar; sayfa numarası veya "next / sıradaki sayfa" ile çeviri yapar; "cards" ile çevrilmiş sayfaların kavram kartlarını yeniden üretir. Tetikleyiciler - /kitap-cevir, "kitap çevir", "PDF kitabı çevir", "yeni kitap projesi", "sıradaki sayfa", "devam et", "okuyucu iskeleti", "kartları yenile".
-argument-hint: "[init | N | next | next --count K | cards N-M|all | backfill]"
+description: İngilizce bir PDF kitabı sayfa sayfa Türkçeye çevirip iki dilli, kitap görünümlü interaktif okuyucuya ekler. "init" ile yeni kitap projesi (okuyucu iskeleti + progress.json + sözlük) kurar; sayfa numarası veya "next / sıradaki sayfa" ile çeviri yapar; "cards" ile çevrilmiş sayfaların kavram kartlarını yeniden üretir; "migrate" ile çevrilmiş sayfaları yeni çıkarıma taşır. Tetikleyiciler - /kitap-cevir, "kitap çevir", "PDF kitabı çevir", "yeni kitap projesi", "sıradaki sayfa", "devam et", "okuyucu iskeleti", "kartları yenile".
+argument-hint: "[init | N | next | next --count K | cards N-M|all | migrate N|all | backfill]"
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"]
 ---
 
 # Kitap Çeviri Skill'i (PDF → iki dilli okuyucu)
 
-Skill dizini: `~/.claude/skills/kitap-cevir` (aşağıda `$SKILL`). Betikler
+Skill dizini: `${CLAUDE_SKILL_DIR}` (aşağıda `$SKILL`). Betikler
 `$SKILL/scripts/` altındadır ve **her zaman kitap projesinin dizininde**
 (içinde `progress.json` olan dizin) çalıştırılır; betikler kökü kendileri
 bulur (`KITAP_ROOT` ortam değişkeni ile de gösterilebilir). Dil çifti bu
 sürümde sabittir: kaynak İngilizce (`en`), hedef Türkçe (`tr`).
 
 ```bash
-SKILL=~/.claude/skills/kitap-cevir
+SKILL="${CLAUDE_SKILL_DIR}"
 ```
+
+`references/` dosyalarındaki `$SKILL` de bu dizindir.
 
 ## Hangi mod?
 
@@ -24,6 +26,7 @@ SKILL=~/.claude/skills/kitap-cevir
 | `init`, "yeni kitap projesi", "bu PDF'i kur" | **A. Kurulum** |
 | sayı (`55`), `next`, boş, "sıradaki sayfa", "devam et", `next --count 3` | **B. Sayfa çevirisi** |
 | `cards 5-40`, `cards all`, "kartları yenile" | **C. Kart yenileme** |
+| `migrate 5 13`, `migrate all`, "sayfaları yeni çıkarıma taşı" | **D. Taşıma** |
 | `backfill` | Çevrilmiş sayfalara PDF görsellerini geriye dönük ekle: `python3 $SKILL/scripts/backfill_images.py [N ...]` |
 
 ## Bağımlılıklar
@@ -183,6 +186,29 @@ doğru Türkçe karakterler.
 5. Raporla (yazılan / sorunlu sayfa sayısı) ve projenin `CLAUDE.md` kuralına
    göre commit: `Sayfa A-B kavram kartları yenilendi`.
 
+## D. Taşıma (`migrate`)
+
+Çıkarım iyileştiğinde (skill güncellemesi) ya da `extraction` ayarları
+değiştiğinde çevrilmiş sayfaları **yeniden çevirmeden** yeni blok yapısına
+taşır: sayfa yeniden çıkarılır, eski `en→tr` eşleşmeleri (birebir, normalize,
+bölünmüş/birleşmiş cümle) yeni birimlere işlenir; başlık, kesit, kartlar ve
+denklem LaTeX'i aynen kalır.
+
+1. **Taşı**: `python3 $SKILL/scripts/migrate_page.py 5 13 121` (ya da `all`).
+   Eşleşmesi tam olan sayfa hemen sonlandırılır (`--no-finalize` ile ertelenir).
+   Eşleşmeyen birimler `_work/migrate/pending-N.json`'a düşer:
+   `units: [{path, en, tr_hint}]`, `latex: [{path, src}]`.
+2. **Bekleyenleri çevir** (varsa): sayfa başına bir `general-purpose` agent;
+   `pending-N.json`'ı, `glossary.md`'yi ve `references/translation-style.md`'yi
+   okur, her birimi çevirir (`tr_hint` eski çeviridir, uyuyorsa kullanılır),
+   `latex` öğeleri için PNG'yi (`_work/in/page-N_images/<src>`) açıp LaTeX yazar
+   (`translator.vision=false` ise `latex` boş kalır). Çıktı:
+   `_work/migrate/done-N.json` = `{"units": [{path, tr}], "latex": [{path, latex}]}`;
+   `path` değerleri aynen korunur.
+3. **Uygula**: `python3 $SKILL/scripts/migrate_page.py apply 5 13` → çeviriler
+   yerine yazılır, sayfa sonlandırılır.
+4. Birkaç taşınan sayfayı okuyucuda kontrol et, commit: `Sayfa A-B yeni çıkarıma taşındı`.
+
 ## Sorun giderme
 
 | Belirti | Yapılacak |
@@ -194,7 +220,8 @@ doğru Türkçe karakterler.
 | Denklem kayboluyor / `latex` boş | Denklem fontu Type3 değilse `references/extraction.md` → `math_font_prefix`; çevirmen görsel okuyamıyorsa `translator.vision` = `false` (PNG her zaman gösterilir) |
 | Tablonun bütün satırları tek hücrede `<br>` ile birleşik | `table_row_gap_ratio` kitaba göre ölçülmeli (`references/extraction.md`) |
 | Sayfadan koca bir bölüm (tablo, başlık, paragraf) eksik | ODL caption'ı liste sanıp altına gömmüş olabilir; `flatten_nested_lists` bunu açar, açmıyorsa ham ODL çıktısına bak |
-| Tablo düz metin olarak geliyor | Dolgulu (zebra) tablolar `table_scan.py` ile otomatik yakalanır; çizgisiz-dolgusuz tablolar için `references/extraction.md` belirti tablosu |
+| Tablo düz metin olarak geliyor | Dolgulu (zebra) ve kenarlık çizgili tablolar otomatik yakalanır. Çizgisiz ve dolgusuz tablolar için otomatik yol **yok** (bilinen sınırlama): hücreleri `_work/in/page-N.json`'da elle `table` bloğuna çevir (`references/extraction.md` belirti tablosu) |
+| Çıkarım düzeldi ama eski sayfalar eski yapıda | **D. Taşıma** (yeniden çeviri gerekmez) |
 | Okuyucu eski veriyi gösteriyor | `index.html`'deki `?v=N` sürüm ekini artır |
 | Kavram kartları sayfanın konusuyla ilgisiz kod örneğine dönüşüyor | `progress.json → concepts.kinds` listesini kitaba göre daralt (A.4 tablosu), sonra **C. Kart yenileme** |
 | `! KART: tür 'code' bu kitapta izinli değil` | Agent izinsiz tür seçmiş; çıktıyı düzelt ya da `concepts.kinds`'ı gözden geçir |

@@ -4,13 +4,16 @@ Proje kökü: içinde progress.json bulunan ilk dizin (çalışma dizininden yuk
 doğru aranır). KITAP_ROOT ortam değişkeni ayarlıysa doğrudan o kullanılır.
 Betikler skill dizininde yaşar; proje dizini her kitap için ayrıdır.
 """
+import glob
 import json
 import os
+import re
 
 PROGRESS_FILE = "progress.json"
 GLOSSARY_FILE = "glossary.md"
 WORK_DIR = "_work"
 ENV_ROOT = "KITAP_ROOT"
+_PAGE_FILE = re.compile(r"page-(\d+)\.js$")
 
 DEFAULT_EXTRACTION = {
     "code_font_prefix": "Courier",
@@ -101,6 +104,10 @@ class Project:
 
     def page_js(self, page):
         return os.path.join(self.pages_dir, f"page-{page}.js")
+
+    def translated_pages(self):
+        matches = (_PAGE_FILE.search(path) for path in glob.glob(os.path.join(self.pages_dir, "page-*.js")))
+        return sorted(int(match.group(1)) for match in matches if match)
 
 
 def extraction_settings(progress):

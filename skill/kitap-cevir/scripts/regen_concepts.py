@@ -8,7 +8,6 @@ Kullanım (proje dizininde):
 
 Agent çıktısı: {"concepts": [...]} — sözleşme: references/FORMAT.md → Kavram kartları.
 """
-import glob
 import json
 import os
 import re
@@ -18,14 +17,8 @@ from concept_check import card_problems
 from finalize_page import read_page_js, write_page_js
 from project import Project, concepts_settings
 
-_PAGE_FILE = re.compile(r"page-(\d+)\.js$")
 _RANGE = re.compile(r"^(\d+)-(\d+)$")
 _TEXT_TYPES = ("heading", "caption", "footnote", "chapter")
-
-
-def translated_pages(project):
-    matches = (_PAGE_FILE.search(path) for path in glob.glob(os.path.join(project.pages_dir, "page-*.js")))
-    return sorted(int(match.group(1)) for match in matches if match)
 
 
 def _expand(spec):
@@ -36,7 +29,7 @@ def _expand(spec):
 
 
 def select_pages(project, specs):
-    available = translated_pages(project)
+    available = project.translated_pages()
     if specs == ["all"]:
         return available
     wanted = {page for spec in specs for page in _expand(spec)}

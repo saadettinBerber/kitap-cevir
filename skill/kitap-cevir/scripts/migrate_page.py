@@ -8,7 +8,6 @@
   python3 migrate_page.py apply 13 31      -> _work/migrate/done-N.json içindeki
       çevirileri ({path, tr} ve {src, latex}) uygulayıp sonlandırır.
 """
-import glob
 import json
 import os
 import re
@@ -144,11 +143,6 @@ def _dump(path, payload):
         json.dump(payload, handle, ensure_ascii=False, indent=2)
 
 
-def _all_pages(project):
-    files = glob.glob(os.path.join(project.pages_dir, "page-*.js"))
-    return sorted(int(re.search(r"page-(\d+)\.js", f).group(1)) for f in files)
-
-
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     finalize_complete = "--no-finalize" not in sys.argv
@@ -158,7 +152,7 @@ def main():
             result = migrator.apply(int(page))
             print(f"✓ sayfa {page} uygulandı ve sonlandırıldı (boş tr: {result['untranslated']})")
         return
-    pages = _all_pages(migrator.project) if args == ["all"] else [int(a) for a in args]
+    pages = migrator.project.translated_pages() if args == ["all"] else [int(a) for a in args]
     for page in pages:
         r = migrator.run(page, finalize_complete)
         state = "sonlandırıldı" if r["finalized"] else f"bekliyor (pending {r['pending']}, latex {r['latex']})"

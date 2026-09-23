@@ -28,6 +28,7 @@ Claude Code'u yeniden başlatınca `/kitap-cevir` görünür.
 /kitap-cevir next          sıradaki sayfa(lar)ı çevir (progress.json → pages_per_run)
 /kitap-cevir next --count 3
 /kitap-cevir cards all     çevrilmiş sayfaların kavram kartlarını yeniden üret
+/kitap-cevir migrate all   çevrilmiş sayfaları yeni çıkarıma taşı (yeniden çeviri yok)
 /kitap-cevir backfill      çevrilmiş sayfalara PDF görsellerini geriye dönük ekle
 ```
 
@@ -38,23 +39,32 @@ Okuyucuyu açmak için proje dizininde `python3 -m http.server 8000`.
 
 ```
 skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
-├── SKILL.md                  akış: init / sayfa çevirisi / sorun giderme
+├── SKILL.md                  akış: A kurulum / B çeviri / C kart yenileme / D taşıma
 ├── scripts/
+│   │   # proje ve akış
 │   ├── init_book.py          yeni proje: iskelet + progress.json + glossary.md
 │   ├── inspect_pdf.py        PDF tanıma: info / text / layout / offset
 │   ├── prepare_page.py       PDF sayfası → _work/in/page-N.json (agent girdisi)
 │   ├── finalize_page.py      _work/out/page-N.json → data/pages + progress + sözlük + toc
-│   ├── backfill_images.py    görselleri geriye dönük ekler
 │   ├── regen_concepts.py     kavram kartlarını yeniden ürettirir (metne dokunmaz)
 │   ├── concept_check.py      kart denetimi: tür, zorunlu alanlar, kod dili
+│   ├── migrate_page.py       çevrilmiş sayfaları yeni çıkarıma taşır (yeniden çeviri yok)
+│   ├── migrate_match.py      eski en→tr eşleşmelerini yeni birimlere bulur
+│   ├── backfill_images.py    görselleri geriye dönük ekler
 │   ├── toc_builder.py        data/toc.js ve data/glossary.js üretimi
+│   ├── project.py            proje kökü, progress.json, varsayılan ayarlar
+│   │   # PDF çıkarımı
 │   ├── odl_extract.py        OpenDataLoader + PyMuPDF birleşimi (PageExtractor)
-│   ├── layout_scan.py        kod satırları, satır içi kod, tire onarımı
 │   ├── odl_runner.py         OpenDataLoader çağrısı
-│   ├── text_fixer.py / text_utils.py
-│   └── project.py            proje kökü, progress.json, varsayılan ayarlar
+│   ├── layout_scan.py        kod satırları, satır içi kod, tire onarımı
+│   ├── code_lines.py         kod satırı birleştirme, alt/üst simgeler
+│   ├── block_merge.py        dipnot işaretleri ve blok birleştirme düzeltmeleri
+│   ├── table_scan.py         çizim katmanından dolgulu tabloları bulur
+│   ├── table_grid.py         dolgu dikdörtgenlerinden tablo ızgarası
+│   ├── math_scan.py          denklemler: Type3 fontu ya da kesir çizgisi geometrisi
+│   └── text_fixer.py / text_utils.py   metin onarımı, cümle ayırma
 ├── references/
-│   ├── FORMAT.md             sayfa veri formatı ve çevirmen agent sözleşmesi
+│   ├── FORMAT.md             sayfa veri formatı, kavram kartları, agent sözleşmesi
 │   ├── translation-style.md  çeviri kuralları
 │   └── extraction.md         çıkarım ayarları ve akort rehberi
 └── templates/project/        init ile kopyalanan okuyucu iskeleti
