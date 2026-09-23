@@ -8,7 +8,7 @@ import _paths  # noqa: F401
 from extraction.block_builder import ChapterOpener
 from extraction.odl_elements import OdlElements
 from extraction.tables.table_grid import TableGrid
-from extraction.tables.table_scan import TableCell
+from extraction.tables.table_cell import TableCell
 from extraction.text_layer.layout_scan import CodeListing, ProseRepairs
 from page_document import PageDocument
 

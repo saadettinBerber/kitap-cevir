@@ -131,7 +131,8 @@ class MathScanner:
                 yield spans
 
     def _is_math(self, span):
-        return span["font"].startswith(self.prefix)
+        """Boş önek "bu kitapta denklem fontu yok" demektir; startswith("") her fontla eşleşirdi."""
+        return bool(self.prefix) and span["font"].startswith(self.prefix)
 
     def _is_caption(self, spans):
         """Denklem başlığı ("Equation 3-3. Abstractness") denklemin hemen

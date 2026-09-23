@@ -58,6 +58,10 @@ class MathScanTest(unittest.TestCase):
         result = MathScanner({"math_font_prefix": "NoSuchFont"}, self.images).scan(self.pdf, 1)
         self.assertEqual(result, {"display": [], "inline": []})
 
+    def test_empty_prefix_means_no_math_font(self):
+        result = MathScanner({"math_font_prefix": ""}, self.images).scan(self.pdf, 1)
+        self.assertEqual(result, {"display": [], "inline": []})
+
 
 if __name__ == "__main__":
     unittest.main()
