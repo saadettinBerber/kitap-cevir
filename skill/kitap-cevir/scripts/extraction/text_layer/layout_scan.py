@@ -1,6 +1,6 @@
 """PyMuPDF ile sayfa düzenini tarar: kod listeleri (girintili), satır içi kod
-parçaları, tire ile bölünmüş özel isimler ve alt/üst simge düzeltmeleri. Satır
-hazırlığı code_lines'tadır.
+parçaları, tire ile bölünmüş özel isimler, alt/üst simge düzeltmeleri ve
+e-kitabın kod görseli bağlantıları. Satır hazırlığı code_lines'tadır.
 
 OpenDataLoader kod listelerini satır satır paragraf sanır, girintiyi atar ve
 "McGraw-\\nHill" gibi tireleri siler; bu modül o kayıpları telafi eder.
@@ -99,11 +99,38 @@ class ProseRepairs:
         return (head + tail, head + "-" + tail) if head and tail else ("", "")
 
 
+class CodeImageLinkLines:
+    """E-kitap kökenli PDF'lerde her kod listesinin üstündeki bağlantı satırları
+    ("Click here to view code image"). Desen satırın tamamıyla eşleşir: metin
+    içinde bağlantıdan söz eden cümle bağlantı değildir. Desen boşsa kapalıdır."""
+
+    def __init__(self, lines, pattern):
+        self.lines = lines
+        self.pattern = re.compile(pattern) if pattern else None
+
+    def slots(self):
+        """{text, y0, y1}: bağlantı satırı, komşu satırlara kadarki boşluğuyla.
+        ODL bağlantıyı komşu satırla tek öğede birleştirir; şerit öğeden
+        kesilince kalan satırlar gerçek yüksekliğine döner."""
+        return [self._slot(line) for line in self.lines if self._is_link(line)]
+
+    def _is_link(self, line):
+        return bool(self.pattern and self.pattern.fullmatch(line.text.strip()))
+
+    def _slot(self, link):
+        slot_top = max((line.bottom for line in self.lines if line.bottom <= link.top), default=link.top)
+        slot_bottom = min((line.top for line in self.lines if line.top >= link.bottom), default=link.bottom)
+        return {"text": link.text.strip(), "y0": slot_top, "y1": slot_bottom}
+
+
 class LayoutScanner:
-    """Bir sayfanın metin katmanını kod listelerine ve metin onarımlarına çevirir."""
+    """Bir sayfanın metin katmanını kod listelerine, metin onarımlarına ve
+    bağlantı şeritlerine çevirir."""
 
     def __init__(self, settings=None):
-        self.code_font = CodeFont(settings or DEFAULT_EXTRACTION)
+        settings = settings or DEFAULT_EXTRACTION
+        self.code_font = CodeFont(settings)
+        self.code_image_link_pattern = settings["code_image_link_pattern"]
 
     def scan(self, pdf_path, pdf_page):
         with fitz.open(pdf_path) as document:
@@ -116,9 +143,10 @@ class LayoutScanner:
                 "code_blocks": [listing.region() for listing in CodeListing.group(lines)],
                 "inline_code": repairs.inline_code_tokens(),
                 "hyphen_fixes": {**repairs.hyphenated_names(), **scripts.for_code()},
-                "script_fixes": scripts.for_prose()}
+                "script_fixes": scripts.for_prose(),
+                "code_image_links": CodeImageLinkLines(lines, self.code_image_link_pattern).slots()}
 
 
 def scan_page(pdf_path, pdf_page, settings=None):
-    """{page_height, code_blocks, inline_code, hyphen_fixes, script_fixes}"""
+    """{page_height, code_blocks, inline_code, hyphen_fixes, script_fixes, code_image_links}"""
     return LayoutScanner(settings).scan(pdf_path, pdf_page)

@@ -40,7 +40,8 @@ class PageExtractor:
         regions = PageRegions.from_layout(
             layout, scan_tables(pdf_path, pdf_page, self.settings) + math["display"], self._code_block)
         body = (OdlElements(body).flatten_nested_lists().drop_nested_fragments().merge_footnote_markers()
-                .with_inline_math(math["inline"], layout["page_height"]).items)
+                .with_inline_math(math["inline"], layout["page_height"])
+                .without_code_image_links(layout["code_image_links"], layout["page_height"]).items)
         builder = BlockBuilder(self.settings, TextFixer(layout))
         return {"blocks": ChapterOpener(regions.place(body, builder.blocks_of)).merged(),
                 "running_header": header, "math": self._inline_images(math)}

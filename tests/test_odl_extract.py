@@ -2,6 +2,8 @@ import unittest
 
 import _paths  # noqa: F401
 from extraction.block_builder import BlockBuilder
+from extraction.odl_elements import OdlElements
+from extraction.page_regions import PageRegions, Region
 from extraction.page_zones import InvalidRunningHeader, PageZones
 from project import DEFAULT_EXTRACTION
 
@@ -123,6 +125,44 @@ class ChapterLabelTest(unittest.TestCase):
     def test_pattern_is_disabled_by_default(self):
         blocks = _builder().blocks_of(_element("CHAPTER 7", BODY_Y))
         self.assertEqual(blocks[0]["type"], "para")
+
+
+class CodeImageLinkTest(unittest.TestCase):
+    """E-kitap kökenli PDF'lerde her kod listesinin üstünde bir bağlantı satırı
+    vardır; kitabın içeriği değildir. ODL onu komşu satırla tek öğede birleştirebilir."""
+
+    LINK = "Click here to view code image"
+    PAGE_HEIGHT = 800
+    # Üst orijinli: bağlantı satırı 60-70'te, şeridi komşu satırlara kadar 50-80;
+    # ODL'de (sol-alt orijin) bağlantı 730-740, şerit 720-750, kod satırı 710-720.
+    SLOT = {"text": LINK, "y0": 50, "y1": 80}
+    CODE_LINE = {"y0": 80, "y1": 90}
+
+    def _without_links(self, *elements):
+        return OdlElements(list(elements)).without_code_image_links([self.SLOT], self.PAGE_HEIGHT).items
+
+    def test_element_that_is_only_the_link_is_dropped(self):
+        self.assertEqual(self._without_links(_element(self.LINK, (70, 730, 430, 740), "heading")), [])
+
+    def test_code_glued_under_the_link_keeps_its_text_and_loses_the_slot(self):
+        [element] = self._without_links(_element(f"{self.LINK} // Two classes", (70, 710, 430, 740)))
+        self.assertEqual(element["content"], "// Two classes")
+        self.assertEqual(element["bounding box"], [70, 710, 430, 720])
+
+    def test_one_line_listing_glued_under_the_link_is_placed_as_code(self):
+        code = {"type": "code", "lang": "java", "code": "// Two classes"}
+        regions = PageRegions([Region(self.CODE_LINE, self.PAGE_HEIGHT, code)])
+        glued = _element(f"{self.LINK} // Two classes", (70, 710, 430, 740))
+        self.assertEqual(regions.place(self._without_links(glued), _builder().blocks_of), [code])
+
+    def test_prose_glued_above_the_link_is_kept_above_the_slot(self):
+        [element] = self._without_links(_element(f"reduces the time to 9.2 seconds: {self.LINK}", (70, 730, 430, 780)))
+        self.assertEqual(element["content"], "reduces the time to 9.2 seconds:")
+        self.assertEqual(element["bounding box"], [70, 750, 430, 780])
+
+    def test_elements_away_from_the_link_are_untouched(self):
+        body, image = _element("Body text", BODY_Y), {"type": "image", "bounding box": [70, 100, 430, 300]}
+        self.assertEqual(self._without_links(body, image), [body, image])
 
 
 if __name__ == "__main__":

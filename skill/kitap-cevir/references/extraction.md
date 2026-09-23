@@ -65,6 +65,7 @@ kullanılır; varsayılanlar 6x9 inç teknik kitap dizgisi için ayarlanmıştı
 | `math_geometry`            | `false`               | Denklemleri düz metinle dizen kitaplarda (Type3 fontu yok) denklemi kesir çizgisinden bul: dar, yatay, sütun kenarından başlamayan çizginin çevresindeki satırlar tek `math` bloğu (PNG) olur. |
 | `chapter_header_prefix`    | `"Chapter "`          | Koşu başlığı bu önekle başlıyorsa bölüm sayfasıdır, kesit adı değildir. |
 | `chapter_label_pattern`    | `""` (kapalı)         | Bölüm açılışındaki etiket satırı (`"^CHAPTER (\\d+)$"`); eşleşen satır paragraf değil bölüm numarası olur ve bölüm başlığıyla birleşir. |
+| `code_image_link_pattern`  | `""` (kapalı)         | E-kitap kökenli PDF'lerde her kod listesinin üstündeki bağlantı satırı (`"Click here to view code image"`). Desen **satırın tamamıyla** eşleşir; eşleşen satır atılır, ODL'nin ona yapıştırdığı kod satırı kod listesine döner. Metin içinde bağlantıdan söz eden cümleye dokunulmaz. |
 | `default_code_language`    | `"java"`              | Kod bloklarının vurgulama dili. |
 
 ## Ayarları ölçmek
@@ -100,6 +101,7 @@ Ayarları değiştirdikten sonra `prepare_page.py <sayfa>` ile bir sayfayı yeni
 | Kesit başlıkları paragraf oluyor | başlık boyut eşiği yüksek | `section_min_size` / `subsection_min_size` düşür |
 | Dipnotlar paragraf oluyor | `footnote_max_size` düşük | dipnot font boyutunu ölçüp ayarla |
 | Listing caption'ları başlık oluyor | desen uymuyor | `listing_caption_pattern` (örn. `"^Example \\d+\\.\\d+"`) |
+| Her kod listesinin üstünde "Click here to view code image" başlığı ya da paragrafı var | e-kitabın kod görseli bağlantısı | `code_image_link_pattern: "Click here to view code image"` |
 | Tablo düz paragraf/heading olarak geliyor | hücrelerde ne dolgu dikdörtgeni ne ODL'nin tanıdığı kenarlık çizgisi var | Çizgisiz tablolar sütun hizasından yakalanır: kalın başlık + hizalı satırlar (en az 4 satır; sayfanın son satırına uzanıyorsa başlık + 1 satır yeter) ve sayfayı açan başlıksız devam (`header_rows: 0`). Başlığı kalın olmayan, çok satırlı hücreli ya da sayfa ortasında başlıksız tablolar için otomatik yol yok: hücreleri `_work/in/page-N.json`'da elle `table` bloğuna çevir |
 | Denklem kayboluyor ya da parçalanıyor | denklem fontu `Type3` değil | `inspect_pdf.py <pdf> layout N` ile denklem satırının fontunu bul, `math_font_prefix` ayarla |
 | Formüldeki üst simge ayrı satır oluyor | üst simge kod fontunda değil (ör. italik serif) | Bilinen sınırlama: yalnız kod fontlu alt/üst simgeler bağlanır |

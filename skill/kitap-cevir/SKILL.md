@@ -249,6 +249,7 @@ denklem LaTeX'i aynen kalır.
 | Sayfadan koca bir bölüm (tablo, başlık, paragraf) eksik | ODL caption'ı liste sanıp altına gömmüş olabilir; `flatten_nested_lists` bunu açar, açmıyorsa ham ODL çıktısına bak |
 | Tablo düz metin olarak geliyor | Dolgulu (zebra), kenarlık çizgili ve kalın başlıklı sütun hizalı tablolar (sayfaya bölünmüşleri dahil) otomatik yakalanır. Geri kalanı elle `table` bloğuna çevrilir (`references/extraction.md` belirti tablosu) |
 | Sayfanın ilk paragrafı çıkarımda yok | Kitapta koşu başlığı yok: `extraction.running_header` = `"none"` |
+| Kod listelerinin üstünde "Click here to view code image" | E-kitap bağlantısı: `extraction.code_image_link_pattern` = `"Click here to view code image"` |
 | Çıkarım düzeldi ama eski sayfalar eski yapıda | **D. Taşıma** (yeniden çeviri gerekmez) |
 | Okuyucu eski veriyi gösteriyor | `index.html`'deki `?v=N` sürüm ekini artır |
 | Kavram kartları sayfanın konusuyla ilgisiz kod örneğine dönüşüyor | `progress.json → concepts.kinds` listesini kitaba göre daralt (A.4 tablosu), sonra **C. Kavram kartları** |

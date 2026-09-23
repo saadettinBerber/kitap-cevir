@@ -37,6 +37,7 @@ DEFAULT_EXTRACTION = {
     "math_geometry": False,
     "chapter_header_prefix": "Chapter ",
     "chapter_label_pattern": "",
+    "code_image_link_pattern": "",
     "default_code_language": "java",
 }
 

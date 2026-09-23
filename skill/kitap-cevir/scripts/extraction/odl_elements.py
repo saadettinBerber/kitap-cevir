@@ -1,6 +1,7 @@
 """ODL'nin düz öğe listesi üzerindeki düzeltmeler; bloklar kurulmadan önce
-uygulanır: gömülü liste içeriği, alt/üst simge parçaları, dipnot işaretleri ve
-satır içi denklemler. ODL koordinatları sol-alt orijinlidir.
+uygulanır: gömülü liste içeriği, alt/üst simge parçaları, dipnot işaretleri,
+satır içi denklemler ve e-kitabın kod görseli bağlantıları. ODL koordinatları
+sol-alt orijinlidir.
 """
 import re
 
@@ -67,6 +68,21 @@ class OdlElements:
         overlap = min(bbox_of(marker)[3], bbox_of(element)[3]) - max(bbox_of(marker)[1], bbox_of(element)[1])
         return overlap > 0 and bbox_of(element)[0] > bbox_of(marker)[0]
 
+    def without_code_image_links(self, slots, page_height):
+        """E-kitabın kod görseli bağlantılarını (text_layer CodeImageLinkLines) öğelerden
+        çıkarır. Bağlantıya yapışmış kod satırı böylece gerçek yüksekliğine döner ve
+        kod bölgesine düşer; yalnız bağlantıdan oluşan öğe atılır."""
+        links = [CodeImageLink(slot, page_height) for slot in slots]
+        return OdlElements([kept for element in self.items for kept in self._without_links(element, links)])
+
+    @staticmethod
+    def _without_links(element, links):
+        """[bağlantılarından arınmış öğe]; öğe yalnız bağlantıdan oluşuyorsa []."""
+        present = [link for link in links if link.is_in(element)]
+        for link in present:
+            element = link.cut_from(element)
+        return [element] if element.get("content") or not present else []
+
     def with_inline_math(self, items, page_height):
         """Satır içi denklemleri ev sahibi öğenin metnine yerleştirir: basit sembol
         düz metin, karmaşık denklem ⟦eq-N⟧ yer tutucusu."""
@@ -99,3 +115,29 @@ class OdlElements:
         if item["before"]:
             return re.subn(before, f"{item['before']} {insert}", text, count=1)
         return f"{text} {insert}", 1
+
+
+class CodeImageLink:
+    """Metin katmanının bulduğu bir kod görseli bağlantısı ve şeridi, ODL koordinatında."""
+
+    def __init__(self, slot, page_height):
+        self.text = slot["text"]
+        self.bottom, self.top = page_height - slot["y1"], page_height - slot["y0"]
+
+    def is_in(self, element):
+        return self.text in (element.get("content") or "") and self._overlaps_vertically(bbox_of(element))
+
+    def _overlaps_vertically(self, box):
+        return self.bottom < box[3] and box[1] < self.top
+
+    def cut_from(self, element):
+        content = element["content"].replace(self.text, "", 1).strip()
+        return {**element, "content": content, "bounding box": self._box_without_slot(bbox_of(element))}
+
+    def _box_without_slot(self, box):
+        """Şerit kutunun üst yarısındaysa bağlantı öğenin başındadır, alt kısım
+        kalır; alt yarısındaysa sonundadır, üst kısım kalır."""
+        x0, bottom, x1, top = box
+        if (self.bottom + self.top) / 2 > (bottom + top) / 2:
+            return [x0, bottom, x1, min(top, self.bottom)]
+        return [x0, max(bottom, self.top), x1, top]
