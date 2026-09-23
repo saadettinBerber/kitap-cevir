@@ -51,19 +51,16 @@ def _section_of(progress, page, header):
     return _previous_section(progress, page)
 
 
-def _page_text(pdf, pdf_page):
-    document = fitz.open(pdf)
-    try:
-        return document[pdf_page - 1].get_text()
-    finally:
-        document.close()
+def _page_text(document, pdf_page):
+    """İlk sayfanın öncesi ve son sayfanın sonrası boş metindir."""
+    if not 1 <= pdf_page <= document.page_count:
+        return ""
+    return normalize_spaces(document[pdf_page - 1].get_text())
 
 
-def _context_snippets(pdf, pdf_page):
-    previous = normalize_spaces(_page_text(pdf, pdf_page - 1))
-    following = normalize_spaces(_page_text(pdf, pdf_page + 1))
-    return {"prev_tail": previous[-CONTEXT_CHARS:],
-            "next_head": following[:CONTEXT_CHARS]}
+def context_snippets(document, pdf_page):
+    return {"prev_tail": _page_text(document, pdf_page - 1)[-CONTEXT_CHARS:],
+            "next_head": _page_text(document, pdf_page + 1)[:CONTEXT_CHARS]}
 
 
 class PagePreparer:
@@ -88,8 +85,12 @@ class PagePreparer:
             "math": extracted["math"],
             "concepts": [], "concepts_spec": concepts_settings(self.progress),
             "glossary_new": [],
-            "context": _context_snippets(self.pdf, pdf_page),
+            "context": self._context(pdf_page),
         }
+
+    def _context(self, pdf_page):
+        with fitz.open(self.pdf) as document:
+            return context_snippets(document, pdf_page)
 
     def write_input(self, document):
         os.makedirs(self.project.work_in, exist_ok=True)

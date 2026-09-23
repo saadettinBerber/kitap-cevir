@@ -99,10 +99,18 @@ class Glossary:
     def add(self, new_terms):
         """Sözlükte olmayan terimleri ekler ve glossary.md'yi yazar; eklenen sayısı."""
         known = {self._key(term) for term in self.terms}
-        added = [term for term in new_terms if term.get("en") and self._key(term) not in known]
+        added = [term for key, term in self._first_of_each(new_terms).items() if key not in known]
         self.terms += [{"en": t["en"], "tr": t.get("tr", ""), "note": t.get("note", "")} for t in added]
         self._write_md()
         return len(added)
+
+    @classmethod
+    def _first_of_each(cls, terms):
+        """Aynı sayfada yalnız harf büyüklüğüyle ayrılan terimlerden ilki kalır."""
+        unique = {}
+        for term in (term for term in terms if term.get("en")):
+            unique.setdefault(cls._key(term), term)
+        return unique
 
     def _write_md(self):
         self.terms = sorted(self.terms, key=self._key)

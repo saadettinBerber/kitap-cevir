@@ -49,6 +49,15 @@ class ReaderDataTest(unittest.TestCase):
         terms = Glossary(self.project).terms
         self.assertEqual([t["en"] for t in terms], ["Abstraction", "Refactoring"])
 
+    def test_glossary_adds_a_repeated_new_term_once(self):
+        added = Glossary(self.project).add([{"en": "Zeta Term", "tr": "Zeta"}, {"en": "zeta term", "tr": "zeta"}])
+        self.assertEqual(added, 1)
+        self.assertEqual([t["tr"] for t in Glossary(self.project).terms], ["Yeniden Düzenleme (Refactoring)", "Zeta"])
+
+    def test_glossary_skips_terms_without_english(self):
+        self.assertEqual(Glossary(self.project).add([{"en": "", "tr": "boş"}, {"tr": "yok"}]), 0)
+        self.assertEqual(len(Glossary(self.project).terms), 1)
+
     def test_glossary_js_is_generated(self):
         Glossary(self.project).write_js()
         entries = self._js_payload(self.project.glossary_js, "window.GLOSSARY = ")
