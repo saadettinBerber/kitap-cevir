@@ -51,9 +51,17 @@ class FinalizeTest(unittest.TestCase):
         self.assertIn("Heading", open(self.project.glossary_md, encoding="utf-8").read())
         self.assertTrue(os.path.isfile(self.project.toc_js))
 
-    def test_finalize_reports_card_problems(self):
+    def test_page_without_cards_waits_for_the_card_step(self):
         result = PageFinalizer(self.project).finalize(self.out)
-        self.assertEqual(result["card_problems"], ["kart sayısı 0 (2-4 olmalı)"])
+        self.assertEqual((result["cards_pending"], result["card_problems"]), (True, []))
+
+    def test_finalize_reports_card_problems(self):
+        card = {"id": "tek", "kind": "explain", "title": {"en": "T", "tr": "B"},
+                "summary": {"en": "S", "tr": "Ö"}, "tip": {"en": "T", "tr": "İ"}}
+        with open(self.out, "w", encoding="utf-8") as handle:
+            json.dump({**DOCUMENT, "concepts": [card]}, handle, ensure_ascii=False)
+        result = PageFinalizer(self.project).finalize(self.out)
+        self.assertEqual((result["cards_pending"], result["card_problems"]), (False, ["kart sayısı 1 (2-4 olmalı)"]))
 
     def test_page_js_round_trips(self):
         result = PageFinalizer(self.project).finalize(self.out)

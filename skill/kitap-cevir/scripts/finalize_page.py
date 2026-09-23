@@ -3,7 +3,8 @@
   2. progress.json'da sayfayı kaydeder, last_translated_page'i ilerletir
   3. glossary_new terimlerini glossary.md'ye ekler
   4. data/toc.js ve data/glossary.js dosyalarını yeniden üretir
-  5. kavram kartlarını kitabın kart ayarlarına göre denetler (uyarı basar)
+  5. kavram kartları varsa kitabın kart ayarlarına göre denetler; yoksa kart
+     adımının beklediğini bildirir (kartlar çeviriden sonra üretilir)
 
 Kullanım (proje dizininde): python3 finalize_page.py _work/out/page-N.json
 """
@@ -36,9 +37,17 @@ class PageFinalizer:
         page_js = page.write(self.project.pages_dir)
         images = self._copy_images(page)
         progress = self._register(page.data)
+        cards = page.data.get("concepts", [])
         return {"page_js": page_js, "images": images, "terms": self._rebuild_reader_data(page, progress),
                 "untranslated": page.missing_translations(), "page": page.data["page"],
-                "card_problems": CardChecker(concepts_settings(progress)).problems(page.data.get("concepts", []))}
+                "cards_pending": not cards, "card_problems": self._card_problems(cards, progress)}
+
+    @staticmethod
+    def _card_problems(cards, progress):
+        """Kartlar çeviriden sonra ayrı üretilir; kartsız sayfa sorun değil, bekleyen iştir."""
+        if not cards:
+            return []
+        return CardChecker(concepts_settings(progress)).problems(cards)
 
     def _read(self, translated_path):
         page = PageDocument(read_json(translated_path))
@@ -95,8 +104,14 @@ def main():
     result = PageFinalizer(project).finalize(sys.argv[1])
     print(f"✓ Sayfa {result['page']}: {project.relative(result['page_js'])} yazıldı, "
           f"{result['images']} görsel, {result['terms']} yeni terim; toc.js + glossary.js güncellendi")
+    _print_notes(result)
+
+
+def _print_notes(result):
     if result["untranslated"]:
         print(f"  ! UYARI: {result['untranslated']} metin biriminin 'tr' alanı boş")
+    if result["cards_pending"]:
+        print(f"  kartlar bekliyor: regen_concepts.py prepare {result['page']} (SKILL.md → C)")
     for problem in result["card_problems"]:
         print(f"  ! KART: {problem}")
 

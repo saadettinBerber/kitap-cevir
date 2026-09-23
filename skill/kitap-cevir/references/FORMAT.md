@@ -72,7 +72,8 @@ Her sayfa için 2-4 kart. Kart, sayfanın öğrettiği bir kavramı okurun aklı
 sabitler. **Biçimi kalıp değil konu belirler:** her kartın `kind` alanı vardır
 ve çevirmen türü kart kart seçer. Aynı sayfada farklı türde kartlar olabilir.
 Kitabın izin verdiği türler `progress.json → concepts.kinds` ile belirlenir
-(girdide `concepts_spec.kinds`; varsayılan: dördü de).
+(kart agent'ının girdisinde `concepts_spec.kinds`; varsayılan: dördü de).
+Kartlar çeviriden sonra, ayrı bir kart agent'ıyla üretilir (SKILL.md → C).
 
 | `kind` | Ne zaman | Alanlar |
 |--------|----------|---------|
@@ -125,9 +126,11 @@ Kurallar:
 - `contrast` kartında `text` yerine kısa bir `code` parçası kullanılabilir;
   metin öncelikli.
 
-`finalize_page.py` ve `regen_concepts.py` kartları `scripts/concept_check.py`
-ile denetler: kart sayısı, izinli tür, zorunlu iki dilli alanlar, kod dili,
-seçenek sayısı, tekrar eden `id`. Sorunlar `! KART:` satırı olarak basılır.
+`regen_concepts.py apply` kartları `scripts/concept_check.py` ile denetler:
+kart sayısı, izinli tür, zorunlu iki dilli alanlar, kod dili, seçenek sayısı,
+tekrar eden `id`. Sorunlu sayfa yazılmaz, sorunlar basılır. `finalize_page.py`
+kart taşıyan sayfayı da denetler (`! KART:`); kartsız sayfa için
+`kartlar bekliyor` der.
 
 `kind` alanı olmayan eski kartların türü içerikten çıkarılır (`bad.code` →
 `code`, `bad.text` → `contrast`, `options` → `tradeoff`, hiçbiri → `explain`);
@@ -149,8 +152,8 @@ yukarıdaki şemanın yalnız `en` tarafını içerir; ayrıca bağlam için
 2. `section.tr`, `title.en`, `title.tr` alanlarını doldurur (`section.en`
    hazırlayıcı tarafından koşu başlığından tahmin edilir; yanlışsa düzeltir).
 3. `chapter.tr` boşsa doldurur (bölüm tablosunda çeviri varsa onu kullanır).
-4. `concepts` listesini (2-4 kart) yukarıdaki kurallarla üretir; her kartın
-   türü `concepts_spec.kinds` içinden, konuya göre seçilir.
+4. `concepts` listesini boş bırakır: kartlar çeviri bittikten sonra ayrı bir
+   kart agent'ıyla üretilir (SKILL.md → C).
 5. Sayfada geçen ve `glossary.md`'de olmayan yeni terimleri `glossary_new`
    listesine yazar: `[{ "en": "...", "tr": "...", "note": "..." }]`.
    Yeni terim yoksa boş liste bırakır.

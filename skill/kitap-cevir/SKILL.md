@@ -1,6 +1,6 @@
 ---
 name: kitap-cevir
-description: İngilizce bir PDF kitabı sayfa sayfa Türkçeye çevirip iki dilli, kitap görünümlü interaktif okuyucuya ekler. "init" ile yeni kitap projesi (okuyucu iskeleti + progress.json + sözlük) kurar; sayfa numarası veya "next / sıradaki sayfa" ile çeviri yapar; "cards" ile çevrilmiş sayfaların kavram kartlarını yeniden üretir; "migrate" ile çevrilmiş sayfaları yeni çıkarıma taşır. Tetikleyiciler - /kitap-cevir, "kitap çevir", "PDF kitabı çevir", "yeni kitap projesi", "sıradaki sayfa", "devam et", "okuyucu iskeleti", "kartları yenile".
+description: İngilizce bir PDF kitabı sayfa sayfa Türkçeye çevirip iki dilli, kitap görünümlü interaktif okuyucuya ekler. "init" ile yeni kitap projesi (okuyucu iskeleti + progress.json + sözlük) kurar; sayfa numarası veya "next / sıradaki sayfa" ile çeviri yapar, kavram kartlarını çeviriden sonra ayrı üretir; "cards" ile çevrilmiş sayfaların kartlarını yeniden üretir; "migrate" ile çevrilmiş sayfaları yeni çıkarıma taşır. Tetikleyiciler - /kitap-cevir, "kitap çevir", "PDF kitabı çevir", "yeni kitap projesi", "sıradaki sayfa", "devam et", "okuyucu iskeleti", "kartları yenile".
 argument-hint: "[init | N | next | next --count K | cards N-M|all | migrate N|all | backfill]"
 allowed-tools: ["Read", "Write", "Edit", "Bash", "Glob", "Grep", "Agent"]
 ---
@@ -25,7 +25,7 @@ SKILL="${CLAUDE_SKILL_DIR}"
 |----------------------|-----|
 | `init`, "yeni kitap projesi", "bu PDF'i kur" | **A. Kurulum** |
 | sayı (`55`), `next`, boş, "sıradaki sayfa", "devam et", `next --count 3` | **B. Sayfa çevirisi** |
-| `cards 5-40`, `cards all`, "kartları yenile" | **C. Kart yenileme** |
+| `cards 5-40`, `cards all`, "kartları yenile" | **C. Kavram kartları** |
 | `migrate 5 13`, `migrate all`, "sayfaları yeni çıkarıma taşı" | **D. Taşıma** |
 | `backfill` | Çevrilmiş sayfalara PDF görsellerini geriye dönük ekle: `python3 $SKILL/scripts/backfill_images.py [N ...]` |
 
@@ -114,12 +114,17 @@ sen çıkar.
    ```
    `data/pages/page-N.js` yazılır, görseller kopyalanır, `progress.json`
    ilerler, `glossary_new` terimleri `glossary.md`'ye eklenir, `data/toc.js` ve
-   `data/glossary.js` yeniden üretilir. `UYARI: ... 'tr' alanı boş` ya da
-   `! KART: ...` satırları çıkarsa çıktı JSON'unu düzelt ve yeniden çalıştır.
-5. **Doğrula ve raporla**: `data/pages/page-N.js`'yi kısaca kontrol et
-   (Türkçe karakterler, kod bloğu bozulmamış). Kullanıcıya hangi sayfaların
-   çevrildiğini ve sıradaki sayfa numarasını bildir.
-6. **Commit ve push**: projenin `CLAUDE.md` kuralına göre. Varsayılan mesaj:
+   `data/glossary.js` yeniden üretilir. `UYARI: ... 'tr' alanı boş` satırı
+   çıkarsa çıktı JSON'unu düzelt ve yeniden çalıştır. `kartlar bekliyor`
+   satırı normaldir: kartlar bir sonraki adımda üretilir.
+5. **Kartlar en son**: çevrilen sayfalar sonlandırıldıktan sonra, aynı sayfalar
+   için **C.2-C.4** adımlarını çalıştır. Kart agent'ı kesinleşmiş Türkçe metni
+   ve güncel sözlüğü görür; ardışık sayfalar tek agent'ta toplandığı için
+   komşu sayfalarda aynı kavram tekrar kart olmaz.
+6. **Doğrula ve raporla**: `data/pages/page-N.js`'yi kısaca kontrol et
+   (Türkçe karakterler, kod bloğu bozulmamış, kartlar çiziliyor). Kullanıcıya
+   hangi sayfaların çevrildiğini ve sıradaki sayfa numarasını bildir.
+7. **Commit ve push**: projenin `CLAUDE.md` kuralına göre. Varsayılan mesaj:
    `Sayfa N çevirisi eklendi — Chapter X: Title`; yapay zeka imzası yok.
 
 ### Çevirmen agent şablonu
@@ -145,20 +150,19 @@ ve sayfa düzeyindeki `math` listesinin PNG'lerini (<proje>/_work/in/page-N_imag
 aç, her birinin `latex` alanına KaTeX ile çizilebilir LaTeX yaz ($ işareti yok).
 [translator.vision=false ise ekle:] `latex` alanlarını boş bırak; okuyucu PNG kullanır.
 `section.tr`, `title.en`, `title.tr`, boşsa `chapter.tr` doldur.
-Kavram kartları: 2-4 kart, FORMAT.md "Kavram kartları" bölümüne göre. Önce
-sayfanın öğrettiği kavramları seç, sonra her biri için `concepts_spec.kinds`
-içinden konuya uyan türü seç; kalıba uysun diye konuyu değiştirme, sayfada
-anlatılmayan bir kod örneği uydurma. Sözlükte olmayan terimleri
+`concepts` listesini boş bırak: kavram kartları çeviriden sonra ayrı üretilir.
+Sözlükte olmayan terimleri
 `glossary_new`'e yaz. `context` alanı yalnız bağlam içindir, çevrilmez. Özet
 yasaktır; her cümle tam çevrilir. Parantezli terminoloji, iki dilli başlıklar,
 doğru Türkçe karakterler.
 Çıktıyı <proje>/_work/out/page-N.json olarak UTF-8 kaydet; başka bir şey yazma.
 ```
 
-## C. Kart yenileme (`cards`)
+## C. Kavram kartları (`cards`)
 
-Çevrilmiş sayfaların metnine dokunmadan yalnız `concepts` listesini yeniden
-ürettirir (kart türleri değiştiğinde ya da kartlar sayfayla ilgisiz çıktığında).
+Kartlar çeviriden ayrı ve en son üretilir; sayfa metnine dokunulmaz. Bu akış
+hem yeni çevrilen sayfalar için (B.5) hem de kart türleri değiştiğinde ya da
+kartlar sayfayla ilgisiz çıktığında tüm sayfaları yenilemek için kullanılır.
 
 1. Gerekirse önce `progress.json → concepts.kinds` listesini kitaba göre ayarla
    (A.4'teki tablo). Okuyucu dosyaları eskiyse (`js/concepts.js`,
@@ -167,24 +171,30 @@ doğru Türkçe karakterler.
 2. **Hazırla**: `python3 $SKILL/scripts/regen_concepts.py prepare 5-40`
    (`all`, tek tek numaralar ya da aralıklar) → `_work/cards/in/page-N.json`:
    sayfanın iki dilli metni (`content`), başlıklar ve `concepts_spec`.
-3. **Kart agent'ları**: sayfa başına bir `general-purpose` agent, tek mesajda
-   paralel (bir seferde en çok ~10). Şablon (yolları mutlak yaz):
+3. **Kart agent'ları**: ardışık en çok 5 sayfa bir agent'a (aynı bölümün
+   sayfaları bir arada; bölüm sınırında grup kesilir). `general-purpose`
+   agent'lar tek mesajda paralel, bir seferde en çok ~10. Şablon (yolları
+   mutlak yaz, `A..B` yerine gruptaki sayfaları):
    ```
    Şu dosyaları oku: $SKILL/references/FORMAT.md ("Kavram kartları" bölümü),
-   <proje>/glossary.md, <proje>/_work/cards/in/page-N.json.
-   Görev: sayfanın `content` metninden 2-4 kavram kartı üret. Önce sayfanın
-   öğrettiği kavramları seç, sonra her biri için `concepts_spec.kinds` içinden
-   konuya uyan türü seç. Konuyu kalıba uydurma; sayfada anlatılmayan kod
-   örneği uydurma. Türkçe terimler sayfanın `tr` metni ve sözlükle tutarlı olsun.
-   Çıktı: <proje>/_work/cards/out/page-N.json = {"concepts": [...]} (UTF-8);
-   başka bir şey yazma.
+   <proje>/glossary.md ve <proje>/_work/cards/in/page-A.json .. page-B.json
+   (ardışık sayfalar; birbirlerinin bağlamıdır).
+   Görev: HER sayfa için o sayfanın `content` metninden 2-4 kavram kartı üret.
+   Önce sayfanın öğrettiği kavramları seç, sonra her biri için
+   `concepts_spec.kinds` içinden konuya uyan türü seç. Konuyu kalıba uydurma;
+   sayfada anlatılmayan kod örneği uydurma. Bir kavram birden çok sayfada
+   geçiyorsa kartı onu asıl anlatan sayfaya koy, komşu sayfada tekrarlama.
+   Türkçe terimler sayfanın `tr` metni ve sözlükle tutarlı olsun.
+   Çıktı: her sayfa için <proje>/_work/cards/out/page-N.json =
+   {"concepts": [...]} (UTF-8); başka bir şey yazma.
    ```
 4. **Uygula**: `python3 $SKILL/scripts/regen_concepts.py apply 5-40`. Kartlar
    denetlenir; geçerliyse `data/pages/page-N.js`'e yazılır. Sorunlu sayfalar
    yazılmaz, sorunlar basılır: o sayfaların çıktısını düzelt (ya da agent'ı
    yeniden çalıştır) ve yalnız onlar için `apply`'ı tekrarla.
 5. Raporla (yazılan / sorunlu sayfa sayısı) ve projenin `CLAUDE.md` kuralına
-   göre commit: `Sayfa A-B kavram kartları yenilendi`.
+   göre commit: yeni çeviride B.7'deki mesaj, yenilemede
+   `Sayfa A-B kavram kartları yenilendi`.
 
 ## D. Taşıma (`migrate`)
 
@@ -223,7 +233,7 @@ denklem LaTeX'i aynen kalır.
 | Tablo düz metin olarak geliyor | Dolgulu (zebra) ve kenarlık çizgili tablolar otomatik yakalanır. Çizgisiz ve dolgusuz tablolar için otomatik yol **yok** (bilinen sınırlama): hücreleri `_work/in/page-N.json`'da elle `table` bloğuna çevir (`references/extraction.md` belirti tablosu) |
 | Çıkarım düzeldi ama eski sayfalar eski yapıda | **D. Taşıma** (yeniden çeviri gerekmez) |
 | Okuyucu eski veriyi gösteriyor | `index.html`'deki `?v=N` sürüm ekini artır |
-| Kavram kartları sayfanın konusuyla ilgisiz kod örneğine dönüşüyor | `progress.json → concepts.kinds` listesini kitaba göre daralt (A.4 tablosu), sonra **C. Kart yenileme** |
+| Kavram kartları sayfanın konusuyla ilgisiz kod örneğine dönüşüyor | `progress.json → concepts.kinds` listesini kitaba göre daralt (A.4 tablosu), sonra **C. Kavram kartları** |
 | `! KART: tür 'code' bu kitapta izinli değil` | Agent izinsiz tür seçmiş; çıktıyı düzelt ya da `concepts.kinds`'ı gözden geçir |
 
 ## Ayrıntılı referanslar (gerektiğinde oku)

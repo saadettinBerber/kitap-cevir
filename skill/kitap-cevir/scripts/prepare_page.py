@@ -15,7 +15,7 @@ import sys
 from json_file import write_json
 from page_document import PageDocument
 from page_input import PageInputBuilder
-from project import Project, concepts_settings, translator_has_vision
+from project import Project, translator_has_vision
 
 MAX_BLANK_SKIPS = 3
 NEXT_ALIASES = ("next", "sıradaki", "sonraki", "devam")
@@ -108,15 +108,13 @@ def _print_entry(entry, has_vision):
 
 
 def _report(prepared, progress):
-    concepts = concepts_settings(progress)
-    print(f"Hazırlanan sayfa sayısı: {len(prepared)}")
-    print(f"kart türleri: {', '.join(concepts['kinds'])} (tür karta göre seçilir); "
-          f"kod dilleri {', '.join(concepts['code_langs'])}, kod yorumları {concepts['code_comment_lang']}\n")
+    print(f"Hazırlanan sayfa sayısı: {len(prepared)}\n")
     for entry in prepared:
         _print_entry(entry, translator_has_vision(progress))
     print("\nSonraki adım: her girdi için bir çevirmen agent çalıştır "
           "(sözleşme: references/FORMAT.md), çıktıyı _work/out/page-N.json yaz, "
-          f"sonra: python3 {SCRIPTS_DIR}/finalize_page.py _work/out/page-N.json")
+          f"sonra: python3 {SCRIPTS_DIR}/finalize_page.py _work/out/page-N.json; "
+          "kartlar en son (SKILL.md → C)")
 
 
 def main():

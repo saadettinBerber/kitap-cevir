@@ -39,14 +39,14 @@ Okuyucuyu açmak için proje dizininde `python3 -m http.server 8000`.
 
 ```
 skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
-├── SKILL.md                  akış: A kurulum / B çeviri / C kart yenileme / D taşıma
+├── SKILL.md                  akış: A kurulum / B çeviri / C kavram kartları (en son) / D taşıma
 ├── scripts/
 │   │   # SKILL.md'nin çağırdığı betikler
 │   ├── init_book.py          yeni proje: iskelet + progress.json + glossary.md
 │   ├── inspect_pdf.py        PDF tanıma: info / text / layout / offset
 │   ├── prepare_page.py       sıradaki sayfalar → _work/in/page-N.json; boş sayfaları işaretler
 │   ├── finalize_page.py      _work/out/page-N.json → data/pages + progress + sözlük + toc
-│   ├── regen_concepts.py     kavram kartlarını yeniden ürettirir (metne dokunmaz)
+│   ├── regen_concepts.py     kavram kartlarını çeviriden sonra ürettirir (metne dokunmaz)
 │   ├── migrate_page.py       çevrilmiş sayfaları yeni çıkarıma taşır (yeniden çeviri yok)
 │   ├── backfill_images.py    görselleri geriye dönük ekler
 │   │   # proje durumu

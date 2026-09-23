@@ -8,7 +8,7 @@ import fitz
 
 from extraction.page_extractor import PageExtractor
 from extraction.text_utils import normalize_spaces
-from project import concepts_settings, extraction_settings
+from project import extraction_settings
 
 CONTEXT_CHARS = 700
 UNKNOWN_CHAPTER = {"num": 0, "en": "", "tr": ""}
@@ -48,7 +48,7 @@ class PageInputBuilder:
         return {"id": f"page-{page}", "page": page, "pdf_page": pdf_page,
                 "chapter": self._chapter(page), "section": self._section(page, extracted["running_header"]),
                 "title": {"en": "", "tr": ""}, "blocks": extracted["blocks"], "math": extracted["math"],
-                "concepts": [], "concepts_spec": concepts_settings(self.progress), "glossary_new": [],
+                "concepts": [], "glossary_new": [],
                 "context": self._context(pdf_page)}
 
     def pdf_page(self, page):
