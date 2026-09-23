@@ -17,6 +17,7 @@ import fitz
 
 from extraction.page_extractor import PageExtractor
 from extraction.text_utils import normalize_spaces
+from page_document import PageDocument
 from project import (Project, concepts_settings, extraction_settings,
                      translator_has_vision)
 
@@ -125,30 +126,15 @@ class PagePreparer:
 
     def _prepare_one(self, page, auto_skip):
         document = self.build_input(page)
-        if _is_blank(document):
+        page_document = PageDocument(document)
+        if page_document.is_blank():
             print(f"  ! Sayfa {page} boş" + (" — atlandı, işaretlendi" if auto_skip else ""))
             if auto_skip:
                 self.mark_blank(page)
             return None
         return {"page": page, "pdf_page": document["pdf_page"],
                 "path": self.project.relative(self.write_input(document)),
-                "blocks": _block_summary(document), "math": _math_count(document)}
-
-
-def _is_blank(document):
-    return not any(b["type"] != "image" for b in document["blocks"])
-
-
-def _math_count(document):
-    display = sum(1 for b in document["blocks"] if b["type"] == "math")
-    return display + len(document.get("math", []))
-
-
-def _block_summary(document):
-    counts = {}
-    for block in document["blocks"]:
-        counts[block["type"]] = counts.get(block["type"], 0) + 1
-    return ", ".join(f"{k}:{v}" for k, v in counts.items())
+                "blocks": page_document.block_summary(), "math": page_document.equation_count()}
 
 
 def parse_args(argv):

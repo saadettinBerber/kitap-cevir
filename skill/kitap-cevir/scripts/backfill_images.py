@@ -17,6 +17,7 @@ import sys
 import fitz
 
 from extraction.page_extractor import PageExtractor
+from page_blocks import Block
 from page_document import PageDocument
 from project import Project, extraction_settings
 
@@ -30,14 +31,6 @@ def _plain(text):
     return re.sub(r"[^a-z0-9]+", " ", _TAG.sub(" ", text or "").lower()).strip()
 
 
-def block_text(block):
-    if block["type"] == "para":
-        return " ".join(s.get("en", "") for s in block["sentences"])
-    if block["type"] == "list":
-        return " ".join(i.get("en", "") for i in block["items"])
-    return block.get("en") or block.get("html") or ""
-
-
 def _is_real_image(image_dir, src):
     path = os.path.join(image_dir, src)
     if not os.path.isfile(path):
@@ -49,12 +42,11 @@ def _is_real_image(image_dir, src):
 def images_with_anchors(blocks, image_dir):
     """PDF sırasına göre (görsel src, önündeki metin) çiftleri."""
     found, previous_text = [], ""
-    for block in blocks:
-        if block["type"] == "image":
-            if _is_real_image(image_dir, block["src"]):
-                found.append((block["src"], previous_text))
-        elif block["type"] != "code":
-            previous_text = _plain(block_text(block))[:ANCHOR_CHARS] or previous_text
+    for block in map(Block.of, blocks):
+        if block.kind != "image":
+            previous_text = _plain(block.anchor_text())[:ANCHOR_CHARS] or previous_text
+        elif _is_real_image(image_dir, block.data["src"]):
+            found.append((block.data["src"], previous_text))
     return found
 
 
@@ -66,12 +58,12 @@ def insertion_index(blocks, anchor):
     """Anchor metnine en çok benzeyen bloğun hemen sonrası; eşleşme yoksa
     ilk başlık/bölüm bloğunun sonrası (sayfa başı görseli)."""
     if anchor:
-        scored = [(_similarity(anchor, _plain(block_text(b))), i) for i, b in enumerate(blocks)]
+        scored = [(_similarity(anchor, _plain(Block.of(b).anchor_text())), i) for i, b in enumerate(blocks)]
         best = max(scored, default=(0, -1))
         if best[0] >= MATCH_THRESHOLD:
             return best[1] + 1
-    for index, block in enumerate(blocks):
-        if block["type"] not in ("chapter", "heading", "html"):
+    for index, block in enumerate(map(Block.of, blocks)):
+        if not block.leads_page():
             return index
     return len(blocks)
 

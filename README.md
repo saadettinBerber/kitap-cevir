@@ -52,6 +52,7 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │   │   # proje durumu
 │   ├── project.py            proje kökü, progress.json, varsayılan ayarlar
 │   ├── page_document.py      PageDocument: page-N.js okuma/yazma, çevrilecek metin birimleri
+│   ├── page_blocks.py        Block.of: blok türüne göre davranış (birimler, kart girdisi, çapa)
 │   ├── reader_data.py        TableOfContents (data/toc.js), Glossary (glossary.md + data/glossary.js)
 │   ├── concept_check.py      kart denetimi: tür, zorunlu alanlar, kod dili
 │   ├── migrate_match.py      eski en→tr eşleşmelerini yeni birimlere bulur

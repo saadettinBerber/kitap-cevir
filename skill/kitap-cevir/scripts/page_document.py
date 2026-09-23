@@ -3,8 +3,10 @@ yazılması ve çevrilecek metin birimleri. Şema: references/FORMAT.md.
 """
 import json
 import os
+from collections import Counter
 
-TEXT_BLOCK_TYPES = ("heading", "caption", "footnote", "chapter")
+from page_blocks import Block
+
 PRIVATE_FIELDS = ("context", "concepts_spec", "glossary_new")   # agent girdisinde var, okuyucuya gitmez
 
 
@@ -28,19 +30,33 @@ class PageDocument:
             handle.write("window.PAGE(" + json.dumps(payload, ensure_ascii=False) + ");\n")
         return path
 
-    @staticmethod
-    def block_units(block):
-        """Bloğun çevrilecek {en, tr} birimleri: cümleler, maddeler, hücreler ya da bloğun kendisi."""
-        if block["type"] == "para":
-            return block["sentences"]
-        if block["type"] == "list":
-            return block["items"]
-        if block["type"] == "table":
-            return [cell for row in block["rows"] for cell in row]
-        return [block] if block["type"] in TEXT_BLOCK_TYPES else []
+    def blocks(self):
+        return [Block.of(data) for data in self.data["blocks"]]
 
     def text_units(self):
-        return [unit for block in self.data["blocks"] for unit in self.block_units(block)]
+        return [unit for block in self.blocks() for unit in block.units()]
 
     def missing_translations(self):
         return sum(1 for unit in self.text_units() if unit.get("en") and not unit.get("tr"))
+
+    def is_blank(self):
+        """Yalnız görsel içeren sayfa (bölüm sonu boşluğu) çevrilecek bir şey taşımaz."""
+        return all(block.kind == "image" for block in self.blocks())
+
+    def display_math(self):
+        return [block for block in self.data["blocks"] if block["type"] == "math"]
+
+    def inline_math(self):
+        return self.data.get("math", [])
+
+    def equation_count(self):
+        return len(self.display_math()) + len(self.inline_math())
+
+    def media_sources(self):
+        """Sayfanın görsel klasörüne kopyalanacak PNG adları."""
+        sources = [src for block in self.blocks() for src in block.media_sources()]
+        return sources + [item["src"] for item in self.inline_math()]
+
+    def block_summary(self):
+        counts = Counter(block.kind for block in self.blocks())
+        return ", ".join(f"{kind}:{count}" for kind, count in counts.items())

@@ -36,7 +36,7 @@ class PageFinalizer:
         self._require_fields(page.data)
         untranslated = page.missing_translations()
         page_js = page.write(self.project.pages_dir)
-        images = self._copy_images(page.data)
+        images = self._copy_images(page)
         progress = self._register(page.data)
         glossary = Glossary(self.project)
         added_terms = glossary.add(page.data.get("glossary_new", []))
@@ -52,13 +52,12 @@ class PageFinalizer:
         if missing:
             raise IncompletePage(f"Eksik alanlar: {missing}")
 
-    def _copy_images(self, document):
-        sources = [b["src"] for b in document["blocks"] if b["type"] in ("image", "math")]
-        sources += [m["src"] for m in document.get("math", [])]
+    def _copy_images(self, page):
+        sources = page.media_sources()
         if not sources:
             return 0
-        src_dir = os.path.join(self.project.work_in, f"{document['id']}_images")
-        dst_dir = os.path.join(self.project.pages_dir, f"{document['id']}_images")
+        src_dir = os.path.join(self.project.work_in, f"{page.data['id']}_images")
+        dst_dir = os.path.join(self.project.pages_dir, f"{page.data['id']}_images")
         os.makedirs(dst_dir, exist_ok=True)
         present = [name for name in sources if os.path.isfile(os.path.join(src_dir, name))]
         for name in present:

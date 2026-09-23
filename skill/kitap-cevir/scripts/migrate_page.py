@@ -45,23 +45,19 @@ class PageMigration:
         self.document["glossary_new"] = []
         return filler.pending, self._missing_latex()
 
-    @staticmethod
-    def _math_items(document):
-        return [b for b in document["blocks"] if b["type"] == "math"] + document.get("math", [])
-
     def _carry_latex(self):
-        """Eski sayfada aynı PNG için LaTeX yazılmışsa yeni yapıya taşınır."""
-        known = {m["src"]: m.get("latex", "") for m in self.old.get("math", [])}
-        known.update({b["src"]: b.get("latex", "") for b in self.old["blocks"] if b["type"] == "math"})
-        for item in self._math_items(self.document):
+        """Eski sayfada aynı PNG için LaTeX yazılmışsa yeni yapıya taşınır; ayrı
+        satır denkleminin LaTeX'i satır içindekinden önceliklidir."""
+        old, new = PageDocument(self.old), PageDocument(self.document)
+        known = {item["src"]: item.get("latex", "") for item in old.inline_math() + old.display_math()}
+        for item in new.display_math() + new.inline_math():
             item["latex"] = item.get("latex") or known.get(item["src"], "")
 
     def _missing_latex(self):
-        items = [{"path": f"blocks[{i}]", "src": b["src"]}
-                 for i, b in enumerate(self.document["blocks"]) if b["type"] == "math" and not b["latex"]]
-        items += [{"path": f"math[{i}]", "src": m["src"]}
-                  for i, m in enumerate(self.document.get("math", [])) if not m["latex"]]
-        return items
+        blocks = [{"path": f"blocks[{i}]", "src": b["src"]} for i, b in enumerate(self.document["blocks"])
+                  if b["type"] == "math" and not b["latex"]]
+        return blocks + [{"path": f"math[{i}]", "src": m["src"]}
+                         for i, m in enumerate(PageDocument(self.document).inline_math()) if not m["latex"]]
 
 
 class Migrator:

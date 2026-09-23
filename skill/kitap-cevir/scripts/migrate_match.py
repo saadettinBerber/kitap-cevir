@@ -9,7 +9,8 @@ Eşleşmeyen birimler `pending` listesine düşer (küçük bir çeviri geçişi
 import re
 
 from extraction.text_utils import clean_ligatures, normalize_spaces
-from page_document import TEXT_BLOCK_TYPES, PageDocument
+from page_blocks import Block
+from page_document import PageDocument
 
 MAX_JOIN = 4
 NUMERIC_CELL = re.compile(r"^(?:[\d.,%~+\-–\s]|<br>)*$")
@@ -69,17 +70,7 @@ class TranslationFiller:
         self.pending = []
 
     def fill_block(self, block, path):
-        if block["type"] == "para":
-            block["sentences"] = self.fill_sentences(block["sentences"], path)
-        elif block["type"] == "list":
-            for index, item in enumerate(block["items"]):
-                self.fill_unit(item, f"{path}.items[{index}]")
-        elif block["type"] == "table":
-            for r, row in enumerate(block["rows"]):
-                for c, cell in enumerate(row):
-                    self.fill_unit(cell, f"{path}.rows[{r}][{c}]")
-        elif block["type"] in TEXT_BLOCK_TYPES:
-            self.fill_unit(block, path)
+        Block.of(block).fill(self, path)
 
     def fill_unit(self, unit, path):
         """Birime tr yazar; bulunamazsa ya da yer tutucu eksikse pending'e ekler."""

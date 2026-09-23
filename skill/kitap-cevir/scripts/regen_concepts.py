@@ -57,22 +57,11 @@ class CardRegenerator:
         return [self.project.relative(self.cards_path("in", page)) for page in pages]
 
     def card_input(self, page_data):
-        content = [unit for unit in map(self._content_unit, page_data["blocks"]) if unit]
+        content = [unit for unit in (block.card_unit() for block in PageDocument(page_data).blocks()) if unit]
         return {"id": page_data["id"], "page": page_data["page"],
                 "chapter": page_data.get("chapter", {}), "section": page_data.get("section", {}),
                 "title": page_data.get("title", {}), "content": content,
                 "concepts_spec": self.spec, "concepts": []}
-
-    @staticmethod
-    def _content_unit(block):
-        """Bloğu kart agent'ının okuyacağı tek bir {type, en, tr} birimine indirger."""
-        if block["type"] == "code":
-            return {"type": "code", "code": block["code"]}
-        units = PageDocument.block_units(block)
-        if not units:
-            return {}
-        return {"type": block["type"], "en": " ".join(unit.get("en", "") for unit in units),
-                "tr": " ".join(unit.get("tr", "") for unit in units)}
 
     def apply(self, pages):
         """{sayfa: sorunlar}; sorunsuz sayfaların kartları yazılmıştır."""
