@@ -68,48 +68,66 @@ Türkçe anlamları. Varsa okuyucu kelimeye tıklayınca anlamını gösterir.
 
 ## Kavram kartları (`concepts`)
 
-Her sayfa için 2-4 kart. Kartın biçimini **kitap belirler**: `progress.json →
-concepts.mode` (girdi dosyasında `concepts_spec` olarak da gelir).
+Her sayfa için 2-4 kart. Kart, sayfanın öğrettiği bir kavramı okurun aklında
+sabitler. **Biçimi kalıp değil konu belirler:** her kartın `kind` alanı vardır
+ve çevirmen türü kart kart seçer. Aynı sayfada farklı türde kartlar olabilir.
+Kitabın izin verdiği türler `progress.json → concepts.kinds` ile belirlenir
+(girdide `concepts_spec.kinds`; varsayılan: dördü de).
 
-| `mode` | Kart ne içerir | Hangi kitap |
-|--------|----------------|-------------|
-| `code` (varsayılan) | `summary` + kötü/iyi **kod** çifti + `tip` | Kod zanaatı kitapları (Clean Code, Effective Java) |
-| `contrast` | `summary` + kötü/iyi karşıtlık + `tip`; örnek kod **ya da** kısa metin olabilir | Mimari, süreç, tasarım kitapları |
-| `explain` | yalnız `summary` + `tip` | Kavramsal/anlatı ağırlıklı kitaplar |
+| `kind` | Ne zaman | Alanlar |
+|--------|----------|---------|
+| `explain` | Tanım, fikir, tarihçe, bir kavramın ne olduğu. Karşıtı ya da seçeneği olmayan her şey. | ortak alanlar |
+| `contrast` | Kavramın yanlış ve doğru uygulanışı var (anti-pattern ↔ pattern, alışkanlık ↔ ilke). | `bad`, `good`: `text` + `why` |
+| `tradeoff` | Birden çok geçerli seçenek var; doğrusu bağlama göre değişir (mimari tarz, model seçimi, maliyet ↔ kalite). | `options`: 2-3 seçenek |
+| `code` | Kavram doğrudan kodda görünür (isimlendirme, fonksiyon yapısı, API kullanımı) ve kod onu metinden iyi anlatır. | `bad`, `good`: `lang` + `code` + `why` |
+
+Ortak alanlar (her türde zorunlu, iki dilli): `id`, `kind`, `title`, `summary`,
+`tip`. `tradeoff` kartında `tip` "hangi durumda hangisi" sorusunu yanıtlar.
 
 ```js
-{
-  "id": "kebab-case-id",
+{ "id": "kebab-case-id", "kind": "explain",
   "title":   { "en": "Concept Name", "tr": "Kavram Adı (Concept Name)" },
   "summary": { "en": "...", "tr": "..." },
-  "bad":  { "lang": "java", "code": "...", "why": { "en": "...", "tr": "..." } },
-  "good": { "lang": "java", "code": "...", "why": { "en": "...", "tr": "..." } },
-  "tip":  { "en": "...", "tr": "..." }
-}
-```
+  "tip":     { "en": "...", "tr": "..." } }
 
-`contrast` modunda `code`/`lang` yerine `text` kullanılabilir — iki dilli
-kısa bir karşıtlık cümlesi:
-
-```js
+// contrast — okuyucuda "Kaçın / Tercih et"
 "bad":  { "text": { "en": "...", "tr": "..." }, "why": { "en": "...", "tr": "..." } },
 "good": { "text": { "en": "...", "tr": "..." }, "why": { "en": "...", "tr": "..." } }
+
+// tradeoff — okuyucuda Seçenek / Kazandırır / Bedeli tablosu
+"options": [
+  { "name": { "en": "...", "tr": "..." }, "gains": { "en": "...", "tr": "..." }, "costs": { "en": "...", "tr": "..." } },
+  { "name": { "en": "...", "tr": "..." }, "gains": { "en": "...", "tr": "..." }, "costs": { "en": "...", "tr": "..." } }
+]
+
+// code — okuyucuda "Önce / Sonra"
+"bad":  { "lang": "python", "code": "...", "why": { "en": "...", "tr": "..." } },
+"good": { "lang": "python", "code": "...", "why": { "en": "...", "tr": "..." } }
 ```
 
-**Kart sayfanın konusundan çıkar, kalıptan değil.** İnsan ilişkileri, ölçüm
-ya da karar anlatan bir sayfayı kod örneğine çevirmek için konuyu değiştirmek
-yasaktır; kod ancak konuyu gerçekten anlatıyorsa konur. `code` dışındaki
-modlarda `bad`/`good` alanları isteğe bağlıdır, boş bırakılabilir.
+Kurallar:
 
-Kod örnekleri kitaptakinden FARKLI ve özgün olmalıdır (kitaptaki kod
-kopyalanmaz); dil olarak Java / Python / JavaScript kullanılır.
+- **Konu sayfadan çıkar.** Kartın konusu sayfanın gerçekten anlattığı
+  kavramdır. Bir türe uysun diye konu değiştirilmez: iş bilgisi, ölçüm, ekip ya
+  da karar anlatan bir sayfaya uydurma bir kod örneği konmaz. Sayfada kod yoksa
+  `code` kartı yalnız kavram kodla açıkça daha iyi anlaşılıyorsa yazılır.
+- `explain` kartında `bad`, `good`, `options` bulunmaz.
+- `code` kartının dili `concepts_spec.code_langs` listesinden seçilir
+  (varsayılan: kitabın kod dili, `extraction.default_code_language`).
+  Örnekler kitaptakinden FARKLI ve özgündür; kitaptaki kod kopyalanmaz.
+- **Kod yorumlarının dili** `concepts_spec.code_comment_lang` ile belirlenir
+  (varsayılan `en`). `code` alanı tek dillidir; Türkçe açıklama `why` ve `tip`
+  alanlarına yazılır.
+- `contrast` kartında `text` yerine kısa bir `code` parçası kullanılabilir;
+  metin öncelikli.
 
-**Kod yorumlarının dili** `concepts.code_comment_lang` ile belirlenir
-(varsayılan `en`). `code` alanı tek dillidir — iki dilli `en`/`tr` çifti
-değildir — bu yüzden içindeki yorumlar okuyucunun diline göre değişmez;
-Türkçe açıklama `why` ve `tip` alanlarına yazılır.
+`finalize_page.py` ve `regen_concepts.py` kartları `scripts/concept_check.py`
+ile denetler: kart sayısı, izinli tür, zorunlu iki dilli alanlar, kod dili,
+seçenek sayısı, tekrar eden `id`. Sorunlar `! KART:` satırı olarak basılır.
 
-`body_html` alanı taşıyan eski biçimli kartlar da olduğu gibi çizilir.
+`kind` alanı olmayan eski kartların türü içerikten çıkarılır (`bad.code` →
+`code`, `bad.text` → `contrast`, `options` → `tradeoff`, hiçbiri → `explain`);
+`body_html` taşıyan eski biçimli kartlar olduğu gibi çizilir.
 
 ## Çevirmen agent girdisi ve çıktısı
 
@@ -127,7 +145,8 @@ yukarıdaki şemanın yalnız `en` tarafını içerir; ayrıca bağlam için
 2. `section.tr`, `title.en`, `title.tr` alanlarını doldurur (`section.en`
    hazırlayıcı tarafından koşu başlığından tahmin edilir; yanlışsa düzeltir).
 3. `chapter.tr` boşsa doldurur (bölüm tablosunda çeviri varsa onu kullanır).
-4. `concepts` listesini (2-4 kart) yapılı biçimde üretir.
+4. `concepts` listesini (2-4 kart) yukarıdaki kurallarla üretir; her kartın
+   türü `concepts_spec.kinds` içinden, konuya göre seçilir.
 5. Sayfada geçen ve `glossary.md`'de olmayan yeni terimleri `glossary_new`
    listesine yazar: `[{ "en": "...", "tr": "...", "note": "..." }]`.
    Yeni terim yoksa boş liste bırakır.

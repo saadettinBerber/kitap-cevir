@@ -356,13 +356,18 @@ pre code { background: none; padding: 0; color: inherit; }
 .modal-body h4:first-child { margin-top: 0; }
 .modal-body p { margin: 0 0 10px; }
 .modal-body pre { margin: 6px 0 12px; padding: 14px 16px; border-radius: 8px; background: var(--code-bg); color: var(--code-ink); font: .8rem/1.55 var(--font-mono); overflow-x: auto; }
-.label-bad, .label-good { display: inline-block; padding: 3px 10px; border-radius: 4px; font: 700 .74rem var(--font-sans); margin-bottom: 6px; }
+.label-bad, .label-good { display: inline-block; padding: 3px 10px; border-radius: 4px; font: 700 .74rem var(--font-sans); letter-spacing: .04em; text-transform: uppercase; margin: 10px 0 6px; }
 .label-bad { background: var(--bad-bg); color: var(--bad); }
 .label-good { background: var(--good-bg); color: var(--good); }
 .sample-text { font-family: var(--font-sans); font-size: .92rem; margin: 0 0 8px; }
 .why { font-family:  var(--font-sans); font-size: .86rem; color: var(--ink-soft); margin: -4px 0 14px; padding-left: 12px; border-left: 3px solid var(--rule); }
 .tip { background: var(--gold-soft); border-left: 4px solid var(--gold); padding: 12px 16px; border-radius: 0 8px 8px 0; margin-top: 16px; font-size: .92rem; color: #5b4510; }
 .tip strong { display: block; margin-bottom: 4px; font-family: var(--font-sans); font-size: .78rem; letter-spacing: .06em; text-transform: uppercase; }
+.tradeoff { width: 100%; border-collapse: collapse; margin: 4px 0 12px; font: .88rem/1.45 var(--font-sans); }
+.tradeoff th, .tradeoff td { text-align: left; vertical-align: top; padding: 9px 10px; border-bottom: 1px solid var(--rule); }
+.tradeoff thead th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); border-bottom-width: 2px; }
+.tradeoff tbody th { width: 26%; color: var(--navy); font-weight: 700; }
+.tradeoff .cell-label { display: none; }
 .explanation { background: rgba(27,42,71,.05); border-left: 3px solid var(--ink-soft); padding: 10px 16px; border-radius: 0 8px 8px 0; margin-bottom: 12px; font-size: .9rem; }
 
 /* ---------- Çekmeceler (İçindekiler, Sözlük) ---------- */
@@ -474,6 +479,12 @@ pre code { background: none; padding: 0; color: inherit; }
   .desk { padding-bottom: 110px; }
 }
 @media (max-width: 560px) {
+  .tradeoff thead { display: none; }
+  .tradeoff tr, .tradeoff tbody th, .tradeoff td { display: block; width: auto; }
+  .tradeoff tbody th { padding-bottom: 2px; border-bottom: 0; }
+  .tradeoff td { padding-top: 4px; border-bottom: 0; }
+  .tradeoff tr { border-bottom: 1px solid var(--rule); padding-bottom: 6px; }
+  .tradeoff .cell-label { display: block; font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); }
   .lang-switch button { padding: 6px 8px; font-size: .72rem; }
   .page-jump .page-total { display: none; }
 }

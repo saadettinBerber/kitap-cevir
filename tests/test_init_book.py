@@ -60,15 +60,20 @@ class InitBookTest(unittest.TestCase):
         self.assertEqual(progress["book"]["slug"], "demo-kitap")
         self.assertEqual(progress["chapters"][0]["en"], "One")
 
-    def test_concepts_mode_defaults_to_code(self):
+    def test_card_kinds_default_to_all(self):
         self._run()
         progress = json.load(open(os.path.join(self.target, "progress.json"), encoding="utf-8"))
-        self.assertEqual(progress["concepts"], {"mode": "code", "code_comment_lang": "en"})
+        self.assertEqual(progress["concepts"], {"kinds": ["explain", "contrast", "tradeoff", "code"],
+                                                "code_comment_lang": "en"})
 
-    def test_concepts_mode_can_be_chosen(self):
-        self._run(["--concepts-mode", "contrast"])
+    def test_card_kinds_can_be_chosen(self):
+        self._run(["--card-kinds", "tradeoff, explain"])
         progress = json.load(open(os.path.join(self.target, "progress.json"), encoding="utf-8"))
-        self.assertEqual(progress["concepts"]["mode"], "contrast")
+        self.assertEqual(progress["concepts"]["kinds"], ["tradeoff", "explain"])
+
+    def test_unknown_card_kind_is_rejected(self):
+        with self.assertRaises(SystemExit), mock.patch("sys.stderr"):
+            self._run(["--card-kinds", "code,kod"])
 
     def test_placeholders_are_filled(self):
         self._run()

@@ -3,6 +3,7 @@
   2. progress.json'da sayfayı kaydeder, last_translated_page'i ilerletir
   3. glossary_new terimlerini glossary.md'ye ekler
   4. data/toc.js ve data/glossary.js dosyalarını yeniden üretir
+  5. kavram kartlarını kitabın kart ayarlarına göre denetler (uyarı basar)
 
 Kullanım (proje dizininde): python3 finalize_page.py _work/out/page-N.json
 """
@@ -11,7 +12,8 @@ import os
 import shutil
 import sys
 
-from project import Project
+from concept_check import card_problems
+from project import Project, concepts_settings
 from toc_builder import add_glossary_terms, write_glossary_js, write_toc
 
 _TRANSLATABLE_TYPES = ("heading", "caption", "footnote", "chapter")
@@ -41,6 +43,12 @@ def _require_fields(document):
     missing = [f for f in _REQUIRED_FIELDS if f not in document]
     if missing:
         raise ValueError(f"Eksik alanlar: {missing}")
+
+
+def read_page_js(path):
+    with open(path, encoding="utf-8") as handle:
+        source = handle.read()
+    return json.loads(source[source.index("(") + 1:source.rindex(")")])
 
 
 def write_page_js(project, document):
@@ -101,7 +109,8 @@ def finalize(project, translated_path):
     write_toc(project, progress)
     write_glossary_js(project)
     return {"page_js": page_js, "images": images, "terms": added_terms,
-            "untranslated": untranslated, "page": document["page"]}
+            "untranslated": untranslated, "page": document["page"],
+            "card_problems": card_problems(document.get("concepts", []), concepts_settings(progress))}
 
 
 def main():
@@ -114,6 +123,8 @@ def main():
           f"{result['images']} görsel, {result['terms']} yeni terim; toc.js + glossary.js güncellendi")
     if result["untranslated"]:
         print(f"  ! UYARI: {result['untranslated']} metin biriminin 'tr' alanı boş")
+    for problem in result["card_problems"]:
+        print(f"  ! KART: {problem}")
 
 
 if __name__ == "__main__":

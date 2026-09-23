@@ -38,12 +38,17 @@ DEFAULT_EXTRACTION = {
 DEFAULT_BOOK = {"slug": "kitap", "title": "", "subtitle": "", "subtitle_tr": "",
                 "author": "", "series": ""}
 
-CONCEPT_MODES = ("code", "contrast", "explain")
-DEFAULT_CONCEPTS = {"mode": "code", "code_comment_lang": "en"}
+CARD_KINDS = ("explain", "contrast", "tradeoff", "code")
+_LEGACY_MODE_KINDS = {"code": ["code"], "contrast": ["contrast", "code"], "explain": ["explain"]}
+DEFAULT_CODE_COMMENT_LANG = "en"
 
 
 class ProjectNotFound(FileNotFoundError):
     """Çalışma dizininden yukarıda progress.json bulunamadı."""
+
+
+class InvalidConceptSettings(ValueError):
+    """progress.json -> concepts geçersiz bir kart türü ya da mod içeriyor."""
 
 
 def find_root(start=None):
@@ -74,6 +79,7 @@ class Project:
         self.glossary_js = os.path.join(self.data_dir, "glossary.js")
         self.work_in = os.path.join(self.root, WORK_DIR, "in")
         self.work_out = os.path.join(self.root, WORK_DIR, "out")
+        self.work_cards = os.path.join(self.root, WORK_DIR, "cards")
 
     def load_progress(self):
         with open(self.progress_path, encoding="utf-8") as handle:
@@ -93,6 +99,9 @@ class Project:
     def relative(self, path):
         return os.path.relpath(path, self.root)
 
+    def page_js(self, page):
+        return os.path.join(self.pages_dir, f"page-{page}.js")
+
 
 def extraction_settings(progress):
     return {**DEFAULT_EXTRACTION, **progress.get("extraction", {})}
@@ -102,12 +111,27 @@ def book_info(progress):
     return {**DEFAULT_BOOK, **progress.get("book", {})}
 
 
+def _configured_concepts(progress):
+    """progress.json -> concepts; eski tek `mode` anahtarı izinli tür listesine çevrilir."""
+    configured = dict(progress.get("concepts", {}))
+    mode = configured.pop("mode", None)
+    if mode is None or "kinds" in configured:
+        return configured
+    if mode not in _LEGACY_MODE_KINDS:
+        raise InvalidConceptSettings(f"Bilinmeyen kavram kartı modu: {mode!r}")
+    return {**configured, "kinds": _LEGACY_MODE_KINDS[mode]}
+
+
 def concepts_settings(progress):
-    """Kavram kartlarının biçimi: mode (code/contrast/explain) ve kod yorum dili."""
-    merged = {**DEFAULT_CONCEPTS, **progress.get("concepts", {})}
-    if merged["mode"] not in CONCEPT_MODES:
-        raise ValueError(f"Bilinmeyen kavram kartı modu: {merged['mode']!r}; "
-                         f"geçerli değerler: {', '.join(CONCEPT_MODES)}")
+    """Kavram kartı ayarları: izinli kart türleri, kod örneği dilleri, kod yorum dili."""
+    merged = {"kinds": list(CARD_KINDS),
+              "code_langs": [extraction_settings(progress)["default_code_language"]],
+              "code_comment_lang": DEFAULT_CODE_COMMENT_LANG,
+              **_configured_concepts(progress)}
+    unknown = [kind for kind in merged["kinds"] if kind not in CARD_KINDS]
+    if unknown or not merged["kinds"]:
+        raise InvalidConceptSettings(f"Geçersiz kart türleri: {merged['kinds']!r}; "
+                                     f"geçerli değerler: {', '.join(CARD_KINDS)}")
     return merged
 
 

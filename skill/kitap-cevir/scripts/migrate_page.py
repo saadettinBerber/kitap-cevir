@@ -14,7 +14,7 @@ import os
 import re
 import sys
 
-from finalize_page import finalize
+from finalize_page import finalize, read_page_js
 from layout_scan import scan_page
 from migrate_match import Translations, apply_fixes, fill_sentences, fill_unit, old_units
 from prepare_page import PagePreparer
@@ -22,11 +22,6 @@ from project import Project, extraction_settings
 
 _TEXT_TYPES = ("heading", "caption", "footnote", "chapter")
 _COPY_FIELDS = ("title", "section", "concepts")
-
-
-def load_page_js(path):
-    source = open(path, encoding="utf-8").read()
-    return json.loads(source[source.index("(") + 1:source.rindex(")")])
 
 
 def _fill_block(block, translations, pending, path):
@@ -89,7 +84,7 @@ class Migrator:
         return os.path.join(self.project.work_out, f"page-{page}.json")
 
     def run(self, page, finalize_complete):
-        old = load_page_js(os.path.join(self.project.pages_dir, f"page-{page}.js"))
+        old = read_page_js(self.project.page_js(page))
         document = self.preparer.build_input(page)
         pending, latex_items = migrate(document, old, self._fixes(document["pdf_page"]))
         os.makedirs(self.project.work_out, exist_ok=True)

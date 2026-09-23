@@ -1,5 +1,6 @@
 // Küçük söz dizimi renklendirici (Java / Python / JavaScript).
-// Girdi düz metindir; çıktı HTML'dir (karakterler kaçırılır).
+// Girdi düz metindir; çıktı HTML'dir (karakterler kaçırılır). Tanınmayan dil
+// (sql, bash, yaml...) renklendirilmeden, yalnız kaçırılarak basılır.
 const Highlight = (function () {
   const KEYWORDS = {
     java: "abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while var record yield sealed permits null true false",
@@ -20,7 +21,7 @@ const Highlight = (function () {
 
   function languageOf(lang) {
     const key = (lang || "java").toLowerCase();
-    return KEYWORDS[ALIASES[key] || key] ? (ALIASES[key] || key) : "java";
+    return KEYWORDS[ALIASES[key] || key] ? (ALIASES[key] || key) : null;
   }
 
   function tokenizer(language) {
@@ -44,6 +45,7 @@ const Highlight = (function () {
 
   function render(code, lang) {
     const language = languageOf(lang);
+    if (!language) return escapeHtml(code);
     const keywords = new Set(KEYWORDS[language].split(" "));
     const pattern = tokenizer(language);
     let html = "", cursor = 0, match;

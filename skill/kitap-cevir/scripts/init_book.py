@@ -5,12 +5,12 @@ Kullanım:
   python3 init_book.py --pdf /yol/kitap.pdf --title "Kitap Adı" --author "Yazar" \
       --offset 31 --total 431 [--subtitle "..."] [--subtitle-tr "..."] [--series "..."] \
       [--slug kitap-adi] [--chapters chapters.json] [--code-lang java] \
-      [--concepts-mode code|contrast|explain] [--pages-per-run 3] [--target DIR]
+      [--card-kinds explain,contrast,tradeoff,code] [--pages-per-run 3] [--target DIR]
 
---concepts-mode: kavram kartlarının biçimi. `code` kötü/iyi kod çifti ister
-(kod zanaatı kitapları), `contrast` kötü/iyi karşıtlığı ister ama kod zorunlu
-değildir (mimari, süreç, tasarım kitapları), `explain` yalnız tanım + ipucu
-verir. Ayrıntı: references/FORMAT.md.
+--card-kinds: bu kitapta izinli kavram kartı türleri (virgülle). Çevirmen her
+kart için konuya uyan türü bu listeden seçer: `explain` tanım + ipucu,
+`contrast` kaçın/tercih et karşıtlığı (metin), `tradeoff` seçeneklerin kazanç ve
+bedeli, `code` önce/sonra kod çifti. Varsayılan: hepsi. Ayrıntı: references/FORMAT.md.
 
 chapters.json: [{"num": 1, "en": "...", "tr": "...", "start": 1}, ...]
 Hedef dizinde zaten progress.json varsa durur (üzerine yazmaz).
@@ -23,7 +23,7 @@ import shutil
 
 import fitz
 
-from project import CONCEPT_MODES, DEFAULT_CONCEPTS, PROGRESS_FILE, Project
+from project import CARD_KINDS, DEFAULT_CODE_COMMENT_LANG, PROGRESS_FILE, Project
 from toc_builder import rebuild
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -39,6 +39,15 @@ def slugify(title):
     return re.sub(r"[^a-z0-9]+", "-", ascii_title.lower()).strip("-") or "kitap"
 
 
+def card_kinds(text):
+    kinds = [kind.strip() for kind in text.split(",") if kind.strip()]
+    unknown = [kind for kind in kinds if kind not in CARD_KINDS]
+    if unknown or not kinds:
+        raise argparse.ArgumentTypeError(
+            f"geçersiz kart türü: {', '.join(unknown) or repr(text)}; geçerli: {', '.join(CARD_KINDS)}")
+    return kinds
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--pdf", required=True)
@@ -52,8 +61,8 @@ def parse_args():
     parser.add_argument("--slug", default="")
     parser.add_argument("--chapters", help="bölüm tablosu JSON dosyası")
     parser.add_argument("--code-lang", default=DEFAULT_CODE_LANGUAGE)
-    parser.add_argument("--concepts-mode", default=DEFAULT_CONCEPTS["mode"], choices=CONCEPT_MODES,
-                        help="kavram kartı biçimi (references/FORMAT.md)")
+    parser.add_argument("--card-kinds", type=card_kinds, default=",".join(CARD_KINDS),
+                        help="izinli kavram kartı türleri, virgülle (references/FORMAT.md)")
     parser.add_argument("--pages-per-run", type=int, default=DEFAULT_PAGES_PER_RUN)
     parser.add_argument("--target", default=os.getcwd())
     return parser.parse_args()
@@ -115,7 +124,7 @@ def build_progress(args, pdf_name, pdf_total, chapters):
         "pdf_total_pages": pdf_total,
         "pages_per_run": args.pages_per_run,
         "translator": {"vision": True},
-        "concepts": {**DEFAULT_CONCEPTS, "mode": args.concepts_mode},
+        "concepts": {"kinds": args.card_kinds, "code_comment_lang": DEFAULT_CODE_COMMENT_LANG},
         "extraction": {"default_code_language": args.code_lang},
         "last_translated_page": 0,
         "chapters": chapters,
@@ -129,10 +138,10 @@ def report(project, progress):
     print(f"  PDF: {progress['book_pdf']} ({progress['pdf_total_pages']} sayfa), "
           f"ofset {progress['pdf_offset']}, kitap {progress['book_total_pages']} sayfa")
     print(f"  bölüm sayısı: {len(progress['chapters'])}")
-    print(f"  kavram kartı modu: {progress['concepts']['mode']}")
+    print(f"  kart türleri: {', '.join(progress['concepts']['kinds'])}")
     print("\nSonraki adımlar:")
-    print("  - Kitap kod zanaatı anlatmıyorsa progress.json -> concepts.mode değerini "
-          "'contrast' ya da 'explain' yapın (varsayılan 'code' her karta kötü/iyi kod çifti koydurur).")
+    print("  - Kart türleri kitaba uymuyorsa progress.json -> concepts.kinds listesini daraltın "
+          "(ör. kod zanaatı: code, contrast, explain; mimari: tradeoff, contrast, explain).")
     print("  - Bölüm tablosu boşsa progress.json -> chapters alanını doldurun (init'ten sonra tek seferlik).")
     print("  - Kod fontu/başlık boyutları farklıysa: inspect_pdf.py <pdf> layout N ile bakıp "
           "progress.json -> extraction ayarlarını düzeltin.")

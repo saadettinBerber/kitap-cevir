@@ -4,7 +4,7 @@ import tempfile
 import unittest
 
 import _paths  # noqa: F401
-from finalize_page import finalize, missing_translations
+from finalize_page import finalize, missing_translations, read_page_js
 from project import Project
 
 GLOSSARY = ("# S\n\n| İngilizce Terim | Türkçe Karşılığı | Açıklama/Not |\n"
@@ -49,6 +49,14 @@ class FinalizeTest(unittest.TestCase):
         self.assertEqual(result["terms"], 1)
         self.assertIn("Heading", open(self.project.glossary_md, encoding="utf-8").read())
         self.assertTrue(os.path.isfile(self.project.toc_js))
+
+    def test_finalize_reports_card_problems(self):
+        result = finalize(self.project, self.out)
+        self.assertEqual(result["card_problems"], ["kart sayısı 0 (2-4 olmalı)"])
+
+    def test_page_js_round_trips(self):
+        result = finalize(self.project, self.out)
+        self.assertEqual(read_page_js(result["page_js"])["title"], {"en": "T", "tr": "B"})
 
 
 if __name__ == "__main__":

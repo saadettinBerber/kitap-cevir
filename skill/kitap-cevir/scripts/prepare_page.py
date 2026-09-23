@@ -152,13 +152,6 @@ def parse_args(argv):
     return spec, count
 
 
-_CONCEPT_NOTES = {
-    "code": "her kart kötü + iyi KOD çifti taşır",
-    "contrast": "kötü/iyi karşıtlığı; kod yerine kısa metin de olabilir (`text`)",
-    "explain": "yalnız tanım + ipucu; kötü/iyi örnek istenmez",
-}
-
-
 def _math_note(has_vision):
     if has_vision:
         return "çevirmen PNG'leri okuyup `latex` alanlarını doldursun"
@@ -168,8 +161,8 @@ def _math_note(has_vision):
 def _report(prepared, has_vision, concepts):
     scripts_dir = os.path.dirname(os.path.abspath(__file__))
     print(f"Hazırlanan sayfa sayısı: {len(prepared)}")
-    print(f"kavram kartı modu: {concepts['mode']} — {_CONCEPT_NOTES[concepts['mode']]}; "
-          f"kod yorumları {concepts['code_comment_lang']}\n")
+    print(f"kart türleri: {', '.join(concepts['kinds'])} (tür karta göre seçilir); "
+          f"kod dilleri {', '.join(concepts['code_langs'])}, kod yorumları {concepts['code_comment_lang']}\n")
     for entry in prepared:
         print(f"  Sayfa {entry['page']} (PDF {entry['pdf_page']})  [{entry['blocks']}]")
         print(f"    girdi: {entry['path']}")

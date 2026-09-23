@@ -4,8 +4,8 @@ import tempfile
 import unittest
 
 import _paths  # noqa: F401
-from project import (DEFAULT_EXTRACTION, Project, ProjectNotFound, book_info,
-                     concepts_settings, extraction_settings, find_root)
+from project import (CARD_KINDS, DEFAULT_EXTRACTION, InvalidConceptSettings, Project,
+                     ProjectNotFound, book_info, concepts_settings, extraction_settings, find_root)
 
 
 class FindRootTest(unittest.TestCase):
@@ -40,17 +40,26 @@ class SettingsTest(unittest.TestCase):
     def test_book_info_has_fallback_slug(self):
         self.assertEqual(book_info({})["slug"], "kitap")
 
-    def test_concepts_default_to_code_mode(self):
-        self.assertEqual(concepts_settings({}), {"mode": "code", "code_comment_lang": "en"})
+    def test_concepts_default_allows_every_kind(self):
+        self.assertEqual(concepts_settings({}), {"kinds": list(CARD_KINDS), "code_langs": ["java"],
+                                                 "code_comment_lang": "en"})
 
-    def test_concepts_mode_overrides_default(self):
-        merged = concepts_settings({"concepts": {"mode": "contrast"}})
-        self.assertEqual(merged["mode"], "contrast")
-        self.assertEqual(merged["code_comment_lang"], "en")
+    def test_code_langs_follow_book_language(self):
+        merged = concepts_settings({"extraction": {"default_code_language": "python"}})
+        self.assertEqual(merged["code_langs"], ["python"])
 
-    def test_unknown_concepts_mode_raises(self):
-        with self.assertRaises(ValueError):
-            concepts_settings({"concepts": {"mode": "kod"}})
+    def test_kinds_override_default(self):
+        merged = concepts_settings({"concepts": {"kinds": ["tradeoff", "explain"]}})
+        self.assertEqual(merged["kinds"], ["tradeoff", "explain"])
+
+    def test_legacy_mode_maps_to_kinds(self):
+        self.assertEqual(concepts_settings({"concepts": {"mode": "code"}})["kinds"], ["code"])
+        self.assertNotIn("mode", concepts_settings({"concepts": {"mode": "contrast"}}))
+
+    def test_unknown_mode_or_kind_raises(self):
+        for concepts in ({"mode": "kod"}, {"kinds": ["kod"]}, {"kinds": []}):
+            with self.assertRaises(InvalidConceptSettings):
+                concepts_settings({"concepts": concepts})
 
     def test_pdf_path_absolute_is_kept(self):
         with tempfile.TemporaryDirectory() as root:

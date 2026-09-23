@@ -27,6 +27,7 @@ Claude Code'u yeniden başlatınca `/kitap-cevir` görünür.
 /kitap-cevir 55            kitap sayfası 55'i çevir
 /kitap-cevir next          sıradaki sayfa(lar)ı çevir (progress.json → pages_per_run)
 /kitap-cevir next --count 3
+/kitap-cevir cards all     çevrilmiş sayfaların kavram kartlarını yeniden üret
 /kitap-cevir backfill      çevrilmiş sayfalara PDF görsellerini geriye dönük ekle
 ```
 
@@ -44,6 +45,8 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │   ├── prepare_page.py       PDF sayfası → _work/in/page-N.json (agent girdisi)
 │   ├── finalize_page.py      _work/out/page-N.json → data/pages + progress + sözlük + toc
 │   ├── backfill_images.py    görselleri geriye dönük ekler
+│   ├── regen_concepts.py     kavram kartlarını yeniden ürettirir (metne dokunmaz)
+│   ├── concept_check.py      kart denetimi: tür, zorunlu alanlar, kod dili
 │   ├── toc_builder.py        data/toc.js ve data/glossary.js üretimi
 │   ├── odl_extract.py        OpenDataLoader + PyMuPDF birleşimi (PageExtractor)
 │   ├── layout_scan.py        kod satırları, satır içi kod, tire onarımı
