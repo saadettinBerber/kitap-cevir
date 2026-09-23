@@ -10,6 +10,7 @@ import itertools
 from extraction.tables.table_cell import TableCell
 
 MIN_HEADER_COLUMNS = 2
+COLUMN_GAP_MIN = 30          # başlık sütunları arasındaki en küçük boşluk (pt)
 MIN_FILLED_COLUMNS = 2       # gövde satırı en az bu kadar sütunu doldurur
 MIN_TABLE_ROWS = 4           # başlık dahil
 COLUMN_GUTTER = 8            # sütun, bir sonraki başlık sütununun bu kadar solunda biter
@@ -29,7 +30,18 @@ class HeaderColumns:
 
     @staticmethod
     def starts_table(row):
-        return len(row) >= MIN_HEADER_COLUMNS and all("bold" in span["font"].lower() for span in row)
+        """Soldan sağa dizili satır tam kalın, en az iki sütunlu ve sütunları arası açık mı?"""
+        return len(row) >= MIN_HEADER_COLUMNS and HeaderColumns._is_bold(row) and HeaderColumns._has_gutters(row)
+
+    @staticmethod
+    def _is_bold(row):
+        return all("bold" in span["font"].lower() for span in row)
+
+    @staticmethod
+    def _has_gutters(row):
+        """Bitişik kalın parçalar (bölüm başlığı, cümle içi vurgu) sütun değildir;
+        gerçek başlık sütunları arasında belirgin boşluk vardır."""
+        return all(right["bbox"].x0 - left["bbox"].x1 >= COLUMN_GAP_MIN for left, right in zip(row, row[1:]))
 
     def fits(self, row):
         """Satır sütun sınırları içinde kalıyor ve en az iki sütunu dolduruyor mu?"""

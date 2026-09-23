@@ -42,6 +42,13 @@ class HeaderColumnsTest(unittest.TestCase):
         self.assertFalse(HeaderColumns.starts_table(_row(("A", "B"), 0)))
         self.assertFalse(HeaderColumns.starts_table(_row(("A",), 0, BOLD)))
 
+    def test_header_columns_need_a_gutter(self):
+        chapter = [_span("Chapter 11", 72, 0, BOLD), _span(": Pipeline", 132, 0, BOLD)]
+        emphasis = [_span("for instance", 72, 0, BOLD), _span("must", 149, 0, BOLD)]
+        self.assertFalse(HeaderColumns.starts_table(chapter))
+        self.assertFalse(HeaderColumns.starts_table(emphasis))
+        self.assertTrue(HeaderColumns.starts_table([_span("Feature", 72, 0, BOLD), _span("Items", 144, 0, BOLD)]))
+
     def test_row_filling_one_column_does_not_fit(self):
         self.assertFalse(self.columns.fits(_row(("only",), 0)))
 
