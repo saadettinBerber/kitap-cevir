@@ -7,6 +7,17 @@ from extraction.text_layer.script_marks import ScriptAttacher
 from extraction.text_layer.text_line import SAME_BASELINE_TOLERANCE, TextLine
 
 
+class CodeFont:
+    """Bir span'ın kod fontu olup olmadığına karar verir (progress.json -> extraction)."""
+
+    def __init__(self, settings):
+        self.prefix = settings["code_font_prefix"]
+        self.max_size = settings["code_max_font_size"]
+
+    def matches(self, span):
+        return span["font"].startswith(self.prefix) and span["size"] < self.max_size
+
+
 class PageLineReader:
     """Bir sayfanın satırlarını, metinleri hazır TextLine listesi olarak okur."""
 
@@ -69,7 +80,3 @@ class PageLineReader:
             if not (leftmost and line.is_standalone_code()):
                 line.is_code = False
         return lines
-
-
-def page_lines(page, code_font):
-    return PageLineReader(code_font).read(page)

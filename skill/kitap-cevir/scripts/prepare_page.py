@@ -13,11 +13,12 @@ import json
 import os
 import sys
 
-from extraction.text_layer.layout_scan import page_plain_text
+import fitz
+
 from extraction.page_extractor import PageExtractor
+from extraction.text_utils import normalize_spaces
 from project import (Project, concepts_settings, extraction_settings,
                      translator_has_vision)
-from extraction.text_utils import normalize_spaces
 
 CONTEXT_CHARS = 700
 MAX_BLANK_SKIPS = 3
@@ -50,9 +51,17 @@ def _section_of(progress, page, header):
     return _previous_section(progress, page)
 
 
+def _page_text(pdf, pdf_page):
+    document = fitz.open(pdf)
+    try:
+        return document[pdf_page - 1].get_text()
+    finally:
+        document.close()
+
+
 def _context_snippets(pdf, pdf_page):
-    previous = normalize_spaces(page_plain_text(pdf, pdf_page - 1))
-    following = normalize_spaces(page_plain_text(pdf, pdf_page + 1))
+    previous = normalize_spaces(_page_text(pdf, pdf_page - 1))
+    following = normalize_spaces(_page_text(pdf, pdf_page + 1))
     return {"prev_tail": previous[-CONTEXT_CHARS:],
             "next_head": following[:CONTEXT_CHARS]}
 

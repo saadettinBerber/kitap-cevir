@@ -13,104 +13,72 @@ import shutil
 import sys
 
 from concept_check import card_problems
+from page_document import PageDocument
 from project import Project, concepts_settings
-from toc_builder import add_glossary_terms, write_glossary_js, write_toc
+from reader_data import Glossary, TableOfContents
 
-_TRANSLATABLE_TYPES = ("heading", "caption", "footnote", "chapter")
-_PRIVATE_FIELDS = ("context", "concepts_spec", "glossary_new")
 _REQUIRED_FIELDS = ("id", "page", "pdf_page", "blocks")
 
 
-def _text_units(block):
-    if block["type"] == "para":
-        return block["sentences"]
-    if block["type"] == "list":
-        return block["items"]
-    if block["type"] == "table":
-        return [cell for row in block["rows"] for cell in row]
-    if block["type"] in _TRANSLATABLE_TYPES:
-        return [block]
-    return []
+class IncompletePage(ValueError):
+    """Çevirmen çıktısında zorunlu alan eksik."""
 
 
-def missing_translations(document):
-    return sum(1 for block in document["blocks"]
-               for unit in _text_units(block)
-               if unit.get("en") and not unit.get("tr"))
+class PageFinalizer:
+    """Çevirmen çıktısını projeye işler: sayfa dosyası, görseller, ilerleme, sözlük, içindekiler."""
 
+    def __init__(self, project):
+        self.project = project
 
-def _require_fields(document):
-    missing = [f for f in _REQUIRED_FIELDS if f not in document]
-    if missing:
-        raise ValueError(f"Eksik alanlar: {missing}")
+    def finalize(self, translated_path):
+        with open(translated_path, encoding="utf-8") as handle:
+            page = PageDocument(json.load(handle))
+        self._require_fields(page.data)
+        untranslated = page.missing_translations()
+        page_js = page.write(self.project.pages_dir)
+        images = self._copy_images(page.data)
+        progress = self._register(page.data)
+        glossary = Glossary(self.project)
+        added_terms = glossary.add(page.data.get("glossary_new", []))
+        TableOfContents(self.project, progress).write()
+        glossary.write_js()
+        return {"page_js": page_js, "images": images, "terms": added_terms,
+                "untranslated": untranslated, "page": page.data["page"],
+                "card_problems": card_problems(page.data.get("concepts", []), concepts_settings(progress))}
 
+    @staticmethod
+    def _require_fields(document):
+        missing = [field for field in _REQUIRED_FIELDS if field not in document]
+        if missing:
+            raise IncompletePage(f"Eksik alanlar: {missing}")
 
-def read_page_js(path):
-    with open(path, encoding="utf-8") as handle:
-        source = handle.read()
-    return json.loads(source[source.index("(") + 1:source.rindex(")")])
+    def _copy_images(self, document):
+        sources = [b["src"] for b in document["blocks"] if b["type"] in ("image", "math")]
+        sources += [m["src"] for m in document.get("math", [])]
+        if not sources:
+            return 0
+        src_dir = os.path.join(self.project.work_in, f"{document['id']}_images")
+        dst_dir = os.path.join(self.project.pages_dir, f"{document['id']}_images")
+        os.makedirs(dst_dir, exist_ok=True)
+        present = [name for name in sources if os.path.isfile(os.path.join(src_dir, name))]
+        for name in present:
+            shutil.copy2(os.path.join(src_dir, name), os.path.join(dst_dir, name))
+        return len(present)
 
-
-def write_page_js(project, document):
-    os.makedirs(project.pages_dir, exist_ok=True)
-    payload = {k: v for k, v in document.items() if k not in _PRIVATE_FIELDS}
-    path = os.path.join(project.pages_dir, f"{document['id']}.js")
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write("window.PAGE(" + json.dumps(payload, ensure_ascii=False) + ");\n")
-    return path
-
-
-def _image_sources(document):
-    blocks = document["blocks"]
-    sources = [b["src"] for b in blocks if b["type"] in ("image", "math")]
-    return sources + [m["src"] for m in document.get("math", [])]
-
-
-def copy_images(project, document):
-    sources = _image_sources(document)
-    if not sources:
-        return 0
-    src_dir = os.path.join(project.work_in, f"{document['id']}_images")
-    dst_dir = os.path.join(project.pages_dir, f"{document['id']}_images")
-    os.makedirs(dst_dir, exist_ok=True)
-    copied = 0
-    for name in sources:
-        source = os.path.join(src_dir, name)
-        if os.path.isfile(source):
-            shutil.copy2(source, os.path.join(dst_dir, name))
-            copied += 1
-    return copied
-
-
-def register_page(project, progress, document):
-    page = document["page"]
-    progress["pages"][str(page)] = {
-        "pdf_page": document["pdf_page"],
-        "chapter": document.get("chapter", {}).get("num"),
-        "title_en": document.get("title", {}).get("en", ""),
-        "title_tr": document.get("title", {}).get("tr", ""),
-        "section_en": document.get("section", {}).get("en", ""),
-        "section_tr": document.get("section", {}).get("tr", ""),
-    }
-    progress["last_translated_page"] = max(progress["last_translated_page"], page)
-    project.save_progress(progress)
-
-
-def finalize(project, translated_path):
-    with open(translated_path, encoding="utf-8") as handle:
-        document = json.load(handle)
-    _require_fields(document)
-    untranslated = missing_translations(document)
-    page_js = write_page_js(project, document)
-    images = copy_images(project, document)
-    progress = project.load_progress()
-    register_page(project, progress, document)
-    added_terms = add_glossary_terms(project, document.get("glossary_new", []))
-    write_toc(project, progress)
-    write_glossary_js(project)
-    return {"page_js": page_js, "images": images, "terms": added_terms,
-            "untranslated": untranslated, "page": document["page"],
-            "card_problems": card_problems(document.get("concepts", []), concepts_settings(progress))}
+    def _register(self, document):
+        """Sayfayı progress.json'a kaydeder, last_translated_page'i ilerletir."""
+        progress = self.project.load_progress()
+        progress["pages"][str(document["page"])] = {
+            "pdf_page": document["pdf_page"],
+            "chapter": document.get("chapter", {}).get("num"),
+            "title_en": document.get("title", {}).get("en", ""),
+            "title_tr": document.get("title", {}).get("tr", ""),
+            "section_en": document.get("section", {}).get("en", ""),
+            "section_tr": document.get("section", {}).get("tr", ""),
+        }
+        progress["last_translated_page"] = max(progress["last_translated_page"], document["page"])
+        self.project.save_progress(progress)
+        return progress
 
 
 def main():
@@ -118,7 +86,7 @@ def main():
         print(__doc__)
         sys.exit(1)
     project = Project()
-    result = finalize(project, sys.argv[1])
+    result = PageFinalizer(project).finalize(sys.argv[1])
     print(f"✓ Sayfa {result['page']}: {project.relative(result['page_js'])} yazıldı, "
           f"{result['images']} görsel, {result['terms']} yeni terim; toc.js + glossary.js güncellendi")
     if result["untranslated"]:

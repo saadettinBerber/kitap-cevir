@@ -4,7 +4,8 @@ import tempfile
 import unittest
 
 import _paths  # noqa: F401
-from finalize_page import finalize, missing_translations, read_page_js
+from finalize_page import PageFinalizer
+from page_document import PageDocument
 from project import Project
 
 GLOSSARY = ("# S\n\n| İngilizce Terim | Türkçe Karşılığı | Açıklama/Not |\n"
@@ -36,10 +37,10 @@ class FinalizeTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_counts_missing_translations(self):
-        self.assertEqual(missing_translations(DOCUMENT), 1)
+        self.assertEqual(PageDocument(DOCUMENT).missing_translations(), 1)
 
     def test_finalize_writes_page_progress_and_glossary(self):
-        result = finalize(self.project, self.out)
+        result = PageFinalizer(self.project).finalize(self.out)
         page_js = open(result["page_js"], encoding="utf-8").read()
         self.assertTrue(page_js.startswith("window.PAGE("))
         self.assertNotIn("gizli", page_js)
@@ -51,12 +52,12 @@ class FinalizeTest(unittest.TestCase):
         self.assertTrue(os.path.isfile(self.project.toc_js))
 
     def test_finalize_reports_card_problems(self):
-        result = finalize(self.project, self.out)
+        result = PageFinalizer(self.project).finalize(self.out)
         self.assertEqual(result["card_problems"], ["kart sayısı 0 (2-4 olmalı)"])
 
     def test_page_js_round_trips(self):
-        result = finalize(self.project, self.out)
-        self.assertEqual(read_page_js(result["page_js"])["title"], {"en": "T", "tr": "B"})
+        result = PageFinalizer(self.project).finalize(self.out)
+        self.assertEqual(PageDocument.read(result["page_js"]).data["title"], {"en": "T", "tr": "B"})
 
 
 if __name__ == "__main__":

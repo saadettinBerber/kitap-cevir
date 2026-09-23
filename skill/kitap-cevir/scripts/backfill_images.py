@@ -9,7 +9,6 @@ Kullanım (proje dizininde): python3 backfill_images.py [N ...]
 (argümansız: tüm çevrilmiş sayfalar)
 """
 import difflib
-import json
 import os
 import re
 import shutil
@@ -18,6 +17,7 @@ import sys
 import fitz
 
 from extraction.page_extractor import PageExtractor
+from page_document import PageDocument
 from project import Project, extraction_settings
 
 MIN_IMAGE_SIDE_PX = 80          # daha küçükler süs/çizgi parçasıdır
@@ -36,18 +36,6 @@ def block_text(block):
     if block["type"] == "list":
         return " ".join(i.get("en", "") for i in block["items"])
     return block.get("en") or block.get("html") or ""
-
-
-def read_page_js(project, page):
-    path = os.path.join(project.pages_dir, f"page-{page}.js")
-    with open(path, encoding="utf-8") as handle:
-        raw = handle.read().strip()
-    return path, json.loads(raw[len("window.PAGE("):-2])
-
-
-def write_page_js(path, document):
-    with open(path, "w", encoding="utf-8") as handle:
-        handle.write("window.PAGE(" + json.dumps(document, ensure_ascii=False) + ");\n")
 
 
 def _is_real_image(image_dir, src):
@@ -111,7 +99,8 @@ class ImageBackfiller:
         image_dir = os.path.join(self.project.work_in, f"page-{page}_images")
         pdf_page = page + self.progress["pdf_offset"]
         extracted = self.extractor.extract(self.project.pdf_path(self.progress), pdf_page, image_dir)
-        path, document = read_page_js(self.project, page)
+        page_document = PageDocument.read(self.project.page_js(page))
+        document = page_document.data
         added = 0
         for src, anchor in images_with_anchors(extracted["blocks"], image_dir):
             if already_has(document["blocks"], src):
@@ -120,7 +109,7 @@ class ImageBackfiller:
             copy_image(self.project, page, image_dir, src)
             added += 1
         if added:
-            write_page_js(path, document)
+            page_document.write(self.project.pages_dir)
         return added
 
 

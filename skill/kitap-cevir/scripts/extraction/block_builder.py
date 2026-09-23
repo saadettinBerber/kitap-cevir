@@ -8,6 +8,7 @@ import re
 from extraction.text_utils import is_numeric_only, split_sentences, strip_list_marker
 
 MAX_HEADING_CHARS = 100
+_CHAPTER_AUTHOR = re.compile(r"^(?:by|with) [A-Z]")
 _BIBLIOGRAPHY_ENTRY = re.compile(r"^\[[A-Za-z0-9]+\]:")
 _LIST_MARKER = re.compile(r"^(\d+[.)])\s")
 
@@ -43,7 +44,7 @@ class BlockBuilder:
 
     def _chapter_label_blocks(self, element):
         """Bölüm etiketi satırı (CHAPTER 7 gibi); ODL kimi kitapta bunu paragraf
-        sanar, merge_chapter_opener numarayı bölüm başlığına taşır."""
+        sanar, ChapterOpener numarayı bölüm başlığına taşır."""
         match = self.chapter_label.match(self._plain(element)) if self.chapter_label else None
         return [{"type": "chapter_number", "num": int(match.group(1))}] if match else []
 
@@ -149,3 +150,32 @@ class BlockBuilder:
 
     def _rich(self, text):
         return self.fixer.rich(self.fixer.plain(text))
+
+
+class ChapterOpener:
+    """Bölüm açılışı ODL'de ayrı öğeler olarak gelir: chapter_number + chapter +
+    'by ...' paragrafı. Bunlar tek chapter bloğunda birleşir."""
+
+    def __init__(self, blocks):
+        self.blocks = blocks
+
+    def merged(self):
+        merged, pending_number = [], None
+        for block in self.blocks:
+            if block["type"] == "chapter_number":
+                pending_number = block["num"]
+            elif block["type"] == "chapter":
+                block["num"] = pending_number
+                merged.append(block)
+            elif merged and merged[-1]["type"] == "chapter" and self._author_line(block):
+                merged[-1]["author"] = self._author_line(block)
+            else:
+                merged.append(block)
+        return merged
+
+    @staticmethod
+    def _author_line(block):
+        if block.get("type") != "para" or len(block["sentences"]) != 1:
+            return ""
+        text = block["sentences"][0]["en"]
+        return text if _CHAPTER_AUTHOR.match(text) else ""

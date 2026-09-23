@@ -5,7 +5,7 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from extraction.block_merge import flatten_nested_lists
+from extraction.odl_elements import OdlElements
 from extraction.tables.table_scan import scan_tables
 
 COLUMNS = [(72, 140), (140, 432)]
@@ -113,14 +113,14 @@ class NestedListTest(unittest.TestCase):
                       {"type": "heading", "content": "Cross-Cutting", "font size": 15.8}]}]}
 
     def test_nested_content_returns_to_the_stream(self):
-        flat = flatten_nested_lists([self._list_with_kids()])
+        flat = OdlElements([self._list_with_kids()]).flatten_nested_lists().items
         self.assertEqual([e["type"] for e in flat], ["list item", "paragraph", "heading"])
         self.assertEqual(flat[0]["content"], "Table 4-2. Structural characteristics")
         self.assertTrue(all(e["nested"] for e in flat))
 
     def test_plain_list_is_untouched(self):
         plain = {"type": "list", "list items": [{"content": "first"}, {"content": "second"}]}
-        self.assertEqual(flatten_nested_lists([plain]), [plain])
+        self.assertEqual(OdlElements([plain]).flatten_nested_lists().items, [plain])
 
 
 if __name__ == "__main__":

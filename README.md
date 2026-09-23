@@ -51,16 +51,17 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │   ├── backfill_images.py    görselleri geriye dönük ekler
 │   │   # proje durumu
 │   ├── project.py            proje kökü, progress.json, varsayılan ayarlar
-│   ├── toc_builder.py        data/toc.js ve data/glossary.js üretimi
+│   ├── page_document.py      PageDocument: page-N.js okuma/yazma, çevrilecek metin birimleri
+│   ├── reader_data.py        TableOfContents (data/toc.js), Glossary (glossary.md + data/glossary.js)
 │   ├── concept_check.py      kart denetimi: tür, zorunlu alanlar, kod dili
 │   ├── migrate_match.py      eski en→tr eşleşmelerini yeni birimlere bulur
 │   └── extraction/           PDF sayfası → blok şeması
 │       ├── page_extractor.py PageExtractor: ODL + PyMuPDF orkestrasyonu
 │       ├── odl_runner.py     OpenDataLoader çağrısı, öğe kutusu
 │       ├── page_zones.py     koşu başlığı ve alt bilgi
-│       ├── block_builder.py  ODL öğesi → blok (başlık, paragraf, caption, liste, tablo)
+│       ├── block_builder.py  ODL öğesi → blok; ChapterOpener bölüm açılışını birleştirir
 │       ├── page_regions.py   kod/tablo/denklem bölgelerinin okuma sırasına yerleşimi
-│       ├── block_merge.py    dipnot işareti, bölüm açılışı, satır içi denklem birleştirme
+│       ├── odl_elements.py   OdlElements: gömülü liste, simge parçası, dipnot işareti, satır içi denklem
 │       ├── text_fixer.py / text_utils.py   metin onarımı, cümle ayırma
 │       ├── text_layer/       PyMuPDF metin katmanı
 │       │   ├── layout_scan.py    kod blokları, satır içi kod, tire onarımı

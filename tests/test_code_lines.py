@@ -5,8 +5,7 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from extraction.text_layer.code_lines import page_lines
-from extraction.text_layer.layout_scan import CodeFont
+from extraction.text_layer.code_lines import CodeFont, PageLineReader
 
 SETTINGS = {"code_font_prefix": "Courier", "code_max_font_size": 12}
 BASELINE = 100
@@ -31,7 +30,7 @@ class CodeLinesTest(unittest.TestCase):
         pdf = os.path.join(self.tmp.name, "c.pdf")
         _make_pdf(pdf)
         document = fitz.open(pdf)
-        self.lines = page_lines(document[0], CodeFont(SETTINGS))
+        self.lines = PageLineReader(CodeFont(SETTINGS)).read(document[0])
         document.close()
 
     def tearDown(self):

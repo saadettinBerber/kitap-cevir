@@ -13,67 +13,90 @@ import os
 import re
 import sys
 
-from finalize_page import finalize, read_page_js
 from extraction.text_layer.layout_scan import scan_page
-from migrate_match import Translations, apply_fixes, fill_sentences, fill_unit, old_units
+from finalize_page import PageFinalizer
+from migrate_match import TranslationFiller, Translations
+from page_document import PageDocument
 from prepare_page import PagePreparer
 from project import Project, extraction_settings
 
-_TEXT_TYPES = ("heading", "caption", "footnote", "chapter")
 _COPY_FIELDS = ("title", "section", "concepts")
+_PATH_STEP = re.compile(r"(\w+)|\[(\d+)\]")
 
 
-def _fill_block(block, translations, pending, path):
-    if block["type"] == "para":
-        block["sentences"] = fill_sentences(block["sentences"], translations, pending, path)
-    elif block["type"] == "list":
-        for i, item in enumerate(block["items"]):
-            fill_unit(item, translations, pending, f"{path}.items[{i}]")
-    elif block["type"] == "table":
-        for r, row in enumerate(block["rows"]):
-            for c, cell in enumerate(row):
-                fill_unit(cell, translations, pending, f"{path}.rows[{r}][{c}]")
-    elif block["type"] in _TEXT_TYPES:
-        fill_unit(block, translations, pending, path)
+class PageMigration:
+    """Yeni çıkarılmış sayfa girdisine eski sayfanın çevirilerini, başlıklarını,
+    kartlarını ve denklem LaTeX'ini taşır."""
 
+    def __init__(self, document, old):
+        self.document = document
+        self.old = old
 
-def _carry_latex(document, old):
-    """Eski sayfada aynı PNG için LaTeX yazılmışsa yeni yapıya taşınır."""
-    known = {m["src"]: m.get("latex", "") for m in old.get("math", [])}
-    known.update({b["src"]: b.get("latex", "") for b in old["blocks"] if b["type"] == "math"})
-    for item in [b for b in document["blocks"] if b["type"] == "math"] + document.get("math", []):
-        item["latex"] = item.get("latex") or known.get(item["src"], "")
+    def run(self, fixes):
+        """(pending, latex_items): çevirisi bulunamayan birimler ve LaTeX'i olmayan denklemler."""
+        filler = TranslationFiller(Translations.of_page(self.old, fixes))
+        for index, block in enumerate(self.document["blocks"]):
+            filler.fill_block(block, f"blocks[{index}]")
+        for field in _COPY_FIELDS:
+            self.document[field] = self.old.get(field, self.document.get(field))
+        self._carry_latex()
+        if not self.document.get("chapter", {}).get("tr"):
+            self.document["chapter"] = self.old.get("chapter", self.document["chapter"])
+        self.document["glossary_new"] = []
+        return filler.pending, self._missing_latex()
 
+    @staticmethod
+    def _math_items(document):
+        return [b for b in document["blocks"] if b["type"] == "math"] + document.get("math", [])
 
-def _math_items(document):
-    items = [{"path": f"blocks[{i}]", "src": b["src"]}
-             for i, b in enumerate(document["blocks"]) if b["type"] == "math" and not b["latex"]]
-    items += [{"path": f"math[{i}]", "src": m["src"]}
-              for i, m in enumerate(document.get("math", [])) if not m["latex"]]
-    return items
+    def _carry_latex(self):
+        """Eski sayfada aynı PNG için LaTeX yazılmışsa yeni yapıya taşınır."""
+        known = {m["src"]: m.get("latex", "") for m in self.old.get("math", [])}
+        known.update({b["src"]: b.get("latex", "") for b in self.old["blocks"] if b["type"] == "math"})
+        for item in self._math_items(self.document):
+            item["latex"] = item.get("latex") or known.get(item["src"], "")
 
-
-def migrate(document, old, fixes):
-    """Yeni girdiye eski çevirileri işler; (pending, latex_items) döndürür."""
-    units = apply_fixes(old_units(old["blocks"]), fixes)
-    translations, pending = Translations(units), []
-    for index, block in enumerate(document["blocks"]):
-        _fill_block(block, translations, pending, f"blocks[{index}]")
-    for field in _COPY_FIELDS:
-        document[field] = old.get(field, document.get(field))
-    _carry_latex(document, old)
-    if not document.get("chapter", {}).get("tr"):
-        document["chapter"] = old.get("chapter", document["chapter"])
-    document["glossary_new"] = []
-    return pending, _math_items(document)
+    def _missing_latex(self):
+        items = [{"path": f"blocks[{i}]", "src": b["src"]}
+                 for i, b in enumerate(self.document["blocks"]) if b["type"] == "math" and not b["latex"]]
+        items += [{"path": f"math[{i}]", "src": m["src"]}
+                  for i, m in enumerate(self.document.get("math", [])) if not m["latex"]]
+        return items
 
 
 class Migrator:
+    """Projenin çevrilmiş sayfalarını taşır; bekleyenleri _work/migrate'e yazar."""
+
     def __init__(self):
         self.project = Project()
         self.preparer = PagePreparer(self.project)
+        self.finalizer = PageFinalizer(self.project)
         self.migrate_dir = os.path.join(self.project.root, "_work", "migrate")
         os.makedirs(self.migrate_dir, exist_ok=True)
+
+    def run(self, page, finalize_complete):
+        old = PageDocument.read(self.project.page_js(page)).data
+        document = self.preparer.build_input(page)
+        pending, latex_items = PageMigration(document, old).run(self._fixes(document["pdf_page"]))
+        os.makedirs(self.project.work_out, exist_ok=True)
+        self._dump(self._out_path(page), document)
+        self._write_pending(page, pending, latex_items)
+        complete = not pending and not latex_items
+        if complete and finalize_complete:
+            self.finalizer.finalize(self._out_path(page))
+        return {"page": page, "units": len(PageDocument(document).text_units()), "pending": len(pending),
+                "latex": len(latex_items), "finalized": complete and finalize_complete}
+
+    def apply(self, page):
+        """done-N.json'daki çevirileri ({path, tr} ve {path, latex}) yazar ve sonlandırır."""
+        done = self._load(os.path.join(self.migrate_dir, f"done-{page}.json"))
+        document = self._load(self._out_path(page))
+        for item in done.get("units", []):
+            self._resolve(document, item["path"])["tr"] = item["tr"]
+        for item in done.get("latex", []):
+            self._resolve(document, item["path"])["latex"] = item["latex"]
+        self._dump(self._out_path(page), document)
+        return self.finalizer.finalize(self._out_path(page))
 
     def _fixes(self, pdf_page):
         settings = extraction_settings(self.preparer.progress)
@@ -82,65 +105,30 @@ class Migrator:
     def _out_path(self, page):
         return os.path.join(self.project.work_out, f"page-{page}.json")
 
-    def run(self, page, finalize_complete):
-        old = read_page_js(self.project.page_js(page))
-        document = self.preparer.build_input(page)
-        pending, latex_items = migrate(document, old, self._fixes(document["pdf_page"]))
-        os.makedirs(self.project.work_out, exist_ok=True)
-        _dump(self._out_path(page), document)
-        self._write_pending(page, pending, latex_items)
-        complete = not pending and not latex_items
-        if complete and finalize_complete:
-            finalize(self.project, self._out_path(page))
-        return {"page": page, "units": _unit_count(document), "pending": len(pending),
-                "latex": len(latex_items), "finalized": complete and finalize_complete}
-
     def _write_pending(self, page, pending, latex_items):
         path = os.path.join(self.migrate_dir, f"pending-{page}.json")
         if pending or latex_items:
-            _dump(path, {"page": page, "units": pending, "latex": latex_items})
+            self._dump(path, {"page": page, "units": pending, "latex": latex_items})
         elif os.path.exists(path):
             os.remove(path)
 
-    def apply(self, page):
-        done = json.load(open(os.path.join(self.migrate_dir, f"done-{page}.json"), encoding="utf-8"))
-        document = json.load(open(self._out_path(page), encoding="utf-8"))
-        for item in done.get("units", []):
-            _resolve(document, item["path"])["tr"] = item["tr"]
-        for item in done.get("latex", []):
-            _resolve(document, item["path"])["latex"] = item["latex"]
-        _dump(self._out_path(page), document)
-        return finalize(self.project, self._out_path(page))
+    @staticmethod
+    def _resolve(document, path):
+        """'blocks[3].sentences[1]' gibi bir yolun gösterdiği birim."""
+        node = document
+        for key, index in _PATH_STEP.findall(path):
+            node = node[key] if key else node[int(index)]
+        return node
 
+    @staticmethod
+    def _load(path):
+        with open(path, encoding="utf-8") as handle:
+            return json.load(handle)
 
-def _resolve(document, path):
-    node = document
-    for key in re.findall(r"(\w+)|\[(\d+)\]", path):
-        node = node[key[0]] if key[0] else node[int(key[1])]
-    return node
-
-
-def _unit_count(document):
-    counter = []
-    for block in document["blocks"]:
-        _fill_block_count(block, counter)
-    return len(counter)
-
-
-def _fill_block_count(block, counter):
-    if block["type"] == "para":
-        counter += block["sentences"]
-    elif block["type"] == "list":
-        counter += block["items"]
-    elif block["type"] == "table":
-        counter += [c for row in block["rows"] for c in row]
-    elif block["type"] in _TEXT_TYPES:
-        counter.append(block)
-
-
-def _dump(path, payload):
-    with open(path, "w", encoding="utf-8") as handle:
-        json.dump(payload, handle, ensure_ascii=False, indent=2)
+    @staticmethod
+    def _dump(path, payload):
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle, ensure_ascii=False, indent=2)
 
 
 def main():

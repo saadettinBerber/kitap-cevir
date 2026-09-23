@@ -5,9 +5,8 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from extraction.text_layer.code_lines import page_lines
+from extraction.text_layer.code_lines import CodeFont, PageLineReader
 from extraction.text_layer.script_marks import ScriptFixes
-from extraction.text_layer.layout_scan import CodeFont
 from project import DEFAULT_EXTRACTION
 from extraction.text_fixer import TextFixer
 
@@ -41,7 +40,7 @@ def _fixes_for(*sentences):
         document.close()
         document = fitz.open(path)
         try:
-            lines = page_lines(document[0], CodeFont(DEFAULT_EXTRACTION))
+            lines = PageLineReader(CodeFont(DEFAULT_EXTRACTION)).read(document[0])
             return ScriptFixes(lines).for_prose()
         finally:
             document.close()

@@ -24,7 +24,7 @@ import shutil
 import fitz
 
 from project import CARD_KINDS, DEFAULT_CODE_COMMENT_LANG, PROGRESS_FILE, Project
-from toc_builder import rebuild
+from reader_data import rebuild
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE_DIR = os.path.join(SKILL_DIR, "templates", "project")

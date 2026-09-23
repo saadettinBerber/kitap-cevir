@@ -2,8 +2,8 @@ import copy
 import unittest
 
 import _paths  # noqa: F401
-from migrate_match import Translations, apply_fixes, fill_sentences, fill_unit, normalize, old_units
-from migrate_page import _resolve, migrate
+from migrate_match import TranslationFiller, Translations
+from migrate_page import Migrator, PageMigration
 
 
 def _unit(en, tr):
@@ -25,41 +25,43 @@ OLD_PAGE = {
 
 class MatchTest(unittest.TestCase):
     def test_normalize_ignores_case_quotes_tags_and_placeholders(self):
-        self.assertEqual(normalize("The “Code” <sup>1</sup> ⟦eq-2⟧."), normalize('the "code" 1'))
+        self.assertEqual(Translations.key("The “Code” <sup>1</sup> ⟦eq-2⟧."), Translations.key('the "code" 1'))
 
     def test_old_units_flatten_in_page_order(self):
-        self.assertEqual([u["en"] for u in old_units(OLD_PAGE["blocks"])],
-                         ["Coupling", "First part", "second part.", "Whole sentence split later."])
+        translations = Translations.of_page(OLD_PAGE, {})
+        self.assertEqual(list(translations.single.values()),
+                         ["Bağlılık", "İlk kısım", "ikinci kısım.", "Sonra bölünen tüm cümle."])
 
-    def test_apply_fixes_updates_both_sides(self):
-        units = apply_fixes([_unit("10 x", "10 x")], {"10 x": "10^23 x"})
-        self.assertEqual(units, [_unit("10^23 x", "10^23 x")])
+    def test_fixes_apply_to_both_sides(self):
+        old = {"blocks": [{"type": "caption", "en": "10 x", "tr": "10 x"}]}
+        translations = Translations.of_page(old, {"10 x": "10^23 x"})
+        self.assertEqual(translations.lookup("10^23 x"), "10^23 x")
 
     def test_joined_old_units_match_one_new_sentence(self):
-        translations = Translations(old_units(OLD_PAGE["blocks"]))
+        translations = Translations.of_page(OLD_PAGE, {})
         self.assertEqual(translations.lookup("First part second part."), "İlk kısım ikinci kısım.")
 
     def test_new_split_sentences_are_merged_back(self):
-        translations = Translations(old_units(OLD_PAGE["blocks"]))
+        filler = TranslationFiller(Translations.of_page(OLD_PAGE, {}))
         sentences = [{"en": "Whole sentence"}, {"en": "split later."}]
-        merged = fill_sentences(sentences, translations, [], "blocks[0]")
+        merged = filler.fill_sentences(sentences, "blocks[0]")
         self.assertEqual(merged, [_unit("Whole sentence split later.", "Sonra bölünen tüm cümle.")])
 
     def test_numeric_cell_copies_english(self):
-        unit, pending = {"en": "42 %"}, []
-        self.assertTrue(fill_unit(unit, Translations([]), pending, "p"))
-        self.assertEqual((unit["tr"], pending), ("42 %", []))
+        unit, filler = {"en": "42 %"}, TranslationFiller(Translations([]))
+        self.assertTrue(filler.fill_unit(unit, "p"))
+        self.assertEqual((unit["tr"], filler.pending), ("42 %", []))
 
     def test_unmatched_unit_goes_to_pending(self):
-        unit, pending = {"en": "Brand new."}, []
-        self.assertFalse(fill_unit(unit, Translations([]), pending, "blocks[3]"))
-        self.assertEqual(pending, [{"path": "blocks[3]", "en": "Brand new.", "tr_hint": ""}])
+        unit, filler = {"en": "Brand new."}, TranslationFiller(Translations([]))
+        self.assertFalse(filler.fill_unit(unit, "blocks[3]"))
+        self.assertEqual(filler.pending, [{"path": "blocks[3]", "en": "Brand new.", "tr_hint": ""}])
 
     def test_translation_missing_placeholder_goes_to_pending(self):
-        translations = Translations([_unit("Loss is ⟦eq-1⟧.", "Kayıp budur.")])
-        unit, pending = {"en": "Loss is ⟦eq-1⟧."}, []
-        self.assertFalse(fill_unit(unit, translations, pending, "p"))
-        self.assertEqual(pending[0]["tr_hint"], "Kayıp budur.")
+        filler = TranslationFiller(Translations([_unit("Loss is ⟦eq-1⟧.", "Kayıp budur.")]))
+        unit = {"en": "Loss is ⟦eq-1⟧."}
+        self.assertFalse(filler.fill_unit(unit, "p"))
+        self.assertEqual(filler.pending[0]["tr_hint"], "Kayıp budur.")
 
 
 class MigrateTest(unittest.TestCase):
@@ -74,7 +76,7 @@ class MigrateTest(unittest.TestCase):
 
     def test_carries_translations_fields_and_latex(self):
         document = self._new_document()
-        pending, latex_items = migrate(document, copy.deepcopy(OLD_PAGE), {})
+        pending, latex_items = PageMigration(document, copy.deepcopy(OLD_PAGE)).run({})
         self.assertEqual(document["blocks"][0]["tr"], "Bağlılık")
         self.assertEqual(document["blocks"][1]["sentences"][0]["tr"], "İlk kısım ikinci kısım.")
         self.assertEqual(document["blocks"][2]["latex"], "x^2")
@@ -85,7 +87,7 @@ class MigrateTest(unittest.TestCase):
 
     def test_resolve_follows_pending_paths(self):
         document = self._new_document()
-        self.assertEqual(_resolve(document, "blocks[1].sentences[1]"), {"en": "Unseen sentence."})
+        self.assertEqual(Migrator._resolve(document, "blocks[1].sentences[1]"), {"en": "Unseen sentence."})
 
 
 if __name__ == "__main__":

@@ -14,99 +14,88 @@ import re
 import sys
 
 from concept_check import card_problems
-from finalize_page import read_page_js, write_page_js
+from page_document import PageDocument
 from project import Project, concepts_settings
 
 _RANGE = re.compile(r"^(\d+)-(\d+)$")
-_TEXT_TYPES = ("heading", "caption", "footnote", "chapter")
 
 
-def _expand(spec):
-    match = _RANGE.match(spec)
-    if match:
-        return range(int(match.group(1)), int(match.group(2)) + 1)
-    return [int(spec)]
+class CardRegenerator:
+    """Bir projenin çevrilmiş sayfaları için kart agent'ı girdisini hazırlar ve
+    agent çıktısını denetleyip sayfalara yazar."""
+
+    def __init__(self, project):
+        self.project = project
+        self.spec = concepts_settings(project.load_progress())
+
+    def select_pages(self, specs):
+        """'all', tek numaralar ve '5-40' aralıkları; çevrilmemiş sayfalar atlanır."""
+        available = self.project.translated_pages()
+        if specs == ["all"]:
+            return available
+        wanted = {page for spec in specs for page in self._expand(spec)}
+        missing = sorted(wanted - set(available))
+        if missing:
+            print(f"  ! çevrilmemiş sayfalar atlandı: {', '.join(map(str, missing))}")
+        return [page for page in available if page in wanted]
+
+    @staticmethod
+    def _expand(spec):
+        match = _RANGE.match(spec)
+        return range(int(match.group(1)), int(match.group(2)) + 1) if match else [int(spec)]
+
+    def cards_path(self, stage, page):
+        return os.path.join(self.project.work_cards, stage, f"page-{page}.json")
+
+    def prepare(self, pages):
+        for page in pages:
+            path = self.cards_path("in", page)
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as handle:
+                json.dump(self.card_input(PageDocument.read(self.project.page_js(page)).data), handle,
+                          ensure_ascii=False, indent=2)
+        return [self.project.relative(self.cards_path("in", page)) for page in pages]
+
+    def card_input(self, page_data):
+        content = [unit for unit in map(self._content_unit, page_data["blocks"]) if unit]
+        return {"id": page_data["id"], "page": page_data["page"],
+                "chapter": page_data.get("chapter", {}), "section": page_data.get("section", {}),
+                "title": page_data.get("title", {}), "content": content,
+                "concepts_spec": self.spec, "concepts": []}
+
+    @staticmethod
+    def _content_unit(block):
+        """Bloğu kart agent'ının okuyacağı tek bir {type, en, tr} birimine indirger."""
+        if block["type"] == "code":
+            return {"type": "code", "code": block["code"]}
+        units = PageDocument.block_units(block)
+        if not units:
+            return {}
+        return {"type": block["type"], "en": " ".join(unit.get("en", "") for unit in units),
+                "tr": " ".join(unit.get("tr", "") for unit in units)}
+
+    def apply(self, pages):
+        """{sayfa: sorunlar}; sorunsuz sayfaların kartları yazılmıştır."""
+        report = {}
+        for page in pages:
+            try:
+                report[page] = self._apply_page(page)
+            except FileNotFoundError:
+                report[page] = [f"çıktı yok: {self.project.relative(self.cards_path('out', page))}"]
+        return report
+
+    def _apply_page(self, page):
+        with open(self.cards_path("out", page), encoding="utf-8") as handle:
+            cards = json.load(handle).get("concepts", [])
+        problems = card_problems(cards, self.spec)
+        if not problems:
+            document = PageDocument.read(self.project.page_js(page))
+            PageDocument({**document.data, "concepts": cards}).write(self.project.pages_dir)
+        return problems
 
 
-def select_pages(project, specs):
-    available = project.translated_pages()
-    if specs == ["all"]:
-        return available
-    wanted = {page for spec in specs for page in _expand(spec)}
-    missing = sorted(wanted - set(available))
-    if missing:
-        print(f"  ! çevrilmemiş sayfalar atlandı: {', '.join(map(str, missing))}")
-    return [page for page in available if page in wanted]
-
-
-def _joined(kind, units):
-    return {"type": kind, "en": " ".join(unit.get("en", "") for unit in units),
-            "tr": " ".join(unit.get("tr", "") for unit in units)}
-
-
-def _block_unit(block):
-    """Bloğu kart agent'ının okuyacağı tek bir {type, en, tr} birimine indirger."""
-    kind = block["type"]
-    if kind == "para":
-        return _joined(kind, block["sentences"])
-    if kind == "list":
-        return _joined(kind, block["items"])
-    if kind == "table":
-        return _joined(kind, [cell for row in block["rows"] for cell in row])
-    if kind == "code":
-        return {"type": kind, "code": block["code"]}
-    if kind in _TEXT_TYPES:
-        return {"type": kind, "en": block.get("en", ""), "tr": block.get("tr", "")}
-    return None
-
-
-def card_input(page_document, spec):
-    content = [unit for unit in map(_block_unit, page_document["blocks"]) if unit]
-    return {"id": page_document["id"], "page": page_document["page"],
-            "chapter": page_document.get("chapter", {}), "section": page_document.get("section", {}),
-            "title": page_document.get("title", {}), "content": content,
-            "concepts_spec": spec, "concepts": []}
-
-
-def cards_path(project, stage, page):
-    return os.path.join(project.work_cards, stage, f"page-{page}.json")
-
-
-def prepare(project, pages):
-    spec = concepts_settings(project.load_progress())
-    for page in pages:
-        path = cards_path(project, "in", page)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as handle:
-            json.dump(card_input(read_page_js(project.page_js(page)), spec), handle,
-                      ensure_ascii=False, indent=2)
-    return [project.relative(cards_path(project, "in", page)) for page in pages]
-
-
-def apply_cards(project, page, spec):
-    """Kartları denetler, geçerliyse sayfaya yazar; sorun listesini döndürür."""
-    with open(cards_path(project, "out", page), encoding="utf-8") as handle:
-        cards = json.load(handle).get("concepts", [])
-    problems = card_problems(cards, spec)
-    if not problems:
-        document = read_page_js(project.page_js(page))
-        write_page_js(project, {**document, "concepts": cards})
-    return problems
-
-
-def apply(project, pages):
-    spec = concepts_settings(project.load_progress())
-    report = {}
-    for page in pages:
-        try:
-            report[page] = apply_cards(project, page, spec)
-        except FileNotFoundError:
-            report[page] = [f"çıktı yok: {project.relative(cards_path(project, 'out', page))}"]
-    return report
-
-
-def _run_prepare(project, pages):
-    paths = prepare(project, pages)
+def _run_prepare(regenerator, pages):
+    paths = regenerator.prepare(pages)
     print(f"Hazırlanan kart girdisi: {len(paths)}")
     for path in paths:
         print(f"  {path}")
@@ -114,8 +103,8 @@ def _run_prepare(project, pages):
           "çıktı _work/cards/out/page-N.json, sonra: regen_concepts.py apply ...")
 
 
-def _run_apply(project, pages):
-    report = apply(project, pages)
+def _run_apply(regenerator, pages):
+    report = regenerator.apply(pages)
     for page, problems in report.items():
         print(f"  {'!' if problems else '✓'} Sayfa {page}")
         for problem in problems:
@@ -131,8 +120,8 @@ def main():
     if len(sys.argv) < 3 or sys.argv[1] not in ACTIONS:
         print(__doc__)
         sys.exit(1)
-    project = Project()
-    ACTIONS[sys.argv[1]](project, select_pages(project, sys.argv[2:]))
+    regenerator = CardRegenerator(Project())
+    ACTIONS[sys.argv[1]](regenerator, regenerator.select_pages(sys.argv[2:]))
 
 
 if __name__ == "__main__":
