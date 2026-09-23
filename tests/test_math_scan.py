@@ -5,7 +5,7 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from extraction.equations.math_scan import placeholder, scan_math
+from extraction.equations.math_scan import MathScanner, placeholder
 
 MATH_FONT = "Helvetica-Oblique"
 SETTINGS = {"math_font_prefix": MATH_FONT}
@@ -31,7 +31,7 @@ class MathScanTest(unittest.TestCase):
         self.pdf = os.path.join(self.tmp.name, "m.pdf")
         self.images = os.path.join(self.tmp.name, "images")
         _make_pdf(self.pdf)
-        self.result = scan_math(self.pdf, 1, SETTINGS, self.images)
+        self.result = MathScanner(SETTINGS, self.images).scan(self.pdf, 1)
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -55,7 +55,7 @@ class MathScanTest(unittest.TestCase):
         self.assertEqual(placeholder(item["id"]), f"⟦{item['id']}⟧")
 
     def test_page_without_math_font_yields_nothing(self):
-        result = scan_math(self.pdf, 1, {"math_font_prefix": "NoSuchFont"}, self.images)
+        result = MathScanner({"math_font_prefix": "NoSuchFont"}, self.images).scan(self.pdf, 1)
         self.assertEqual(result, {"display": [], "inline": []})
 
 

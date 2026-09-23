@@ -26,11 +26,14 @@ class Translations:
         self.joined = {}
         for index, unit in enumerate(units):
             self.single.setdefault(self.key(unit["en"]), unit["tr"])
-            for count in range(2, MAX_JOIN + 1):
-                window = units[index:index + count]
-                if len(window) == count:
-                    self.joined.setdefault(self.key(" ".join(u["en"] for u in window)),
-                                           " ".join(u["tr"] for u in window))
+            for window in self._windows(units, index):
+                self.joined.setdefault(self.key(" ".join(u["en"] for u in window)),
+                                       " ".join(u["tr"] for u in window))
+
+    @staticmethod
+    def _windows(units, start):
+        """start'tan başlayan, 2..MAX_JOIN uzunluğundaki ardışık birim grupları."""
+        return [units[start:start + count] for count in range(2, MAX_JOIN + 1) if start + count <= len(units)]
 
     @classmethod
     def of_page(cls, old_page, fixes):

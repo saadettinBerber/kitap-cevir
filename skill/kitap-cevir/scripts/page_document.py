@@ -41,10 +41,10 @@ class PageDocument:
 
     def is_blank(self):
         """Yalnız görsel içeren sayfa (bölüm sonu boşluğu) çevrilecek bir şey taşımaz."""
-        return all(block.kind == "image" for block in self.blocks())
+        return all(block.image_sources() for block in self.blocks())
 
     def display_math(self):
-        return [block for block in self.data["blocks"] if block["type"] == "math"]
+        return [equation for block in self.blocks() for equation in block.equations()]
 
     def inline_math(self):
         return self.data.get("math", [])

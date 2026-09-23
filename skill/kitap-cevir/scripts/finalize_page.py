@@ -7,12 +7,12 @@
 
 Kullanım (proje dizininde): python3 finalize_page.py _work/out/page-N.json
 """
-import json
 import os
 import shutil
 import sys
 
 from concept_check import CardChecker
+from json_file import read_json
 from page_document import PageDocument
 from project import Project, concepts_settings
 from reader_data import Glossary, TableOfContents
@@ -31,20 +31,27 @@ class PageFinalizer:
         self.project = project
 
     def finalize(self, translated_path):
-        with open(translated_path, encoding="utf-8") as handle:
-            page = PageDocument(json.load(handle))
-        self._require_fields(page.data)
-        untranslated = page.missing_translations()
+        """Sayfayı projeye işler; dönen özet, CLI'ın basacağı uyarıları taşır."""
+        page = self._read(translated_path)
         page_js = page.write(self.project.pages_dir)
         images = self._copy_images(page)
         progress = self._register(page.data)
+        return {"page_js": page_js, "images": images, "terms": self._rebuild_reader_data(page, progress),
+                "untranslated": page.missing_translations(), "page": page.data["page"],
+                "card_problems": CardChecker(concepts_settings(progress)).problems(page.data.get("concepts", []))}
+
+    def _read(self, translated_path):
+        page = PageDocument(read_json(translated_path))
+        self._require_fields(page.data)
+        return page
+
+    def _rebuild_reader_data(self, page, progress):
+        """Yeni terimleri sözlüğe ekler, toc.js ve glossary.js'i yeniden yazar; eklenen terim sayısı."""
         glossary = Glossary(self.project)
-        added_terms = glossary.add(page.data.get("glossary_new", []))
+        added = glossary.add(page.data.get("glossary_new", []))
         TableOfContents(self.project, progress).write()
         glossary.write_js()
-        return {"page_js": page_js, "images": images, "terms": added_terms,
-                "untranslated": untranslated, "page": page.data["page"],
-                "card_problems": CardChecker(concepts_settings(progress)).problems(page.data.get("concepts", []))}
+        return added
 
     @staticmethod
     def _require_fields(document):

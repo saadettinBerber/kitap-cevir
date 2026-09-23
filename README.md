@@ -44,7 +44,7 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │   │   # SKILL.md'nin çağırdığı betikler
 │   ├── init_book.py          yeni proje: iskelet + progress.json + glossary.md
 │   ├── inspect_pdf.py        PDF tanıma: info / text / layout / offset
-│   ├── prepare_page.py       PDF sayfası → _work/in/page-N.json (agent girdisi)
+│   ├── prepare_page.py       sıradaki sayfalar → _work/in/page-N.json; boş sayfaları işaretler
 │   ├── finalize_page.py      _work/out/page-N.json → data/pages + progress + sözlük + toc
 │   ├── regen_concepts.py     kavram kartlarını yeniden ürettirir (metne dokunmaz)
 │   ├── migrate_page.py       çevrilmiş sayfaları yeni çıkarıma taşır (yeniden çeviri yok)
@@ -53,6 +53,8 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │   ├── project.py            proje kökü, progress.json, varsayılan ayarlar
 │   ├── page_document.py      PageDocument: page-N.js okuma/yazma, çevrilecek metin birimleri
 │   ├── page_blocks.py        Block.of: blok türüne göre davranış (birimler, kart girdisi, çapa)
+│   ├── page_input.py         PageInputBuilder: sayfanın çevirmen girdisi (bloklar, bölüm, bağlam)
+│   ├── json_file.py          JSON okuma/yazma (UTF-8, kaçışsız, girintili)
 │   ├── reader_data.py        TableOfContents (data/toc.js), Glossary (glossary.md + data/glossary.js)
 │   ├── concept_check.py      kart denetimi: tür, zorunlu alanlar, kod dili
 │   ├── migrate_match.py      eski en→tr eşleşmelerini yeni birimlere bulur

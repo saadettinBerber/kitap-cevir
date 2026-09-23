@@ -6,7 +6,8 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from prepare_page import PagePreparer, context_snippets
+from page_input import PageInputBuilder, context_snippets
+from prepare_page import PagePreparer
 from project import Project
 
 PARA = {"type": "para", "sentences": [{"en": "Text."}]}
@@ -42,7 +43,7 @@ class ContextSnippetsTest(unittest.TestCase):
 
 
 class _FakeExtractor:
-    """Kitap sayfası -> bloklar; PDF taramadan PagePreparer'ı sınar."""
+    """PDF sayfası -> bloklar; PDF taramadan girdi kurulumunu sınar."""
 
     def __init__(self, blocks_by_pdf_page):
         self.blocks_by_pdf_page = blocks_by_pdf_page
@@ -52,7 +53,7 @@ class _FakeExtractor:
                 "running_header": {"is_chapter": False, "text": "Styles"}}
 
 
-class PagePreparerTest(unittest.TestCase):
+class PagePreparationTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         with _document(5) as document:
@@ -62,13 +63,14 @@ class PagePreparerTest(unittest.TestCase):
         with open(os.path.join(self.tmp.name, "progress.json"), "w", encoding="utf-8") as handle:
             json.dump(self.progress, handle)
         extractor = _FakeExtractor({2: [PARA], 3: [IMAGE], 4: [PARA], 5: [PARA]})
-        self.preparer = PagePreparer(self.project, self.progress, extractor)
+        self.builder = PageInputBuilder(self.project, self.progress, extractor)
+        self.preparer = PagePreparer(self.project, self.progress, self.builder)
 
     def tearDown(self):
         self.tmp.cleanup()
 
     def test_input_carries_chapter_section_and_context(self):
-        document = self.preparer.build_input(1)
+        document = self.builder.build(1)
         self.assertEqual((document["pdf_page"], document["chapter"]["en"], document["section"]["en"]),
                          (2, "One", "Styles"))
         self.assertEqual(document["context"], {"prev_tail": "Sayfa 1", "next_head": "Sayfa 3"})
@@ -79,7 +81,7 @@ class PagePreparerTest(unittest.TestCase):
         self.assertTrue(self.project.load_progress()["pages"]["2"]["blank"])
 
     def test_requested_blank_page_is_not_marked(self):
-        self.assertEqual(self.preparer.prepare_pages("2", None), [None])
+        self.assertEqual(self.preparer.prepare_pages("2", None), [])
         self.assertNotIn("2", self.project.load_progress()["pages"])
 
 

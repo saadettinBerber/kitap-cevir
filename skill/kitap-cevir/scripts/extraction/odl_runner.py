@@ -19,17 +19,14 @@ def bbox_of(element):
     return element.get("bounding box") or _NO_BBOX
 
 
-def _flatten(node, out):
+def _flatten(node):
+    """İç içe `kids` ağacındaki tipli öğeler, okuma sırasıyla (önce ebeveyn)."""
     if isinstance(node, list):
-        for child in node:
-            _flatten(child, out)
-        return
+        return [element for child in node for element in _flatten(child)]
     if not isinstance(node, dict):
-        return
-    if node.get("type") in CONTENT_TYPES:
-        out.append(node)
-    for child in node.get("kids", []) or []:
-        _flatten(child, out)
+        return []
+    own = [node] if node.get("type") in CONTENT_TYPES else []
+    return own + _flatten(node.get("kids", []) or [])
 
 
 def _load_single_json(out_dir):
@@ -46,15 +43,7 @@ def extract_odl_elements(pdf_path, pdf_page, image_dir):
     image_dir: çıkarılan görsellerin yazılacağı klasör (page_id bazlı).
     """
     with tempfile.TemporaryDirectory() as tmp:
-        opendataloader_pdf.convert(
-            input_path=[pdf_path],
-            output_dir=tmp,
-            format="json",
-            pages=str(pdf_page),
-            image_dir=image_dir,
-            quiet=True,
-        )
+        opendataloader_pdf.convert(input_path=[pdf_path], output_dir=tmp, format="json",
+                                   pages=str(pdf_page), image_dir=image_dir, quiet=True)
         doc = _load_single_json(tmp)
-    elements = []
-    _flatten(doc.get("kids", []), elements)
-    return elements
+    return _flatten(doc.get("kids", []))

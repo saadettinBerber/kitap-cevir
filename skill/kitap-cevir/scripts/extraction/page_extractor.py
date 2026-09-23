@@ -12,7 +12,7 @@ project.DEFAULT_EXTRACTION içindedir. Çıktı references/FORMAT.md'deki blok
 """
 from extraction.block_builder import BlockBuilder, ChapterOpener
 from extraction.text_layer.layout_scan import scan_page
-from extraction.equations.math_scan import scan_math
+from extraction.equations.math_scan import MathScanner
 from extraction.odl_elements import OdlElements
 from extraction.odl_runner import extract_odl_elements
 from extraction.page_regions import PageRegions
@@ -36,7 +36,7 @@ class PageExtractor:
         elements = extract_odl_elements(pdf_path, pdf_page, image_dir)
         layout = scan_page(pdf_path, pdf_page, self.settings)
         header, body = self.zones.split(elements)
-        math = scan_math(pdf_path, pdf_page, self.settings, image_dir)
+        math = MathScanner(self.settings, image_dir).scan(pdf_path, pdf_page)
         regions = PageRegions.from_layout(
             layout, scan_tables(pdf_path, pdf_page, self.settings) + math["display"], self._code_block)
         body = (OdlElements(body).flatten_nested_lists().drop_nested_fragments().merge_footnote_markers()

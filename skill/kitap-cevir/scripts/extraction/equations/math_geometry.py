@@ -86,14 +86,18 @@ class FractionEquationFinder:
         limitlerini toplar; bölge büyüdükçe yeni komşular çıktığı için yinelenir."""
         region = fitz.Rect(bar)
         for _ in range(MAX_GROWTH_PASSES):
-            grown = fitz.Rect(region)
-            for rect in self.line_rects:
-                if self._vertical_gap(region, rect) <= EQUATION_LINE_GAP:
-                    grown |= rect
+            grown = self._with_neighbours(region)
             if grown == region:
                 break
             region = grown
         return region
+
+    def _with_neighbours(self, region):
+        grown = fitz.Rect(region)
+        for rect in self.line_rects:
+            if self._vertical_gap(region, rect) <= EQUATION_LINE_GAP:
+                grown |= rect
+        return grown
 
     @staticmethod
     def _vertical_gap(first, second):

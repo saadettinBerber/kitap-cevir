@@ -16,13 +16,13 @@ chapters.json: [{"num": 1, "en": "...", "tr": "...", "start": 1}, ...]
 Hedef dizinde zaten progress.json varsa durur (üzerine yazmaz).
 """
 import argparse
-import json
 import os
 import re
 import shutil
 
 import fitz
 
+from json_file import read_json
 from project import CARD_KINDS, DEFAULT_CODE_COMMENT_LANG, PROGRESS_FILE, Project
 from reader_data import rebuild
 
@@ -32,6 +32,15 @@ PDF_NAME = "book.pdf"
 DEFAULT_PAGES_PER_RUN = 3
 DEFAULT_CODE_LANGUAGE = "java"
 PLACEHOLDER_FILES = ("CLAUDE.md", "index.html", "glossary.md")
+NEXT_STEPS = (
+    "\nSonraki adımlar:\n"
+    "  - Kart türleri kitaba uymuyorsa progress.json -> concepts.kinds listesini daraltın "
+    "(ör. kod zanaatı: code, contrast, explain; mimari: tradeoff, contrast, explain).\n"
+    "  - Bölüm tablosu boşsa progress.json -> chapters alanını doldurun (init'ten sonra tek seferlik).\n"
+    "  - Kod fontu/başlık boyutları farklıysa: inspect_pdf.py <pdf> layout N ile bakıp "
+    "progress.json -> extraction ayarlarını düzeltin.\n"
+    "  - Okuyucu: python3 -m http.server 8000  →  http://localhost:8000\n"
+    "  - İlk sayfa: /kitap-cevir 1  (ya da 'sıradaki sayfa')")
 
 
 def slugify(title):
@@ -68,68 +77,67 @@ def parse_args():
     return parser.parse_args()
 
 
-def ensure_empty_target(target):
-    os.makedirs(target, exist_ok=True)
-    if os.path.exists(os.path.join(target, PROGRESS_FILE)):
-        raise SystemExit(f"{target} zaten bir kitap projesi ({PROGRESS_FILE} var); durduruldu.")
+class BookSetup:
+    """Komut satırı seçeneklerinden yeni bir kitap projesi kurar."""
 
+    def __init__(self, args):
+        self.args = args
+        self.target = os.path.abspath(args.target)
 
-def copy_skeleton(target):
-    shutil.copytree(TEMPLATE_DIR, target, dirs_exist_ok=True)
+    def run(self):
+        self._ensure_empty_target()
+        shutil.copytree(TEMPLATE_DIR, self.target, dirs_exist_ok=True)
+        self._fill_placeholders({"TITLE": self.args.title, "AUTHOR": self.args.author})
+        project = Project(self.target)
+        project.save_progress(self._progress(self._place_pdf()))
+        rebuild(project)
+        return project
 
+    def _ensure_empty_target(self):
+        os.makedirs(self.target, exist_ok=True)
+        if os.path.exists(os.path.join(self.target, PROGRESS_FILE)):
+            raise SystemExit(f"{self.target} zaten bir kitap projesi ({PROGRESS_FILE} var); durduruldu.")
 
-def fill_placeholders(target, mapping):
-    for name in PLACEHOLDER_FILES:
-        path = os.path.join(target, name)
-        with open(path, encoding="utf-8") as handle:
-            text = handle.read()
-        for key, value in mapping.items():
-            text = text.replace("{{" + key + "}}", value)
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write(text)
+    def _fill_placeholders(self, mapping):
+        for name in PLACEHOLDER_FILES:
+            path = os.path.join(self.target, name)
+            with open(path, encoding="utf-8") as handle:
+                text = handle.read()
+            for key, value in mapping.items():
+                text = text.replace("{{" + key + "}}", value)
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write(text)
 
+    def _place_pdf(self):
+        """PDF'i projeye kopyalar; zaten proje içindeyse yalnız göreli adını verir."""
+        source = os.path.abspath(self.args.pdf)
+        if os.path.commonpath([source, self.target]) == self.target:
+            return os.path.relpath(source, self.target)
+        shutil.copy2(source, os.path.join(self.target, PDF_NAME))
+        return PDF_NAME
 
-def place_pdf(source, target):
-    """PDF'i projeye kopyalar; zaten proje içindeyse yalnız göreli adını verir."""
-    source = os.path.abspath(source)
-    if os.path.commonpath([source, os.path.abspath(target)]) == os.path.abspath(target):
-        return os.path.relpath(source, target)
-    shutil.copy2(source, os.path.join(target, PDF_NAME))
-    return PDF_NAME
+    def _progress(self, pdf_name):
+        args = self.args
+        return {"book": self._book(), "book_pdf": pdf_name, "pdf_offset": args.offset,
+                "book_total_pages": args.total, "pdf_total_pages": self._page_count(pdf_name),
+                "pages_per_run": args.pages_per_run, "translator": {"vision": True},
+                "concepts": {"kinds": args.card_kinds, "code_comment_lang": DEFAULT_CODE_COMMENT_LANG},
+                "extraction": {"default_code_language": args.code_lang},
+                "last_translated_page": 0, "chapters": self._chapters(), "pages": {}}
 
+    def _book(self):
+        args = self.args
+        return {"slug": args.slug or slugify(args.title), "title": args.title, "subtitle": args.subtitle,
+                "subtitle_tr": args.subtitle_tr, "author": args.author, "series": args.series}
 
-def pdf_page_count(path):
-    document = fitz.open(path)
-    try:
-        return document.page_count
-    finally:
-        document.close()
+    def _page_count(self, pdf_name):
+        with fitz.open(os.path.join(self.target, pdf_name)) as document:
+            return document.page_count
 
-
-def load_chapters(path):
-    if not path:
-        return []
-    with open(path, encoding="utf-8") as handle:
-        return json.load(handle)
-
-
-def build_progress(args, pdf_name, pdf_total, chapters):
-    return {
-        "book": {"slug": args.slug or slugify(args.title), "title": args.title,
-                 "subtitle": args.subtitle, "subtitle_tr": args.subtitle_tr,
-                 "author": args.author, "series": args.series},
-        "book_pdf": pdf_name,
-        "pdf_offset": args.offset,
-        "book_total_pages": args.total,
-        "pdf_total_pages": pdf_total,
-        "pages_per_run": args.pages_per_run,
-        "translator": {"vision": True},
-        "concepts": {"kinds": args.card_kinds, "code_comment_lang": DEFAULT_CODE_COMMENT_LANG},
-        "extraction": {"default_code_language": args.code_lang},
-        "last_translated_page": 0,
-        "chapters": chapters,
-        "pages": {},
-    }
+    def _chapters(self):
+        if not self.args.chapters:
+            return []
+        return read_json(self.args.chapters)
 
 
 def report(project, progress):
@@ -139,29 +147,12 @@ def report(project, progress):
           f"ofset {progress['pdf_offset']}, kitap {progress['book_total_pages']} sayfa")
     print(f"  bölüm sayısı: {len(progress['chapters'])}")
     print(f"  kart türleri: {', '.join(progress['concepts']['kinds'])}")
-    print("\nSonraki adımlar:")
-    print("  - Kart türleri kitaba uymuyorsa progress.json -> concepts.kinds listesini daraltın "
-          "(ör. kod zanaatı: code, contrast, explain; mimari: tradeoff, contrast, explain).")
-    print("  - Bölüm tablosu boşsa progress.json -> chapters alanını doldurun (init'ten sonra tek seferlik).")
-    print("  - Kod fontu/başlık boyutları farklıysa: inspect_pdf.py <pdf> layout N ile bakıp "
-          "progress.json -> extraction ayarlarını düzeltin.")
-    print("  - Okuyucu: python3 -m http.server 8000  →  http://localhost:8000")
-    print("  - İlk sayfa: /kitap-cevir 1  (ya da 'sıradaki sayfa')")
+    print(NEXT_STEPS)
 
 
 def main():
-    args = parse_args()
-    target = os.path.abspath(args.target)
-    ensure_empty_target(target)
-    copy_skeleton(target)
-    fill_placeholders(target, {"TITLE": args.title, "AUTHOR": args.author})
-    pdf_name = place_pdf(args.pdf, target)
-    pdf_total = pdf_page_count(os.path.join(target, pdf_name))
-    progress = build_progress(args, pdf_name, pdf_total, load_chapters(args.chapters))
-    project = Project(target)
-    project.save_progress(progress)
-    rebuild(project)
-    report(project, progress)
+    project = BookSetup(parse_args()).run()
+    report(project, project.load_progress())
 
 
 if __name__ == "__main__":

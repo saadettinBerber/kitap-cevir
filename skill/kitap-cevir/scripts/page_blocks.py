@@ -45,6 +45,13 @@ class Block:
     def media_sources(self):
         return []
 
+    def image_sources(self):
+        return []
+
+    def equations(self):
+        """Ayrı satır denklemleri (LaTeX taşıyan {src, text, latex} sözlükleri)."""
+        return []
+
     def leads_page(self):
         """Sayfa başı görseli bu bloğun altına iner."""
         return False
@@ -102,15 +109,25 @@ class CodeBlock(Block):
 
 
 class MediaBlock(Block):
-    """image, math: PNG'si sayfanın görsel klasörüne kopyalanır."""
+    """PNG'si sayfanın görsel klasörüne kopyalanan blok."""
 
     def media_sources(self):
         return [self.data["src"]]
+
+
+class ImageBlock(MediaBlock):
+    def image_sources(self):
+        return [self.data["src"]]
+
+
+class MathBlock(MediaBlock):
+    def equations(self):
+        return [self.data]
 
 
 _BLOCK_CLASSES = {
     "caption": TextBlock, "footnote": TextBlock,
     "chapter": HeadingBlock, "heading": HeadingBlock,
     "html": HtmlBlock, "para": ParaBlock, "list": ListBlock, "table": TableBlock,
-    "code": CodeBlock, "image": MediaBlock, "math": MediaBlock,
+    "code": CodeBlock, "image": ImageBlock, "math": MathBlock,
 }

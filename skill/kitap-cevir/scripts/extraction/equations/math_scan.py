@@ -104,11 +104,9 @@ class MathScanner:
         self.cropper = EquationCropper(image_dir)
 
     def scan(self, pdf_path, pdf_page):
-        document = fitz.open(pdf_path)
-        try:
+        """{"display": [{y0, y1, block}], "inline": [{kind, bbox, before, after, ...}]}"""
+        with fitz.open(pdf_path) as document:
             return self._scan_page(document[pdf_page - 1])
-        finally:
-            document.close()
 
     def _scan_page(self, page):
         display, inline, line_rects = [], [], []
@@ -125,12 +123,12 @@ class MathScanner:
 
     @staticmethod
     def _lines(page):
-        for block in page.get_text("dict")["blocks"]:
-            for line in block.get("lines", []):
-                spans = [{"bbox": fitz.Rect(s["bbox"]), "font": s["font"], "size": s["size"],
-                          "text": s["text"]} for s in line["spans"] if s["text"].strip()]
-                if spans:
-                    yield spans
+        lines = (line for block in page.get_text("dict")["blocks"] for line in block.get("lines", []))
+        for line in lines:
+            spans = [{"bbox": fitz.Rect(s["bbox"]), "font": s["font"], "size": s["size"],
+                      "text": s["text"]} for s in line["spans"] if s["text"].strip()]
+            if spans:
+                yield spans
 
     def _is_math(self, span):
         return span["font"].startswith(self.prefix)
@@ -176,7 +174,3 @@ class MathScanner:
 def placeholder(item_id):
     return PLACEHOLDER.format(id=item_id)
 
-
-def scan_math(pdf_path, pdf_page, settings, image_dir):
-    """{"display": [{y0, y1, block}], "inline": [{kind, bbox, before, after, ...}]}"""
-    return MathScanner(settings, image_dir).scan(pdf_path, pdf_page)

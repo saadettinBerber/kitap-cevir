@@ -6,6 +6,7 @@ yığınına dönüşür. Izgara (sütunlar, bantlar) table_grid'den gelir; bura
 metin parçaları satırlara ve hücrelere dağıtılır. Koordinatlar üst orijinlidir.
 """
 import html
+import itertools
 
 import fitz
 
@@ -137,18 +138,17 @@ class TableBuilder:
         satırda (gövde metni, dipnot) biter. Baştaki/sondaki tek sütunlu satırlar
         tablo dışı metindir (kaynak notu vb.)."""
         if grid.bands:
-            while rows and not grid.in_band(rows[0].spans):
-                rows = rows[1:]
-        kept = []
-        for row in rows:
-            if not grid.is_table_row(row.spans):
-                break
-            kept.append(row)
-        while kept and grid.filled_columns(kept[0].spans) < MIN_COLUMNS:
-            kept = kept[1:]
-        while kept and grid.filled_columns(kept[-1].spans) < MIN_COLUMNS:
-            kept = kept[:-1]
-        return kept
+            rows = list(itertools.dropwhile(lambda row: not grid.in_band(row.spans), rows))
+        kept = list(itertools.takewhile(lambda row: grid.is_table_row(row.spans), rows))
+        return TableBuilder._without_single_column_edges(kept, grid)
+
+    @staticmethod
+    def _without_single_column_edges(rows, grid):
+        while rows and grid.filled_columns(rows[0].spans) < MIN_COLUMNS:
+            rows = rows[1:]
+        while rows and grid.filled_columns(rows[-1].spans) < MIN_COLUMNS:
+            rows = rows[:-1]
+        return rows
 
     @staticmethod
     def _header_count(rows):
@@ -168,15 +168,12 @@ class TableScanner:
 
     def scan(self, pdf_path, pdf_page):
         """[{y0, y1, block}], sayfada yukarıdan aşağıya."""
-        document = fitz.open(pdf_path)
-        try:
+        with fitz.open(pdf_path) as document:
             page = document[pdf_page - 1]
             fills = PageFills(page, page.rect.height - self.footer_zone_top)
             builder = TableBuilder(self._page_spans(page), fills, self.row_gap_ratio)
             tables = [table for cells in fills.table_groups() for table in builder.tables_in(cells)]
             return sorted(tables, key=lambda table: table["y0"])
-        finally:
-            document.close()
 
     @staticmethod
     def _page_spans(page):

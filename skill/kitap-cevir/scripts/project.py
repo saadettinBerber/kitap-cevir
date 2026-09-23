@@ -9,6 +9,8 @@ import json
 import os
 import re
 
+from json_file import read_json
+
 PROGRESS_FILE = "progress.json"
 GLOSSARY_FILE = "glossary.md"
 WORK_DIR = "_work"
@@ -85,8 +87,7 @@ class Project:
         self.work_cards = os.path.join(self.root, WORK_DIR, "cards")
 
     def load_progress(self):
-        with open(self.progress_path, encoding="utf-8") as handle:
-            return json.load(handle)
+        return read_json(self.progress_path)
 
     def save_progress(self, progress):
         with open(self.progress_path, "w", encoding="utf-8") as handle:

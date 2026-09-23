@@ -8,15 +8,15 @@
   python3 migrate_page.py apply 13 31      -> _work/migrate/done-N.json içindeki
       çevirileri ({path, tr} ve {src, latex}) uygulayıp sonlandırır.
 """
-import json
 import os
 import re
 import sys
 
 from finalize_page import PageFinalizer
+from json_file import read_json, write_json
 from migrate_match import TranslationFiller, Translations
 from page_document import PageDocument
-from prepare_page import PagePreparer
+from page_input import PageInputBuilder
 from project import Project
 
 _COPY_FIELDS = ("title", "section", "concepts")
@@ -53,32 +53,32 @@ class PageMigration:
             item["latex"] = item.get("latex") or known.get(item["src"], "")
 
     def _missing_latex(self):
-        blocks = [{"path": f"blocks[{i}]", "src": b["src"]} for i, b in enumerate(self.document["blocks"])
-                  if b["type"] == "math" and not b["latex"]]
+        page = PageDocument(self.document)
+        blocks = [{"path": f"blocks[{i}]", "src": equation["src"]} for i, block in enumerate(page.blocks())
+                  for equation in block.equations() if not equation["latex"]]
         return blocks + [{"path": f"math[{i}]", "src": m["src"]}
-                         for i, m in enumerate(PageDocument(self.document).inline_math()) if not m["latex"]]
+                         for i, m in enumerate(page.inline_math()) if not m["latex"]]
 
 
 class Migrator:
     """Projenin çevrilmiş sayfalarını taşır; bekleyenleri _work/migrate'e yazar."""
 
-    def __init__(self, project, preparer, finalizer):
+    def __init__(self, project, builder, finalizer):
         self.project = project
-        self.preparer = preparer
+        self.builder = builder
         self.finalizer = finalizer
         self.migrate_dir = os.path.join(project.root, "_work", "migrate")
 
     @classmethod
     def for_project(cls, project):
-        return cls(project, PagePreparer.for_project(project), PageFinalizer(project))
+        return cls(project, PageInputBuilder.for_progress(project, project.load_progress()), PageFinalizer(project))
 
     def run(self, page):
         """Sayfayı yeniden çıkarıp eski çevirileri taşır; sonlandırmaz."""
         old = PageDocument.read(self.project.page_js(page)).data
-        document = self.preparer.build_input(page)
-        pending, latex_items = PageMigration(document, old).run(self.preparer.hyphen_fixes(document["pdf_page"]))
-        os.makedirs(self.project.work_out, exist_ok=True)
-        self._dump(self._out_path(page), document)
+        document = self.builder.build(page)
+        pending, latex_items = PageMigration(document, old).run(self.builder.hyphen_fixes(document["pdf_page"]))
+        write_json(self._out_path(page), document)
         self._write_pending(page, pending, latex_items)
         return {"page": page, "units": len(PageDocument(document).text_units()), "pending": len(pending),
                 "latex": len(latex_items), "complete": not pending and not latex_items}
@@ -88,13 +88,13 @@ class Migrator:
 
     def apply(self, page):
         """done-N.json'daki çevirileri ({path, tr} ve {path, latex}) yazar ve sonlandırır."""
-        done = self._load(os.path.join(self.migrate_dir, f"done-{page}.json"))
-        document = self._load(self._out_path(page))
+        done = read_json(os.path.join(self.migrate_dir, f"done-{page}.json"))
+        document = read_json(self._out_path(page))
         for item in done.get("units", []):
             self._resolve(document, item["path"])["tr"] = item["tr"]
         for item in done.get("latex", []):
             self._resolve(document, item["path"])["latex"] = item["latex"]
-        self._dump(self._out_path(page), document)
+        write_json(self._out_path(page), document)
         return self.finalize(page)
 
     def _out_path(self, page):
@@ -104,7 +104,7 @@ class Migrator:
         os.makedirs(self.migrate_dir, exist_ok=True)
         path = os.path.join(self.migrate_dir, f"pending-{page}.json")
         if pending or latex_items:
-            self._dump(path, {"page": page, "units": pending, "latex": latex_items})
+            write_json(path, {"page": page, "units": pending, "latex": latex_items})
         elif os.path.exists(path):
             os.remove(path)
 
@@ -116,15 +116,6 @@ class Migrator:
             node = node[key] if key else node[int(index)]
         return node
 
-    @staticmethod
-    def _load(path):
-        with open(path, encoding="utf-8") as handle:
-            return json.load(handle)
-
-    @staticmethod
-    def _dump(path, payload):
-        with open(path, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, ensure_ascii=False, indent=2)
 
 
 def _apply_done(migrator, pages):

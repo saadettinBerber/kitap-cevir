@@ -106,20 +106,17 @@ class LayoutScanner:
         self.code_font = CodeFont(settings or DEFAULT_EXTRACTION)
 
     def scan(self, pdf_path, pdf_page):
-        document = fitz.open(pdf_path)
-        try:
-            page = document[pdf_page - 1]
-            lines = PageLineReader(self.code_font).read(page)
-            repairs, scripts = ProseRepairs(lines), ScriptFixes(lines)
-            return {
-                "page_height": page.rect.height,
+        with fitz.open(pdf_path) as document:
+            return self._scan_page(document[pdf_page - 1])
+
+    def _scan_page(self, page):
+        lines = PageLineReader(self.code_font).read(page)
+        repairs, scripts = ProseRepairs(lines), ScriptFixes(lines)
+        return {"page_height": page.rect.height,
                 "code_blocks": [listing.region() for listing in CodeListing.group(lines)],
                 "inline_code": repairs.inline_code_tokens(),
                 "hyphen_fixes": {**repairs.hyphenated_names(), **scripts.for_code()},
-                "script_fixes": scripts.for_prose(),
-            }
-        finally:
-            document.close()
+                "script_fixes": scripts.for_prose()}
 
 
 def scan_page(pdf_path, pdf_page, settings=None):

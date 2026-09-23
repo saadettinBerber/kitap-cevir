@@ -16,26 +16,25 @@ class TextFixer:
         text = normalize_spaces(clean_ligatures(text or ""))
         for wrong, right in self.hyphen_fixes.items():
             text = text.replace(wrong, right)
-        return _fix_words(text, self.script_fixes)
+        return self._fix_words(text)
 
     def rich(self, text):
         for token in self.inline_tokens:
-            text = _mark_outside_code(text, token)
+            text = self._mark_outside_code(text, token)
         return text
 
+    def _fix_words(self, text):
+        """Sözcük düzeltmesi yalnız tam sözcükte uygulanır: 'ma' -> 'mᵃ' düzeltmesi
+        'format' kelimesinin içini bozmamalı."""
+        for wrong, right in self.script_fixes.items():
+            text = re.sub(r"(?<!\w)" + re.escape(wrong) + r"(?!\w)", lambda _, r=right: r, text)
+        return text
 
-def _fix_words(text, fixes):
-    """Sözcük düzeltmesi yalnız tam sözcükte uygulanır: 'ma' -> 'mᵃ' düzeltmesi
-    'format' kelimesinin içini bozmamalı."""
-    for wrong, right in fixes.items():
-        text = re.sub(r"(?<!\w)" + re.escape(wrong) + r"(?!\w)", lambda _, r=right: r, text)
-    return text
-
-
-def _mark_outside_code(text, token):
-    """Token'ı yalnız ters tırnak dışındaki bölümlerde işaretler; daha uzun
-    bir token'ın içine ikinci kez işaret koymaz ('`3.14 × `10`^23`')."""
-    pattern = re.compile(r"(?<![\w`])" + re.escape(token) + r"(?![\w`])")
-    replacement = "`" + token.replace("\\", "\\\\") + "`"
-    segments = re.split(r"(`[^`]*`)", text)
-    return "".join(seg if seg.startswith("`") else pattern.sub(replacement, seg) for seg in segments)
+    @staticmethod
+    def _mark_outside_code(text, token):
+        """Token'ı yalnız ters tırnak dışındaki bölümlerde işaretler; daha uzun
+        bir token'ın içine ikinci kez işaret koymaz ('`3.14 × `10`^23`')."""
+        pattern = re.compile(r"(?<![\w`])" + re.escape(token) + r"(?![\w`])")
+        replacement = "`" + token.replace("\\", "\\\\") + "`"
+        segments = re.split(r"(`[^`]*`)", text)
+        return "".join(seg if seg.startswith("`") else pattern.sub(replacement, seg) for seg in segments)

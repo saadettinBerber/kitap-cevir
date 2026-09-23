@@ -5,7 +5,7 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from extraction.equations.math_scan import scan_math
+from extraction.equations.math_scan import MathScanner
 
 SETTINGS = {"math_geometry": True}
 COLUMN_LEFT = 72
@@ -51,7 +51,7 @@ def _scan(table_rule=None, settings=SETTINGS):
     tmp = tempfile.TemporaryDirectory()
     pdf = os.path.join(tmp.name, "m.pdf")
     _make_pdf(pdf, table_rule)
-    return tmp, scan_math(pdf, 1, settings, os.path.join(tmp.name, "images"))
+    return tmp, MathScanner(settings, os.path.join(tmp.name, "images")).scan(pdf, 1)
 
 
 class GeometryMathTest(unittest.TestCase):

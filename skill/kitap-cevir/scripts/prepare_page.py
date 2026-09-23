@@ -9,140 +9,78 @@ Kullanım (proje dizininde):
 Boş sayfalar (bölüm sonu) "next" akışında otomatik atlanır ve progress.json'da
 blank olarak işaretlenir. Görseller _work/in/page-N_images/ altına yazılır.
 """
-import json
 import os
 import sys
 
-import fitz
-
-from extraction.page_extractor import PageExtractor
-from extraction.text_utils import normalize_spaces
+from json_file import write_json
 from page_document import PageDocument
-from project import (Project, concepts_settings, extraction_settings,
-                     translator_has_vision)
+from page_input import PageInputBuilder
+from project import Project, concepts_settings, translator_has_vision
 
-CONTEXT_CHARS = 700
 MAX_BLANK_SKIPS = 3
 NEXT_ALIASES = ("next", "sıradaki", "sonraki", "devam")
-UNKNOWN_CHAPTER = {"num": 0, "en": "", "tr": ""}
-
-
-def chapter_of(progress, page):
-    current = None
-    for chapter in progress["chapters"]:
-        if chapter["start"] <= page:
-            current = chapter
-    if current is None:
-        return dict(UNKNOWN_CHAPTER)
-    return {"num": current["num"], "en": current["en"], "tr": current["tr"]}
-
-
-def _previous_section(progress, page):
-    previous = progress["pages"].get(str(page - 1), {})
-    return {"en": previous.get("section_en", ""), "tr": previous.get("section_tr", "")}
-
-
-def _section_of(progress, page, header):
-    """Koşu başlığı yoksa bölüm açılış sayfasıdır (kesit yok); tek sayfa
-    başlığı (Chapter ...) ise kesit önceki sayfadan devam eder."""
-    if header is None:
-        return {"en": "", "tr": ""}
-    if not header["is_chapter"] and header["text"]:
-        return {"en": header["text"], "tr": ""}
-    return _previous_section(progress, page)
-
-
-def _page_text(document, pdf_page):
-    """İlk sayfanın öncesi ve son sayfanın sonrası boş metindir."""
-    if not 1 <= pdf_page <= document.page_count:
-        return ""
-    return normalize_spaces(document[pdf_page - 1].get_text())
-
-
-def context_snippets(document, pdf_page):
-    return {"prev_tail": _page_text(document, pdf_page - 1)[-CONTEXT_CHARS:],
-            "next_head": _page_text(document, pdf_page + 1)[:CONTEXT_CHARS]}
+SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class PagePreparer:
-    """Bir projenin sayfalarını çevirmen girdisine dönüştürür."""
+    """Sıradaki ya da istenen sayfaların girdisini yazar; boş sayfaları ilerlemeye işler."""
 
-    def __init__(self, project, progress, extractor):
+    def __init__(self, project, progress, builder):
         self.project = project
         self.progress = progress
-        self.extractor = extractor
-        self.pdf = project.pdf_path(progress)
+        self.builder = builder
 
     @classmethod
     def for_project(cls, project):
         progress = project.load_progress()
-        return cls(project, progress, PageExtractor(extraction_settings(progress)))
-
-    def hyphen_fixes(self, pdf_page):
-        return self.extractor.hyphen_fixes(self.pdf, pdf_page)
-
-    def build_input(self, page):
-        pdf_page = page + self.progress["pdf_offset"]
-        image_dir = os.path.join(self.project.work_in, f"page-{page}_images")
-        extracted = self.extractor.extract(self.pdf, pdf_page, image_dir)
-        return {
-            "id": f"page-{page}", "page": page, "pdf_page": pdf_page,
-            "chapter": chapter_of(self.progress, page),
-            "section": _section_of(self.progress, page, extracted["running_header"]),
-            "title": {"en": "", "tr": ""},
-            "blocks": extracted["blocks"],
-            "math": extracted["math"],
-            "concepts": [], "concepts_spec": concepts_settings(self.progress),
-            "glossary_new": [],
-            "context": self._context(pdf_page),
-        }
-
-    def _context(self, pdf_page):
-        with fitz.open(self.pdf) as document:
-            return context_snippets(document, pdf_page)
+        return cls(project, progress, PageInputBuilder.for_progress(project, progress))
 
     def write_input(self, document):
-        os.makedirs(self.project.work_in, exist_ok=True)
-        path = os.path.join(self.project.work_in, f"{document['id']}.json")
-        with open(path, "w", encoding="utf-8") as handle:
-            json.dump(document, handle, ensure_ascii=False, indent=2)
-        return path
+        return write_json(os.path.join(self.project.work_in, f"{document['id']}.json"), document)
 
     def mark_blank(self, page):
-        self.progress["pages"][str(page)] = {
-            "blank": True, "pdf_page": page + self.progress["pdf_offset"]}
+        self.progress["pages"][str(page)] = {"blank": True, "pdf_page": self.builder.pdf_page(page)}
         self.progress["last_translated_page"] = max(self.progress["last_translated_page"], page)
         self.project.save_progress(self.progress)
+
+    def prepare_pages(self, spec, count):
+        """Hazırlanan sayfaların özetleri; boş sayfa özet üretmez."""
+        if spec not in NEXT_ALIASES:
+            return self._prepare_requested(int(spec))
+        wanted = count or self.progress.get("pages_per_run", 1)
+        prepared = []
+        for page in self._candidate_pages(wanted + MAX_BLANK_SKIPS):
+            if len(prepared) < wanted:
+                prepared += self._prepare_next(page)
+        return prepared
 
     def _candidate_pages(self, count):
         start = self.progress["last_translated_page"] + 1
         end = min(start + count - 1, self.progress["book_total_pages"])
         return list(range(start, end + 1))
 
-    def prepare_pages(self, spec, count):
-        if spec not in NEXT_ALIASES:
-            return [self._prepare_one(int(spec), auto_skip=False)]
-        wanted = count or self.progress.get("pages_per_run", 1)
-        prepared = []
-        for page in self._candidate_pages(wanted + MAX_BLANK_SKIPS):
-            if len(prepared) == wanted:
-                break
-            entry = self._prepare_one(page, auto_skip=True)
-            if entry:
-                prepared.append(entry)
+    def _prepare_requested(self, page):
+        prepared = self._prepare(page)
+        if not prepared:
+            print(f"  ! Sayfa {page} boş")
         return prepared
 
-    def _prepare_one(self, page, auto_skip):
-        document = self.build_input(page)
-        page_document = PageDocument(document)
+    def _prepare_next(self, page):
+        """Sıradaki akışta boş sayfa (bölüm sonu) atlanır ve işaretlenir."""
+        prepared = self._prepare(page)
+        if not prepared:
+            print(f"  ! Sayfa {page} boş — atlandı, işaretlendi")
+            self.mark_blank(page)
+        return prepared
+
+    def _prepare(self, page):
+        page_document = PageDocument(self.builder.build(page))
         if page_document.is_blank():
-            print(f"  ! Sayfa {page} boş" + (" — atlandı, işaretlendi" if auto_skip else ""))
-            if auto_skip:
-                self.mark_blank(page)
-            return None
-        return {"page": page, "pdf_page": document["pdf_page"],
-                "path": self.project.relative(self.write_input(document)),
-                "blocks": page_document.block_summary(), "math": page_document.equation_count()}
+            return []
+        document = page_document.data
+        return [{"page": page, "pdf_page": document["pdf_page"],
+                 "path": self.project.relative(self.write_input(document)),
+                 "blocks": page_document.block_summary(), "math": page_document.equation_count()}]
 
 
 def parse_args(argv):
@@ -162,30 +100,33 @@ def _math_note(has_vision):
     return "translator.vision=false: `latex` boş kalır, okuyucu PNG gösterir"
 
 
-def _report(prepared, has_vision, concepts):
-    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+def _print_entry(entry, has_vision):
+    print(f"  Sayfa {entry['page']} (PDF {entry['pdf_page']})  [{entry['blocks']}]")
+    print(f"    girdi: {entry['path']}")
+    if entry["math"]:
+        print(f"    denklem: {entry['math']} PNG — {_math_note(has_vision)}")
+
+
+def _report(prepared, progress):
+    concepts = concepts_settings(progress)
     print(f"Hazırlanan sayfa sayısı: {len(prepared)}")
     print(f"kart türleri: {', '.join(concepts['kinds'])} (tür karta göre seçilir); "
           f"kod dilleri {', '.join(concepts['code_langs'])}, kod yorumları {concepts['code_comment_lang']}\n")
     for entry in prepared:
-        print(f"  Sayfa {entry['page']} (PDF {entry['pdf_page']})  [{entry['blocks']}]")
-        print(f"    girdi: {entry['path']}")
-        if entry["math"]:
-            print(f"    denklem: {entry['math']} PNG — {_math_note(has_vision)}")
+        _print_entry(entry, translator_has_vision(progress))
     print("\nSonraki adım: her girdi için bir çevirmen agent çalıştır "
           "(sözleşme: references/FORMAT.md), çıktıyı _work/out/page-N.json yaz, "
-          f"sonra: python3 {scripts_dir}/finalize_page.py _work/out/page-N.json")
+          f"sonra: python3 {SCRIPTS_DIR}/finalize_page.py _work/out/page-N.json")
 
 
 def main():
     spec, count = parse_args(sys.argv)
     preparer = PagePreparer.for_project(Project())
-    prepared = [p for p in preparer.prepare_pages(spec, count) if p]
+    prepared = preparer.prepare_pages(spec, count)
     if not prepared:
         print("Hazırlanacak sayfa yok.")
         return
-    _report(prepared, translator_has_vision(preparer.progress),
-            concepts_settings(preparer.progress))
+    _report(prepared, preparer.progress)
 
 
 if __name__ == "__main__":

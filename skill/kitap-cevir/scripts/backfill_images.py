@@ -16,10 +16,10 @@ import sys
 
 import fitz
 
-from extraction.page_extractor import PageExtractor
 from page_blocks import Block
 from page_document import PageDocument
-from project import Project, extraction_settings
+from page_input import PageInputBuilder
+from project import Project
 
 MIN_IMAGE_SIDE_PX = 80          # daha küçükler süs/çizgi parçasıdır
 MATCH_THRESHOLD = 0.55
@@ -31,88 +31,107 @@ def _plain(text):
     return re.sub(r"[^a-z0-9]+", " ", _TAG.sub(" ", text or "").lower()).strip()
 
 
-def _is_real_image(image_dir, src):
-    path = os.path.join(image_dir, src)
-    if not os.path.isfile(path):
-        return False
-    pixmap = fitz.Pixmap(path)
-    return min(pixmap.width, pixmap.height) >= MIN_IMAGE_SIDE_PX
-
-
-def images_with_anchors(blocks, image_dir):
-    """PDF sırasına göre (görsel src, önündeki metin) çiftleri."""
-    found, previous_text = [], ""
-    for block in map(Block.of, blocks):
-        if block.kind != "image":
-            previous_text = _plain(block.anchor_text())[:ANCHOR_CHARS] or previous_text
-        elif _is_real_image(image_dir, block.data["src"]):
-            found.append((block.data["src"], previous_text))
-    return found
-
-
 def _similarity(anchor, candidate):
     return difflib.SequenceMatcher(None, anchor, candidate[:len(anchor) + 20]).ratio()
 
 
-def insertion_index(blocks, anchor):
-    """Anchor metnine en çok benzeyen bloğun hemen sonrası; eşleşme yoksa
-    ilk başlık/bölüm bloğunun sonrası (sayfa başı görseli)."""
-    if anchor:
-        scored = [(_similarity(anchor, _plain(Block.of(b).anchor_text())), i) for i, b in enumerate(blocks)]
-        best = max(scored, default=(0, -1))
-        if best[0] >= MATCH_THRESHOLD:
-            return best[1] + 1
-    for index, block in enumerate(map(Block.of, blocks)):
-        if not block.leads_page():
-            return index
-    return len(blocks)
+class PageImages:
+    """PDF'ten yeniden çıkarılan sayfanın görselleri ve PDF'te önlerindeki metin."""
+
+    def __init__(self, blocks, image_dir):
+        self.blocks = [Block.of(block) for block in blocks]
+        self.image_dir = image_dir
+
+    def anchored(self):
+        """PDF sırasına göre (görsel src, önündeki metin) çiftleri; süs görseller atlanır."""
+        found, previous_text = [], ""
+        for block in self.blocks:
+            sources = block.image_sources()
+            if sources:
+                found += [(src, previous_text) for src in sources if self._is_real(src)]
+            else:
+                previous_text = _plain(block.anchor_text())[:ANCHOR_CHARS] or previous_text
+        return found
+
+    def _is_real(self, src):
+        path = os.path.join(self.image_dir, src)
+        if not os.path.isfile(path):
+            return False
+        pixmap = fitz.Pixmap(path)
+        return min(pixmap.width, pixmap.height) >= MIN_IMAGE_SIDE_PX
+
+    def copy(self, src, target_dir):
+        os.makedirs(target_dir, exist_ok=True)
+        shutil.copy2(os.path.join(self.image_dir, src), os.path.join(target_dir, src))
 
 
-def already_has(blocks, src):
-    return any(b["type"] == "image" and b.get("src") == src for b in blocks)
+class ImagePlacement:
+    """Çevrilmiş sayfanın blokları; görsel, PDF'te önünde gelen metnin karşılığının altına girer."""
 
+    def __init__(self, blocks):
+        self.blocks = blocks
 
-def copy_image(project, page, image_dir, src):
-    target_dir = os.path.join(project.pages_dir, f"page-{page}_images")
-    os.makedirs(target_dir, exist_ok=True)
-    shutil.copy2(os.path.join(image_dir, src), os.path.join(target_dir, src))
+    def has(self, src):
+        return any(src in block.image_sources() for block in self._views())
+
+    def add(self, src, anchor):
+        self.blocks.insert(self._index_after(anchor), {"type": "image", "src": src})
+
+    def _views(self):
+        return [Block.of(block) for block in self.blocks]
+
+    def _index_after(self, anchor):
+        """Çapaya en çok benzeyen bloğun hemen sonrası; eşleşme yoksa sayfa başı
+        başlıklarının sonrası."""
+        score, index = self._best_match(anchor)
+        if score >= MATCH_THRESHOLD:
+            return index + 1
+        return next((i for i, block in enumerate(self._views()) if not block.leads_page()), len(self.blocks))
+
+    def _best_match(self, anchor):
+        """(benzerlik, blok sırası); çapa boşsa hiçbir blok eşleşmez."""
+        if not anchor:
+            return 0, -1
+        scored = [(_similarity(anchor, _plain(block.anchor_text())), index)
+                  for index, block in enumerate(self._views())]
+        return max(scored, default=(0, -1))
 
 
 class ImageBackfiller:
-    def __init__(self, project, progress, extractor):
+    """Çevrilmiş sayfalara PDF'teki görselleri ekler; metin bloklarına dokunmaz."""
+
+    def __init__(self, project, builder):
         self.project = project
-        self.progress = progress
-        self.extractor = extractor
+        self.builder = builder
 
     @classmethod
     def for_project(cls, project):
-        progress = project.load_progress()
-        return cls(project, progress, PageExtractor(extraction_settings(progress)))
-
-    def translated_pages(self):
-        return [int(n) for n, info in self.progress["pages"].items() if not info.get("blank")]
+        return cls(project, PageInputBuilder.for_progress(project, project.load_progress()))
 
     def backfill_page(self, page):
-        image_dir = os.path.join(self.project.work_in, f"page-{page}_images")
-        pdf_page = page + self.progress["pdf_offset"]
-        extracted = self.extractor.extract(self.project.pdf_path(self.progress), pdf_page, image_dir)
+        """Eklenen görsel sayısı; sayfa yalnız görsel eklendiyse yeniden yazılır."""
+        images = PageImages(self.builder.build(page)["blocks"], self.builder.image_dir(page))
         page_document = PageDocument.read(self.project.page_js(page))
-        document = page_document.data
-        added = 0
-        for src, anchor in images_with_anchors(extracted["blocks"], image_dir):
-            if already_has(document["blocks"], src):
-                continue
-            document["blocks"].insert(insertion_index(document["blocks"], anchor), {"type": "image", "src": src})
-            copy_image(self.project, page, image_dir, src)
-            added += 1
+        added = self._place(images, ImagePlacement(page_document.data["blocks"]), page)
         if added:
             page_document.write(self.project.pages_dir)
         return added
 
+    def _place(self, images, placement, page):
+        target_dir = os.path.join(self.project.pages_dir, f"page-{page}_images")
+        added = 0
+        for src, anchor in images.anchored():
+            if not placement.has(src):
+                placement.add(src, anchor)
+                images.copy(src, target_dir)
+                added += 1
+        return added
+
 
 def main():
-    backfiller = ImageBackfiller.for_project(Project())
-    pages = [int(a) for a in sys.argv[1:]] or backfiller.translated_pages()
+    project = Project()
+    backfiller = ImageBackfiller.for_project(project)
+    pages = [int(a) for a in sys.argv[1:]] or project.translated_pages()
     total = 0
     for page in sorted(pages):
         added = backfiller.backfill_page(page)

@@ -3,7 +3,6 @@ olarak verir, ODL ise düz karaktere indirger. Simge ev sahibi satıra x konumun
 göre bağlanır; kodda '^23' / '_K' olarak dizilir, gövde metninde Unicode
 karşılığıyla sözcük düzeltmesine dönüşür.
 """
-from extraction.text_layer.text_line import TextLine
 
 SCRIPT_SIZE_RATIO = 0.85          # ev sahibi puntosunun altındaki kaydırılmış parça = alt/üst simge
 SCRIPT_SHIFT_RATIO = 0.12         # taban çizgisi kayması / punto: bunun üstü üst (^) ya da alt (_) simge
@@ -49,22 +48,24 @@ class ScriptAttacher:
         return [rest for line in self.lines for rest in self._attach_runs(line)]
 
     def _attach_runs(self, line):
-        orphans, attached = [], 0
-        for run in self._runs(line):
-            part = TextLine(run, line.is_code)
-            host, marker = self._host_of(part, line)
-            if host is None:
-                orphans += run
-                continue
-            host.scripts.append(ScriptMark(part, marker))
-            attached += 1
-        if not attached:
+        """Ev sahibi bulunan parçalar simge olarak bağlanır; kalan parçalar satır olarak döner."""
+        orphans = [span for run in self._runs(line) for span in self._attach_or_keep(run, line)]
+        if len(orphans) == len(line.spans):
             return [line]
         if not orphans:
             return []
-        rest = TextLine(orphans, line.is_code)
+        rest = line.with_spans(orphans)
         rest.scripts = line.scripts
         return [rest]
+
+    def _attach_or_keep(self, run, line):
+        """Parça bir ev sahibine bağlanırsa boş liste, bağlanamazsa kendi span'ları."""
+        part = line.with_spans(run)
+        host, marker = self._host_of(part, line)
+        if host is None:
+            return run
+        host.scripts.append(ScriptMark(part, marker))
+        return []
 
     @staticmethod
     def _runs(line):
@@ -132,10 +133,15 @@ class ScriptFixes:
         """Gövde metnindeki simgeli sözcükler ('ma' -> 'mᵃ')."""
         fixes = {}
         for line in self.lines:
-            if line.uses_script_layout():
-                continue
-            for mark in line.scripts:
-                word = line.word_before(mark.x0, PROSE_SCRIPT_MAX_GAP)
-                if word and mark.body:
-                    fixes[word + mark.body] = word + mark.as_unicode()
+            if not line.uses_script_layout():
+                fixes.update(self._word_fixes(line))
+        return fixes
+
+    @staticmethod
+    def _word_fixes(line):
+        fixes = {}
+        for mark in line.scripts:
+            word = line.word_before(mark.x0, PROSE_SCRIPT_MAX_GAP)
+            if word and mark.body:
+                fixes[word + mark.body] = word + mark.as_unicode()
         return fixes

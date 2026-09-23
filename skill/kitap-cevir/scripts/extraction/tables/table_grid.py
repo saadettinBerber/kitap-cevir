@@ -113,13 +113,10 @@ class TableGrid:
         while left < right_edge - EDGE_TOLERANCE:
             end = cls._column_end(cells, left)
             if end is None:
-                further = [r.x0 for r in cells if r.x0 > left + EDGE_TOLERANCE]
-                if not further:
-                    break
-                left = min(further)
-                continue
-            columns.append((left, end))
-            left = end
+                left = min((r.x0 for r in cells if r.x0 > left + EDGE_TOLERANCE), default=right_edge)
+            else:
+                columns.append((left, end))
+                left = end
         return columns
 
     @staticmethod

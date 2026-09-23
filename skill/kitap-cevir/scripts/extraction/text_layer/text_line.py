@@ -21,7 +21,19 @@ class TextLine:
 
     @classmethod
     def of_spans(cls, spans):
-        return cls(spans, is_code=all(span["is_code"] for span in spans))
+        return cls(spans, all(span["is_code"] for span in spans))
+
+    @classmethod
+    def code(cls, spans):
+        return cls(spans, True)
+
+    @classmethod
+    def prose(cls, spans):
+        return cls(spans, False)
+
+    def with_spans(self, spans):
+        """Aynı türden (kod ya da düz metin) başka bir satır."""
+        return TextLine(spans, self.is_code)
 
     @staticmethod
     def join(spans):
@@ -85,7 +97,7 @@ class TextLine:
         split = next(i for i, span in enumerate(self.spans) if not span["is_code"])
         if len(self.join(self.spans[:split]).strip()) < MIN_STANDALONE_CODE_CHARS:
             return [self]
-        return [TextLine(self.spans[:split], is_code=True), TextLine(self.spans[split:], is_code=False)]
+        return [TextLine.code(self.spans[:split]), TextLine.prose(self.spans[split:])]
 
     def is_standalone_code(self):
         return len(self.raw_text.strip()) >= MIN_STANDALONE_CODE_CHARS

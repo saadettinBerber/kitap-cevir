@@ -8,12 +8,12 @@ Kullanım (proje dizininde):
 
 Agent çıktısı: {"concepts": [...]} — sözleşme: references/FORMAT.md → Kavram kartları.
 """
-import json
 import os
 import re
 import sys
 
 from concept_check import CardChecker
+from json_file import read_json, write_json
 from page_document import PageDocument
 from project import Project, concepts_settings
 
@@ -54,10 +54,7 @@ class CardRegenerator:
     def prepare(self, pages):
         for page in pages:
             path = self.cards_path("in", page)
-            os.makedirs(os.path.dirname(path), exist_ok=True)
-            with open(path, "w", encoding="utf-8") as handle:
-                json.dump(self.card_input(PageDocument.read(self.project.page_js(page)).data), handle,
-                          ensure_ascii=False, indent=2)
+            write_json(path, self.card_input(PageDocument.read(self.project.page_js(page)).data))
         return [self.project.relative(self.cards_path("in", page)) for page in pages]
 
     def card_input(self, page_data):
@@ -78,8 +75,7 @@ class CardRegenerator:
         return report
 
     def _apply_page(self, page):
-        with open(self.cards_path("out", page), encoding="utf-8") as handle:
-            cards = json.load(handle).get("concepts", [])
+        cards = read_json(self.cards_path("out", page)).get("concepts", [])
         problems = self.checker.problems(cards)
         if not problems:
             document = PageDocument.read(self.project.page_js(page))
