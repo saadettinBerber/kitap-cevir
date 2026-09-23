@@ -79,10 +79,15 @@ def copy_image(project, page, image_dir, src):
 
 
 class ImageBackfiller:
-    def __init__(self, project):
+    def __init__(self, project, progress, extractor):
         self.project = project
-        self.progress = project.load_progress()
-        self.extractor = PageExtractor(extraction_settings(self.progress))
+        self.progress = progress
+        self.extractor = extractor
+
+    @classmethod
+    def for_project(cls, project):
+        progress = project.load_progress()
+        return cls(project, progress, PageExtractor(extraction_settings(progress)))
 
     def translated_pages(self):
         return [int(n) for n, info in self.progress["pages"].items() if not info.get("blank")]
@@ -106,7 +111,7 @@ class ImageBackfiller:
 
 
 def main():
-    backfiller = ImageBackfiller(Project())
+    backfiller = ImageBackfiller.for_project(Project())
     pages = [int(a) for a in sys.argv[1:]] or backfiller.translated_pages()
     total = 0
     for page in sorted(pages):

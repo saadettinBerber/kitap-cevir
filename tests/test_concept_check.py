@@ -1,7 +1,7 @@
 import unittest
 
 import _paths  # noqa: F401
-from concept_check import card_kind, card_problems
+from concept_check import CardChecker, card_kind
 
 SPEC = {"kinds": ["explain", "contrast", "tradeoff", "code"], "code_langs": ["python"],
         "code_comment_lang": "en"}
@@ -44,39 +44,39 @@ class CardKindTest(unittest.TestCase):
 
 class CardProblemsTest(unittest.TestCase):
     def test_valid_cards_of_every_kind(self):
-        self.assertEqual(card_problems([EXPLAIN, TRADEOFF, CONTRAST, CODE], SPEC), [])
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, TRADEOFF, CONTRAST, CODE]), [])
 
     def test_card_count_is_bounded(self):
-        self.assertEqual(card_problems([EXPLAIN], SPEC), ["kart sayısı 1 (2-4 olmalı)"])
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN]), ["kart sayısı 1 (2-4 olmalı)"])
 
     def test_kind_must_be_allowed(self):
         spec = {**SPEC, "kinds": ["explain", "tradeoff"]}
-        problems = card_problems([EXPLAIN, CODE], spec)
+        problems = CardChecker(spec).problems([EXPLAIN, CODE])
         self.assertEqual(problems, ["kod: tür 'code' bu kitapta izinli değil (explain, tradeoff)"])
 
     def test_legacy_card_is_rejected(self):
-        problems = card_problems([EXPLAIN, {"id": "eski", "body_html": "<p/>"}], SPEC)
+        problems = CardChecker(SPEC).problems([EXPLAIN, {"id": "eski", "body_html": "<p/>"}])
         self.assertIn("eski: tür 'legacy' bu kitapta izinli değil", problems[0])
 
     def test_missing_translation_is_reported(self):
         card = _card("bos", "explain", tip={"en": "x", "tr": " "})
-        self.assertEqual(card_problems([EXPLAIN, card], SPEC), ["bos: tip.tr boş"])
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["bos: tip.tr boş"])
 
     def test_code_language_must_be_allowed(self):
         card = _card("java", "code", bad=_code("java"), good=_code())
-        self.assertEqual(card_problems([EXPLAIN, card], SPEC),
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]),
                          ["java: bad.lang 'java' izinli değil (python)"])
 
     def test_tradeoff_needs_two_or_three_options(self):
         card = _card("tek", "tradeoff", options=[_option("A")])
-        self.assertEqual(card_problems([EXPLAIN, card], SPEC), ["tek: options sayısı 1 (2-3 olmalı)"])
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["tek: options sayısı 1 (2-3 olmalı)"])
 
     def test_explain_card_carries_no_samples(self):
         card = _card("fazla", "explain", bad={"text": _pair()})
-        self.assertEqual(card_problems([EXPLAIN, card], SPEC), ["fazla: explain kartında `bad` olmamalı"])
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["fazla: explain kartında `bad` olmamalı"])
 
     def test_duplicate_ids_are_reported(self):
-        self.assertEqual(card_problems([EXPLAIN, EXPLAIN], SPEC), ["tanim: id tekrar ediyor"])
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, EXPLAIN]), ["tanim: id tekrar ediyor"])
 
 
 if __name__ == "__main__":

@@ -67,11 +67,19 @@ def context_snippets(document, pdf_page):
 class PagePreparer:
     """Bir projenin sayfalarını çevirmen girdisine dönüştürür."""
 
-    def __init__(self, project):
+    def __init__(self, project, progress, extractor):
         self.project = project
-        self.progress = project.load_progress()
-        self.extractor = PageExtractor(extraction_settings(self.progress))
-        self.pdf = project.pdf_path(self.progress)
+        self.progress = progress
+        self.extractor = extractor
+        self.pdf = project.pdf_path(progress)
+
+    @classmethod
+    def for_project(cls, project):
+        progress = project.load_progress()
+        return cls(project, progress, PageExtractor(extraction_settings(progress)))
+
+    def hyphen_fixes(self, pdf_page):
+        return self.extractor.hyphen_fixes(self.pdf, pdf_page)
 
     def build_input(self, page):
         pdf_page = page + self.progress["pdf_offset"]
@@ -171,7 +179,7 @@ def _report(prepared, has_vision, concepts):
 
 def main():
     spec, count = parse_args(sys.argv)
-    preparer = PagePreparer(Project())
+    preparer = PagePreparer.for_project(Project())
     prepared = [p for p in preparer.prepare_pages(spec, count) if p]
     if not prepared:
         print("Hazırlanacak sayfa yok.")

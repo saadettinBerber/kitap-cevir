@@ -12,7 +12,7 @@ import os
 import shutil
 import sys
 
-from concept_check import card_problems
+from concept_check import CardChecker
 from page_document import PageDocument
 from project import Project, concepts_settings
 from reader_data import Glossary, TableOfContents
@@ -44,7 +44,7 @@ class PageFinalizer:
         glossary.write_js()
         return {"page_js": page_js, "images": images, "terms": added_terms,
                 "untranslated": untranslated, "page": page.data["page"],
-                "card_problems": card_problems(page.data.get("concepts", []), concepts_settings(progress))}
+                "card_problems": CardChecker(concepts_settings(progress)).problems(page.data.get("concepts", []))}
 
     @staticmethod
     def _require_fields(document):

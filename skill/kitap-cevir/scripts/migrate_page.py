@@ -13,12 +13,11 @@ import os
 import re
 import sys
 
-from extraction.text_layer.layout_scan import scan_page
 from finalize_page import PageFinalizer
 from migrate_match import TranslationFiller, Translations
 from page_document import PageDocument
 from prepare_page import PagePreparer
-from project import Project, extraction_settings
+from project import Project
 
 _COPY_FIELDS = ("title", "section", "concepts")
 _PATH_STEP = re.compile(r"(\w+)|\[(\d+)\]")
@@ -63,25 +62,29 @@ class PageMigration:
 class Migrator:
     """Projenin çevrilmiş sayfalarını taşır; bekleyenleri _work/migrate'e yazar."""
 
-    def __init__(self):
-        self.project = Project()
-        self.preparer = PagePreparer(self.project)
-        self.finalizer = PageFinalizer(self.project)
-        self.migrate_dir = os.path.join(self.project.root, "_work", "migrate")
-        os.makedirs(self.migrate_dir, exist_ok=True)
+    def __init__(self, project, preparer, finalizer):
+        self.project = project
+        self.preparer = preparer
+        self.finalizer = finalizer
+        self.migrate_dir = os.path.join(project.root, "_work", "migrate")
 
-    def run(self, page, finalize_complete):
+    @classmethod
+    def for_project(cls, project):
+        return cls(project, PagePreparer.for_project(project), PageFinalizer(project))
+
+    def run(self, page):
+        """Sayfayı yeniden çıkarıp eski çevirileri taşır; sonlandırmaz."""
         old = PageDocument.read(self.project.page_js(page)).data
         document = self.preparer.build_input(page)
-        pending, latex_items = PageMigration(document, old).run(self._fixes(document["pdf_page"]))
+        pending, latex_items = PageMigration(document, old).run(self.preparer.hyphen_fixes(document["pdf_page"]))
         os.makedirs(self.project.work_out, exist_ok=True)
         self._dump(self._out_path(page), document)
         self._write_pending(page, pending, latex_items)
-        complete = not pending and not latex_items
-        if complete and finalize_complete:
-            self.finalizer.finalize(self._out_path(page))
         return {"page": page, "units": len(PageDocument(document).text_units()), "pending": len(pending),
-                "latex": len(latex_items), "finalized": complete and finalize_complete}
+                "latex": len(latex_items), "complete": not pending and not latex_items}
+
+    def finalize(self, page):
+        return self.finalizer.finalize(self._out_path(page))
 
     def apply(self, page):
         """done-N.json'daki çevirileri ({path, tr} ve {path, latex}) yazar ve sonlandırır."""
@@ -92,16 +95,13 @@ class Migrator:
         for item in done.get("latex", []):
             self._resolve(document, item["path"])["latex"] = item["latex"]
         self._dump(self._out_path(page), document)
-        return self.finalizer.finalize(self._out_path(page))
-
-    def _fixes(self, pdf_page):
-        settings = extraction_settings(self.preparer.progress)
-        return scan_page(self.preparer.pdf, pdf_page, settings)["hyphen_fixes"]
+        return self.finalize(page)
 
     def _out_path(self, page):
         return os.path.join(self.project.work_out, f"page-{page}.json")
 
     def _write_pending(self, page, pending, latex_items):
+        os.makedirs(self.migrate_dir, exist_ok=True)
         path = os.path.join(self.migrate_dir, f"pending-{page}.json")
         if pending or latex_items:
             self._dump(path, {"page": page, "units": pending, "latex": latex_items})
@@ -127,20 +127,31 @@ class Migrator:
             json.dump(payload, handle, ensure_ascii=False, indent=2)
 
 
+def _apply_done(migrator, pages):
+    for page in pages:
+        result = migrator.apply(int(page))
+        print(f"✓ sayfa {page} uygulandı ve sonlandırıldı (boş tr: {result['untranslated']})")
+
+
+def _status(result):
+    if result["finalized"]:
+        return "sonlandırıldı"
+    return f"bekliyor (pending {result['pending']}, latex {result['latex']})"
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    finalize_complete = "--no-finalize" not in sys.argv
-    migrator = Migrator()
-    if args and args[0] == "apply":
-        for page in args[1:]:
-            result = migrator.apply(int(page))
-            print(f"✓ sayfa {page} uygulandı ve sonlandırıldı (boş tr: {result['untranslated']})")
+    migrator = Migrator.for_project(Project())
+    if args[:1] == ["apply"]:
+        _apply_done(migrator, args[1:])
         return
-    pages = migrator.project.translated_pages() if args == ["all"] else [int(a) for a in args]
-    for page in pages:
-        r = migrator.run(page, finalize_complete)
-        state = "sonlandırıldı" if r["finalized"] else f"bekliyor (pending {r['pending']}, latex {r['latex']})"
-        print(f"sayfa {r['page']}: {r['units']} birim, {state}")
+    finalizes_complete = "--no-finalize" not in sys.argv
+    for page in migrator.project.translated_pages() if args == ["all"] else [int(a) for a in args]:
+        result = migrator.run(page)
+        result["finalized"] = result["complete"] and finalizes_complete
+        if result["finalized"]:
+            migrator.finalize(page)
+        print(f"sayfa {result['page']}: {result['units']} birim, {_status(result)}")
 
 
 if __name__ == "__main__":

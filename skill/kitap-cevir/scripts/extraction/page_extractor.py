@@ -45,6 +45,10 @@ class PageExtractor:
         return {"blocks": ChapterOpener(regions.place(body, builder.blocks_of)).merged(),
                 "running_header": header, "math": self._inline_images(math)}
 
+    def hyphen_fixes(self, pdf_path, pdf_page):
+        """Satır sonunda bölünmüş sözcüklerin onarımı ('McGraw-' + 'Hill')."""
+        return scan_page(pdf_path, pdf_page, self.settings)["hyphen_fixes"]
+
     def _code_block(self, region):
         return {"type": "code", "lang": self.settings["default_code_language"], "code": region["code"]}
 

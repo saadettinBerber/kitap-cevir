@@ -13,7 +13,7 @@ import os
 import re
 import sys
 
-from concept_check import card_problems
+from concept_check import CardChecker
 from page_document import PageDocument
 from project import Project, concepts_settings
 
@@ -24,9 +24,13 @@ class CardRegenerator:
     """Bir projenin çevrilmiş sayfaları için kart agent'ı girdisini hazırlar ve
     agent çıktısını denetleyip sayfalara yazar."""
 
-    def __init__(self, project):
+    def __init__(self, project, checker):
         self.project = project
-        self.spec = concepts_settings(project.load_progress())
+        self.checker = checker
+
+    @classmethod
+    def for_project(cls, project):
+        return cls(project, CardChecker(concepts_settings(project.load_progress())))
 
     def select_pages(self, specs):
         """'all', tek numaralar ve '5-40' aralıkları; çevrilmemiş sayfalar atlanır."""
@@ -61,7 +65,7 @@ class CardRegenerator:
         return {"id": page_data["id"], "page": page_data["page"],
                 "chapter": page_data.get("chapter", {}), "section": page_data.get("section", {}),
                 "title": page_data.get("title", {}), "content": content,
-                "concepts_spec": self.spec, "concepts": []}
+                "concepts_spec": self.checker.spec, "concepts": []}
 
     def apply(self, pages):
         """{sayfa: sorunlar}; sorunsuz sayfaların kartları yazılmıştır."""
@@ -76,7 +80,7 @@ class CardRegenerator:
     def _apply_page(self, page):
         with open(self.cards_path("out", page), encoding="utf-8") as handle:
             cards = json.load(handle).get("concepts", [])
-        problems = card_problems(cards, self.spec)
+        problems = self.checker.problems(cards)
         if not problems:
             document = PageDocument.read(self.project.page_js(page))
             PageDocument({**document.data, "concepts": cards}).write(self.project.pages_dir)
@@ -109,7 +113,7 @@ def main():
     if len(sys.argv) < 3 or sys.argv[1] not in ACTIONS:
         print(__doc__)
         sys.exit(1)
-    regenerator = CardRegenerator(Project())
+    regenerator = CardRegenerator.for_project(Project())
     ACTIONS[sys.argv[1]](regenerator, regenerator.select_pages(sys.argv[2:]))
 
 

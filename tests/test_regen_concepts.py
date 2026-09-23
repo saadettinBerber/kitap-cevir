@@ -33,7 +33,7 @@ class RegenConceptsTest(unittest.TestCase):
             json.dump(PROGRESS, handle)
         self.project = Project(self.tmp.name)
         PageDocument(PAGE).write(self.project.pages_dir)
-        self.regenerator = CardRegenerator(self.project)
+        self.regenerator = CardRegenerator.for_project(self.project)
 
     def tearDown(self):
         self.tmp.cleanup()
