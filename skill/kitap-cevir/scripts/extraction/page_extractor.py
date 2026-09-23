@@ -9,17 +9,17 @@ progress.json -> extraction ayarlarından gelir; varsayılanlar
 project.DEFAULT_EXTRACTION içindedir. Çıktı references/FORMAT.md'deki blok
 şemasının yalnız `en` tarafıdır.
 """
-from block_builder import BlockBuilder
-from block_merge import (drop_nested_fragments, flatten_nested_lists, insert_inline_math,
+from extraction.block_builder import BlockBuilder
+from extraction.block_merge import (drop_nested_fragments, flatten_nested_lists, insert_inline_math,
                          merge_chapter_opener, merge_footnote_markers)
-from layout_scan import scan_page
-from math_scan import scan_math
-from odl_runner import extract_odl_elements
-from page_regions import PageRegions
-from page_zones import PageZones
+from extraction.text_layer.layout_scan import scan_page
+from extraction.equations.math_scan import scan_math
+from extraction.odl_runner import extract_odl_elements
+from extraction.page_regions import PageRegions
+from extraction.page_zones import PageZones
 from project import DEFAULT_EXTRACTION
-from table_scan import scan_tables
-from text_fixer import TextFixer
+from extraction.tables.table_scan import scan_tables
+from extraction.text_fixer import TextFixer
 
 _INLINE_MATH_FIELDS = ("id", "src", "text", "latex")
 

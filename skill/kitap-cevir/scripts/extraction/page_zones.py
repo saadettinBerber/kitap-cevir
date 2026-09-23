@@ -5,8 +5,8 @@ sol-alt orijinlidir.
 """
 import re
 
-from odl_runner import bbox_of
-from text_utils import clean_ligatures, is_numeric_only, normalize_spaces
+from extraction.odl_runner import bbox_of
+from extraction.text_utils import clean_ligatures, is_numeric_only, normalize_spaces
 
 _EDGE_PAGE_NUMBER = re.compile(r"^\d+\s+|\s+\d+$")
 _EDGE_SEPARATOR = re.compile(r"^[|·•]\s*|\s*[|·•]$")

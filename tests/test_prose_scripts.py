@@ -5,11 +5,11 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from code_lines import page_lines
-from script_marks import ScriptFixes
-from layout_scan import CodeFont
+from extraction.text_layer.code_lines import page_lines
+from extraction.text_layer.script_marks import ScriptFixes
+from extraction.text_layer.layout_scan import CodeFont
 from project import DEFAULT_EXTRACTION
-from text_fixer import TextFixer
+from extraction.text_fixer import TextFixer
 
 BODY_SIZE = 10.5
 SCRIPT_SIZE = 8.0          # gövdenin %76'sı: dipnot işaretinden büyük, simge boyutunda

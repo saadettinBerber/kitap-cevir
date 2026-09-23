@@ -1,7 +1,7 @@
 import unittest
 
 import _paths  # noqa: F401
-from page_regions import PageRegions, Region
+from extraction.page_regions import PageRegions, Region
 
 PAGE_HEIGHT = 800
 

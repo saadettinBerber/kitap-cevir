@@ -13,11 +13,11 @@ import json
 import os
 import sys
 
-from layout_scan import page_plain_text
-from odl_extract import PageExtractor
+from extraction.text_layer.layout_scan import page_plain_text
+from extraction.page_extractor import PageExtractor
 from project import (Project, concepts_settings, extraction_settings,
                      translator_has_vision)
-from text_utils import normalize_spaces
+from extraction.text_utils import normalize_spaces
 
 CONTEXT_CHARS = 700
 MAX_BLANK_SKIPS = 3

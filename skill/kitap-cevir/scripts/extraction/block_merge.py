@@ -2,8 +2,8 @@
 bölüm açılışı (numara + başlık + yazar satırı) ve satır içi denklemler."""
 import re
 
-from math_scan import placeholder
-from odl_runner import bbox_of
+from extraction.equations.math_scan import placeholder
+from extraction.odl_runner import bbox_of
 
 _CHAPTER_AUTHOR = re.compile(r"^(?:by|with) [A-Z]")
 _FOOTNOTE_MARKER = re.compile(r"^[a-z0-9]$")
@@ -114,5 +114,5 @@ def _is_fragment_of(element, host):
 
 def drop_nested_fragments(elements):
     """ODL'nin ayrı paragraf yaptığı alt/üst simge parçalarını atar; metin
-    katmanı bunları zaten ev sahibi satıra bağlar (code_lines)."""
+    katmanı bunları zaten ev sahibi satıra bağlar (text_layer.script_marks)."""
     return [e for e in elements if not any(_is_fragment_of(e, host) for host in elements)]

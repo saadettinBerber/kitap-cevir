@@ -3,8 +3,8 @@ parçaları aynı taban çizgisinde birleştirir, alt/üst simgeleri ev sahibi s
 bağlar (script_marks), kod ile başlayıp düz metinle süren satırı ikiye ayırır,
 düz metnin yanındaki kısa kod parçasını satır içi koda indirir.
 """
-from script_marks import ScriptAttacher
-from text_line import SAME_BASELINE_TOLERANCE, TextLine
+from extraction.text_layer.script_marks import ScriptAttacher
+from extraction.text_layer.text_line import SAME_BASELINE_TOLERANCE, TextLine
 
 
 class PageLineReader:

@@ -14,7 +14,7 @@ import re
 import sys
 
 from finalize_page import finalize, read_page_js
-from layout_scan import scan_page
+from extraction.text_layer.layout_scan import scan_page
 from migrate_match import Translations, apply_fixes, fill_sentences, fill_unit, old_units
 from prepare_page import PagePreparer
 from project import Project, extraction_settings

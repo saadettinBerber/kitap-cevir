@@ -10,7 +10,7 @@ import html
 import fitz
 
 from project import DEFAULT_EXTRACTION
-from table_grid import (MIN_COLUMNS, column_of, extent, filled_columns, filled_rects,
+from extraction.tables.table_grid import (MIN_COLUMNS, column_of, extent, filled_columns, filled_rects,
                         group_tables, horizontal_rules, is_background, is_table_row,
                         row_bands, table_columns)
 

@@ -5,7 +5,7 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from math_scan import scan_math
+from extraction.equations.math_scan import scan_math
 
 SETTINGS = {"math_geometry": True}
 COLUMN_LEFT = 72

@@ -1,8 +1,8 @@
 import unittest
 
 import _paths  # noqa: F401
-from block_builder import BlockBuilder
-from page_zones import PageZones
+from extraction.block_builder import BlockBuilder
+from extraction.page_zones import PageZones
 from project import DEFAULT_EXTRACTION
 
 FOOTER_TOP = 52

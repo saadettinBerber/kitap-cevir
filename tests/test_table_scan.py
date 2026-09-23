@@ -5,7 +5,7 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from table_scan import scan_tables
+from extraction.tables.table_scan import scan_tables
 
 COLUMNS = [(70, 170), (170, 270), (270, 370)]
 HEADER = ["Name", "Count", "Share"]

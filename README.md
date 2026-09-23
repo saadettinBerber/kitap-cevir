@@ -41,28 +41,34 @@ Okuyucuyu açmak için proje dizininde `python3 -m http.server 8000`.
 skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 ├── SKILL.md                  akış: A kurulum / B çeviri / C kart yenileme / D taşıma
 ├── scripts/
-│   │   # proje ve akış
+│   │   # SKILL.md'nin çağırdığı betikler
 │   ├── init_book.py          yeni proje: iskelet + progress.json + glossary.md
 │   ├── inspect_pdf.py        PDF tanıma: info / text / layout / offset
 │   ├── prepare_page.py       PDF sayfası → _work/in/page-N.json (agent girdisi)
 │   ├── finalize_page.py      _work/out/page-N.json → data/pages + progress + sözlük + toc
 │   ├── regen_concepts.py     kavram kartlarını yeniden ürettirir (metne dokunmaz)
-│   ├── concept_check.py      kart denetimi: tür, zorunlu alanlar, kod dili
 │   ├── migrate_page.py       çevrilmiş sayfaları yeni çıkarıma taşır (yeniden çeviri yok)
-│   ├── migrate_match.py      eski en→tr eşleşmelerini yeni birimlere bulur
 │   ├── backfill_images.py    görselleri geriye dönük ekler
-│   ├── toc_builder.py        data/toc.js ve data/glossary.js üretimi
+│   │   # proje durumu
 │   ├── project.py            proje kökü, progress.json, varsayılan ayarlar
-│   │   # PDF çıkarımı
-│   ├── odl_extract.py        OpenDataLoader + PyMuPDF birleşimi (PageExtractor)
-│   ├── odl_runner.py         OpenDataLoader çağrısı
-│   ├── layout_scan.py        kod satırları, satır içi kod, tire onarımı
-│   ├── code_lines.py         kod satırı birleştirme, alt/üst simgeler
-│   ├── block_merge.py        dipnot işaretleri ve blok birleştirme düzeltmeleri
-│   ├── table_scan.py         çizim katmanından dolgulu tabloları bulur
-│   ├── table_grid.py         dolgu dikdörtgenlerinden tablo ızgarası
-│   ├── math_scan.py          denklemler: Type3 fontu ya da kesir çizgisi geometrisi
-│   └── text_fixer.py / text_utils.py   metin onarımı, cümle ayırma
+│   ├── toc_builder.py        data/toc.js ve data/glossary.js üretimi
+│   ├── concept_check.py      kart denetimi: tür, zorunlu alanlar, kod dili
+│   ├── migrate_match.py      eski en→tr eşleşmelerini yeni birimlere bulur
+│   └── extraction/           PDF sayfası → blok şeması
+│       ├── page_extractor.py PageExtractor: ODL + PyMuPDF orkestrasyonu
+│       ├── odl_runner.py     OpenDataLoader çağrısı, öğe kutusu
+│       ├── page_zones.py     koşu başlığı ve alt bilgi
+│       ├── block_builder.py  ODL öğesi → blok (başlık, paragraf, caption, liste, tablo)
+│       ├── page_regions.py   kod/tablo/denklem bölgelerinin okuma sırasına yerleşimi
+│       ├── block_merge.py    dipnot işareti, bölüm açılışı, satır içi denklem birleştirme
+│       ├── text_fixer.py / text_utils.py   metin onarımı, cümle ayırma
+│       ├── text_layer/       PyMuPDF metin katmanı
+│       │   ├── layout_scan.py    kod blokları, satır içi kod, tire onarımı
+│       │   ├── code_lines.py     satır kurma (PageLineReader)
+│       │   ├── text_line.py      TextLine: bir taban çizgisinin parçaları
+│       │   └── script_marks.py   alt/üst simge bağlama ve düzeltmeleri
+│       ├── tables/           çizgisiz (dolgulu) tablolar: table_scan.py, table_grid.py
+│       └── equations/        math_scan.py (Type3 font), math_geometry.py (kesir çizgisi)
 ├── references/
 │   ├── FORMAT.md             sayfa veri formatı, kavram kartları, agent sözleşmesi
 │   ├── translation-style.md  çeviri kuralları
@@ -88,6 +94,6 @@ tests/                        birim testleri (PDF gerektirmez)
 python3 -m unittest discover -s tests -v
 ```
 
-Betikler `skill/kitap-cevir/scripts` altında; testler PDF gerektirmez (PyMuPDF
+Betikler `skill/kitap-cevir/scripts` altında, çıkarım kütüphanesi `scripts/extraction/`; testler PDF gerektirmez (PyMuPDF
 ile geçici PDF üretir). Okuyucu iskeletini değiştirince `templates/project/`
 altını düzenleyin; mevcut kitap projelerine elle taşınır.

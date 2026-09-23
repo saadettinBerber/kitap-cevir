@@ -9,8 +9,8 @@ import re
 
 import fitz
 
-from code_lines import page_lines
-from script_marks import ScriptFixes
+from extraction.text_layer.code_lines import page_lines
+from extraction.text_layer.script_marks import ScriptFixes
 from project import DEFAULT_EXTRACTION
 
 BLANK_LINE_GAP_RATIO = 1.6        # bu oranın üstündeki dikey boşluk = boş satır

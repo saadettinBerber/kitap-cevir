@@ -17,7 +17,7 @@ import sys
 
 import fitz
 
-from odl_extract import PageExtractor
+from extraction.page_extractor import PageExtractor
 from project import Project, extraction_settings
 
 MIN_IMAGE_SIDE_PX = 80          # daha küçükler süs/çizgi parçasıdır

@@ -3,10 +3,10 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from math_geometry import Rule, TextColumn
-from math_scan import SpanRun
-from script_marks import ScriptMark
-from text_line import TextLine
+from extraction.equations.math_geometry import Rule, TextColumn
+from extraction.equations.math_scan import SpanRun
+from extraction.text_layer.script_marks import ScriptMark
+from extraction.text_layer.text_line import TextLine
 
 BASELINE = 100.0
 

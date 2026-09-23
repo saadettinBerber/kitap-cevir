@@ -1,7 +1,7 @@
 import unittest
 
 import _paths  # noqa: F401
-from text_utils import clean_ligatures, split_sentences, strip_list_marker
+from extraction.text_utils import clean_ligatures, split_sentences, strip_list_marker
 
 
 class SplitSentencesTest(unittest.TestCase):

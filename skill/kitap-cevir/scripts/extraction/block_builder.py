@@ -5,7 +5,7 @@ tablo, görsel. Eşikler ve desenler progress.json -> extraction ayarlarındadı
 import os
 import re
 
-from text_utils import is_numeric_only, split_sentences, strip_list_marker
+from extraction.text_utils import is_numeric_only, split_sentences, strip_list_marker
 
 MAX_HEADING_CHARS = 100
 _BIBLIOGRAPHY_ENTRY = re.compile(r"^\[[A-Za-z0-9]+\]:")

@@ -5,7 +5,7 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from math_scan import placeholder, scan_math
+from extraction.equations.math_scan import placeholder, scan_math
 
 MATH_FONT = "Helvetica-Oblique"
 SETTINGS = {"math_font_prefix": MATH_FONT}

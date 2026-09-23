@@ -15,9 +15,9 @@ import re
 
 import fitz
 
-from math_geometry import FractionEquationFinder
+from extraction.equations.math_geometry import FractionEquationFinder
 from project import DEFAULT_EXTRACTION
-from text_utils import normalize_spaces
+from extraction.text_utils import normalize_spaces
 
 CROP_DPI = 220
 CROP_PADDING = 3

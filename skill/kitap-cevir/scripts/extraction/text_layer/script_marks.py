@@ -3,7 +3,7 @@ olarak verir, ODL ise düz karaktere indirger. Simge ev sahibi satıra x konumun
 göre bağlanır; kodda '^23' / '_K' olarak dizilir, gövde metninde Unicode
 karşılığıyla sözcük düzeltmesine dönüşür.
 """
-from text_line import TextLine
+from extraction.text_layer.text_line import TextLine
 
 SCRIPT_SIZE_RATIO = 0.85          # ev sahibi puntosunun altındaki kaydırılmış parça = alt/üst simge
 SCRIPT_SHIFT_RATIO = 0.12         # taban çizgisi kayması / punto: bunun üstü üst (^) ya da alt (_) simge

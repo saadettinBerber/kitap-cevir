@@ -1,13 +1,14 @@
 # PDF Çıkarım Ayarları (`progress.json` → `extraction`)
 
-`prepare_page.py`, sayfayı iki kaynaktan okur ve birleştirir:
+`prepare_page.py`, sayfayı iki kaynaktan okur ve birleştirir (kod:
+`scripts/extraction/`, giriş noktası `page_extractor.PageExtractor`):
 
 1. **OpenDataLoader PDF** (Java): başlık, paragraf, liste, tablo, görsel,
    caption ve okuma sırası. Koordinatları sol-alt orijinlidir.
-2. **PyMuPDF** (`layout_scan.py`): tek aralıklı (monospace) fontla dizilmiş
+2. **PyMuPDF metin katmanı** (`extraction/text_layer/`): tek aralıklı (monospace) fontla dizilmiş
    satırları girintili kod listelerine çevirir, satır içi kod parçalarını ters
    tırnakla işaretler, ODL'nin sildiği tireleri onarır.
-3. **PyMuPDF çizim katmanı** (`table_scan.py` + `table_grid.py`): ODL yalnız
+3. **PyMuPDF çizim katmanı** (`extraction/tables/`): ODL yalnız
    kenarlık çizgili tabloları tanır; e-kitap kökenli PDF'lerde hücreler zebra
    dolgu dikdörtgenleriyle çizilir ve ODL bunları paragraf/heading yığını sanır.
    Bu modül sütunları dolgu dikdörtgenlerinden (soldan sağa döşeyerek, satır içi
@@ -20,7 +21,7 @@
    Aynı sayfadaki iki tablo çoğu zaman aynı sol kenardan başlar; ortak kenar
    değil aradaki dikey boşluk ayırır. Bantsız gövdede satır eşiği
    `table_row_gap_ratio` ile kitaba göre ayarlanır.
-4. **Denklemler** (`math_scan.py`): MathML kökenli denklemler Type3 glif
+4. **Denklemler** (`extraction/equations/`): MathML kökenli denklemler Type3 glif
    fontuyla dizilir (`math_font_prefix`); ODL bu glifleri düşürür. Denklemi düz
    metinle dizen kitaplarda font ipucu yoktur, tetikleyici geometridir
    (`math_geometry`): kesir çizgisi çizim katmanında dar bir yatay çizgidir,
@@ -31,7 +32,7 @@
    denklemi PNG olarak kırpılıp `math` bloğu olur, satır içi denklem cümleye
    `⟦eq-K⟧` yer tutucusu (basit sembol düz Unicode) olarak girer. LaTeX üretimi
    çevirmene bırakılır; bkz. FORMAT.md "Denklemler".
-5. **Kod satırı hazırlığı** (`code_lines.py`): PyMuPDF geniş boşlukta böldüğü
+5. **Kod satırı hazırlığı** (`text_layer/code_lines.py`, simgeler `script_marks.py`): PyMuPDF geniş boşlukta böldüğü
    parçaları aynı taban çizgisinde birleştirir; Courier formüllerindeki alt/üst
    simgeleri (`10` üstünde `23`) taban çizgisi kaymasından tanıyıp `10^23`,
    `W_K` olarak bağlar; gövde metnindeki simgeleri (`mᵃ`, `cᵉ`, `UR²`) Unicode

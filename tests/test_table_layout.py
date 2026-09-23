@@ -5,8 +5,8 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from block_merge import flatten_nested_lists
-from table_scan import scan_tables
+from extraction.block_merge import flatten_nested_lists
+from extraction.tables.table_scan import scan_tables
 
 COLUMNS = [(72, 140), (140, 432)]
 HEADER_TOP = 100

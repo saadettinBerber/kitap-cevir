@@ -1,7 +1,7 @@
 """OpenDataLoader metnini PyMuPDF bulgularıyla onarır: ligatür, tire, satır içi kod."""
 import re
 
-from text_utils import clean_ligatures, normalize_spaces
+from extraction.text_utils import clean_ligatures, normalize_spaces
 
 
 class TextFixer:

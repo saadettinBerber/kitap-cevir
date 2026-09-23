@@ -5,8 +5,8 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from code_lines import page_lines
-from layout_scan import CodeFont
+from extraction.text_layer.code_lines import page_lines
+from extraction.text_layer.layout_scan import CodeFont
 
 SETTINGS = {"code_font_prefix": "Courier", "code_max_font_size": 12}
 BASELINE = 100

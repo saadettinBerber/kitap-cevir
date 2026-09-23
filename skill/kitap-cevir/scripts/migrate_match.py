@@ -8,7 +8,7 @@ Eşleşmeyen birimler `pending` listesine düşer (küçük bir çeviri geçişi
 """
 import re
 
-from text_utils import clean_ligatures, normalize_spaces
+from extraction.text_utils import clean_ligatures, normalize_spaces
 
 MAX_JOIN = 4
 NUMERIC_CELL = re.compile(r"^(?:[\d.,%~+\-–\s]|<br>)*$")

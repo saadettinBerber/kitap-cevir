@@ -3,7 +3,7 @@ okuma sırasına yerleştirir. Bölgeye düşen ODL öğeleri yerine bölgenin t
 yazılır; ODL'nin hiç görmediği içerik (Type3 denklem) sayfa konumuna göre araya
 girer. Bölgeler üst orijinli gelir, ODL'nin sol-alt orijinine çevrilir.
 """
-from odl_runner import bbox_of
+from extraction.odl_runner import bbox_of
 
 CODE_OVERLAP_RATIO = 0.5
 
