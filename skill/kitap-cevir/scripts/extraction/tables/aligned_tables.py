@@ -2,36 +2,58 @@
 
 Ne kenarlık çizgisi (ODL) ne dolgu dikdörtgeni (table_scan) olan tablolar:
 tam kalın bir başlık satırı ve altında başlık sütunlarına hizalı bitişik
-gövde satırları. Yalnız basit tablolar yakalanır; çok satırlı hücreli ya da
-başlıksız tablolar elle kurulur.
+gövde satırları. Sayfa kırılması iki yerde tanınır: sayfanın son satırına
+uzanan kısa parça ve sayfayı açan başlıksız devam. Çok satırlı hücreli ya da
+sayfa ortasındaki başlıksız tablolar elle kurulur.
 """
 import itertools
 
 from extraction.tables.table_cell import TableCell
 
 MIN_HEADER_COLUMNS = 2
-COLUMN_GAP_MIN = 30          # başlık sütunları arasındaki en küçük boşluk (pt)
+COLUMN_GAP_MIN = 30          # sütunlar arasındaki en küçük boşluk (pt)
 MIN_FILLED_COLUMNS = 2       # gövde satırı en az bu kadar sütunu doldurur
 MIN_TABLE_ROWS = 4           # başlık dahil
-COLUMN_GUTTER = 8            # sütun, bir sonraki başlık sütununun bu kadar solunda biter
-LAST_COLUMN_REACH = 60       # son sütun başlığın sağ ucundan bu kadar uzar
+MIN_SPLIT_TABLE_ROWS = 2     # sayfa sonuna düşen parça: başlık + bir satır
+MIN_CONTINUED_ROWS = 2       # sayfayı açan başlıksız devam
+CONTINUATION_START_ROWS = 2  # devam ilk ya da (koşu başlığının altındaki) ikinci satırda başlar
+COLUMN_GUTTER = 8            # sütun, bir sonraki sütunun bu kadar solunda biter
+LAST_COLUMN_REACH = 60       # son sütun ilk satırın sağ ucundan bu kadar uzar
 ROW_RIGHT_SLACK = 30         # gövde satırı son sütunu bu kadar taşabilir
 CENTER_TOLERANCE = 5         # parçanın ortası sütun kenarını bu kadar aşabilir
 DEFAULT_MAIN_SIZE = 12.0
+HEADER_ROW, NO_HEADER_ROW = 1, 0
 
 
-class HeaderColumns:
-    """Kalın başlık satırının sütunları; gövde satırları bunlara göre ölçülür."""
+class TableColumns:
+    """Tablonun sütunları: kalın başlıktan ya da başlıksız devamın ilk satırından
+    çıkar; satırlar bunlara göre ölçülür ve hücrelere dağıtılır."""
 
-    def __init__(self, header):
-        starts = sorted(round(span["bbox"].x0, 1) for span in header)
-        last_end = max(span["bbox"].x1 for span in header) + LAST_COLUMN_REACH
-        self.columns = list(zip(starts, [start - COLUMN_GUTTER for start in starts[1:]] + [last_end]))
+    def __init__(self, starts, right_edge):
+        ends = [start - COLUMN_GUTTER for start in starts[1:]] + [right_edge + LAST_COLUMN_REACH]
+        self.columns = list(zip(starts, ends))
+
+    @classmethod
+    def of_header(cls, header):
+        """Kalın başlığın her parçası bir sütundur."""
+        return cls(sorted(round(span["bbox"].x0, 1) for span in header), max(span["bbox"].x1 for span in header))
+
+    @classmethod
+    def of_row(cls, row):
+        """Başlıksız satırda sütunu geniş boşluk açar; hücre içindeki stil
+        parçası (italik "x") yeni sütun değildir."""
+        starts = [round(cell[0]["bbox"].x0, 1) for cell in cls._gutter_cells(row)]
+        return cls(starts, max(span["bbox"].x1 for span in row))
 
     @staticmethod
-    def starts_table(row):
+    def is_header(row):
         """Soldan sağa dizili satır tam kalın, en az iki sütunlu ve sütunları arası açık mı?"""
-        return len(row) >= MIN_HEADER_COLUMNS and HeaderColumns._is_bold(row) and HeaderColumns._has_gutters(row)
+        return len(row) >= MIN_HEADER_COLUMNS and TableColumns._is_bold(row) and TableColumns._has_gutters(row)
+
+    @staticmethod
+    def is_headerless_row(row):
+        """Kalın olmayan, en az iki sütuna bölünen satır: başlıksız devamın ilk satırı olabilir."""
+        return not TableColumns._is_bold(row) and len(TableColumns._gutter_cells(row)) >= MIN_HEADER_COLUMNS
 
     @staticmethod
     def _is_bold(row):
@@ -41,7 +63,17 @@ class HeaderColumns:
     def _has_gutters(row):
         """Bitişik kalın parçalar (bölüm başlığı, cümle içi vurgu) sütun değildir;
         gerçek başlık sütunları arasında belirgin boşluk vardır."""
-        return all(right["bbox"].x0 - left["bbox"].x1 >= COLUMN_GAP_MIN for left, right in zip(row, row[1:]))
+        return len(TableColumns._gutter_cells(row)) == len(row)
+
+    @staticmethod
+    def _gutter_cells(row):
+        """Soldan sağa dizili parçalar, aralarındaki geniş boşluklardan bölünür."""
+        cells = [[row[0]]]
+        for left, right in zip(row, row[1:]):
+            if right["bbox"].x0 - left["bbox"].x1 >= COLUMN_GAP_MIN:
+                cells.append([])
+            cells[-1].append(right)
+        return cells
 
     def fits(self, row):
         """Satır sütun sınırları içinde kalıyor ve en az iki sütunu dolduruyor mu?"""
@@ -65,9 +97,9 @@ class HeaderColumns:
         center = (span["bbox"].x0 + span["bbox"].x1) / 2
         return column[0] - CENTER_TOLERANCE <= center <= column[1] + CENTER_TOLERANCE
 
-    def table(self, rows):
+    def table(self, rows, header_rows):
         spans = [span for row in rows for span in row]
-        block = {"type": "table", "header_rows": 1, "rows": [self._cells(row) for row in rows]}
+        block = {"type": "table", "header_rows": header_rows, "rows": [self._cells(row) for row in rows]}
         return {"y0": min(s["bbox"].y0 for s in spans), "y1": max(s["bbox"].y1 for s in spans), "block": block}
 
     def _cells(self, row):
@@ -91,17 +123,40 @@ class AlignedTableFinder:
 
     def tables(self):
         """[{y0, y1, block}]; bir tablonun satırları başka tablonun başlığı olamaz."""
-        found, index = [], 0
+        found, index = self._continued_table()
         while index < len(self.rows):
             rows = self._table_rows_at(index)
-            is_table = len(rows) >= MIN_TABLE_ROWS
-            found += [HeaderColumns(rows[0]).table(rows)] if is_table else []
+            is_table = self._is_table(index, rows)
+            found += [TableColumns.of_header(rows[0]).table(rows, HEADER_ROW)] if is_table else []
             index += len(rows) if is_table else 1
         return found
+
+    def _continued_table(self):
+        """Önceki sayfadan süren başlıksız tablo ve taramanın süreceği satır.
+        Sayfayı kendi başlığı olan bir tablo açıyorsa devam yoktur."""
+        for start in range(min(CONTINUATION_START_ROWS, len(self.rows))):
+            if TableColumns.is_header(self.rows[start]):
+                break
+            rows = self._continued_rows_at(start)
+            if len(rows) >= MIN_CONTINUED_ROWS:
+                return [TableColumns.of_row(rows[0]).table(rows, NO_HEADER_ROW)], start + len(rows)
+        return [], 0
+
+    def _continued_rows_at(self, start):
+        first = self.rows[start]
+        if not TableColumns.is_headerless_row(first):
+            return []
+        return [first, *itertools.takewhile(TableColumns.of_row(first).fits, self.rows[start + 1:])]
+
+    def _is_table(self, index, rows):
+        """Sayfanın son satırına uzanan tablo sonraki sayfada sürer; kısa olması
+        yanlış alarm değil, sayfa kırılmasıdır."""
+        reaches_page_end = index + len(rows) == len(self.rows)
+        return len(rows) >= (MIN_SPLIT_TABLE_ROWS if reaches_page_end else MIN_TABLE_ROWS)
 
     def _table_rows_at(self, index):
         """Kalın başlık ve ona hizalı bitişik satırlar; başlık yoksa boş liste."""
         header = self.rows[index]
-        if not HeaderColumns.starts_table(header):
+        if not TableColumns.is_header(header):
             return []
-        return [header, *itertools.takewhile(HeaderColumns(header).fits, self.rows[index + 1:])]
+        return [header, *itertools.takewhile(TableColumns.of_header(header).fits, self.rows[index + 1:])]

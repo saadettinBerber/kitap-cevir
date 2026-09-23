@@ -48,9 +48,9 @@ kullanılır; varsayılanlar 6x9 inç teknik kitap dizgisi için ayarlanmıştı
 |----------------------------|-----------------------|--------|
 | `code_font_prefix`         | `"Courier"`           | Bu önekle başlayan font = kod. Kitabınızda `Consolas`, `LucidaConsole`, `CourierNew` olabilir. |
 | `code_max_font_size`       | `9.5`                 | Bu boyutun altındaki kod fontu gövde kodudur; daha büyüğü başlık/dosya adı sayılır. |
-| `header_zone_bottom`       | `610`                 | ODL y (sol-alt orijin) bu değerin üstündeki ilk öğe koşu başlığıdır. |
+| `running_header`           | `"top"`               | Koşu başlığının yeri. `"top"`: `header_zone_bottom` üstündeki ilk öğe. `"bottom"`: sayfanın altında (O'Reilly dizgisi: `Kesit Adı \| 201`, çift sayfada `200 \| Chapter 14: ...`); kesit adı alt bilgi bölgesinden okunur. `"none"`: koşu başlığı yok (e-kitap kökenli PDF'ler); sayfanın en üstü gövdedir. Eski `header_at_bottom` anahtarı kaldırıldı, bulunursa çıkarım durur. |
+| `header_zone_bottom`       | `610`                 | Yalnız `running_header: "top"`: ODL y (sol-alt orijin) bu değerin üstündeki ilk öğe koşu başlığıdır. |
 | `footer_zone_top`          | `30`                  | ODL y bu değerin altındaki öğeler alt bilgidir, atılır. |
-| `header_at_bottom`         | `false`               | Koşu başlığı sayfanın ALTINDAysa (O'Reilly dizgisi: `Kesit Adı \| 201`, çift sayfada `200 \| Chapter 14: ...`) `true` yap; kesit adı alt bilgi bölgesinden okunur. |
 | `chapter_number_min_size`  | `40`                  | Bu boyut ve üstünde tek başına sayı = bölüm numarası. |
 | `chapter_title_min_size`   | `20`                  | Bu boyut ve üstündeki başlık = bölüm başlığı (`chapter` bloğu). |
 | `section_min_size`         | `13.5`                | Başlık seviyesi 1 eşiği. |
@@ -78,6 +78,9 @@ boyut basılır; sonunda font/boyut histogramı gelir. Kod içeren bir sayfa ile
 bölüm açılış sayfasına bakmak yeterlidir:
 
 - Koşu başlığının `odlY` değeri → `header_zone_bottom` bunun biraz altı olmalı.
+  Sayfaların ilk satırı gövde metniyse (önceki sayfadan süren paragraf, kod,
+  tablo satırı) kitapta koşu başlığı yoktur → `running_header: "none"`. Yoksa
+  her sayfanın ilk öğesi koşu başlığı sanılıp atılır.
 - Alt bilgi/sayfa numarası satırının `odlY` değeri → `footer_zone_top` bunun biraz üstü.
 - Kod satırlarının font adı ve boyutu → `code_font_prefix`, `code_max_font_size`.
 - Bölüm numarası / bölüm başlığı / kesit başlığı boyutları → ilgili `*_min_size`.
@@ -93,10 +96,11 @@ Ayarları değiştirdikten sonra `prepare_page.py <sayfa>` ile bir sayfayı yeni
 | "Sayfa N boş" ama boş değil | `pdf_offset` yanlış | `inspect_pdf.py book.pdf offset` ile yeniden tahmin |
 | Kod listesi paragraf olarak geliyor | kod fontu tanınmıyor | `code_font_prefix` / `code_max_font_size` |
 | Koşu başlığı gövdeye karışıyor | `header_zone_bottom` düşük | `layout` ile ölçüp yükselt |
+| Sayfanın ilk paragrafı ya da madde başlığı çıkarımda yok | kitapta koşu başlığı yok ama `running_header` `"top"` | `running_header: "none"` |
 | Kesit başlıkları paragraf oluyor | başlık boyut eşiği yüksek | `section_min_size` / `subsection_min_size` düşür |
 | Dipnotlar paragraf oluyor | `footnote_max_size` düşük | dipnot font boyutunu ölçüp ayarla |
 | Listing caption'ları başlık oluyor | desen uymuyor | `listing_caption_pattern` (örn. `"^Example \\d+\\.\\d+"`) |
-| Tablo düz paragraf/heading olarak geliyor | hücrelerde ne dolgu dikdörtgeni ne ODL'nin tanıdığı kenarlık çizgisi var | `python3 -c "import fitz; print(len(fitz.open('book.pdf')[N-1].get_drawings()))"` ile çizim var mı bak. **Bilinen sınırlama:** çizimsiz tablolar için otomatik yol yok (PyMuPDF `find_tables(strategy="text")` yedeği yazılmadı); hücreleri `_work/in/page-N.json`'da elle `table` bloğuna çevir |
+| Tablo düz paragraf/heading olarak geliyor | hücrelerde ne dolgu dikdörtgeni ne ODL'nin tanıdığı kenarlık çizgisi var | Çizgisiz tablolar sütun hizasından yakalanır: kalın başlık + hizalı satırlar (en az 4 satır; sayfanın son satırına uzanıyorsa başlık + 1 satır yeter) ve sayfayı açan başlıksız devam (`header_rows: 0`). Başlığı kalın olmayan, çok satırlı hücreli ya da sayfa ortasında başlıksız tablolar için otomatik yol yok: hücreleri `_work/in/page-N.json`'da elle `table` bloğuna çevir |
 | Denklem kayboluyor ya da parçalanıyor | denklem fontu `Type3` değil | `inspect_pdf.py <pdf> layout N` ile denklem satırının fontunu bul, `math_font_prefix` ayarla |
 | Formüldeki üst simge ayrı satır oluyor | üst simge kod fontunda değil (ör. italik serif) | Bilinen sınırlama: yalnız kod fontlu alt/üst simgeler bağlanır |
 | Tablodaki uzun hücre sonrası metin ayrı paragraf oluyor | hücre içindeki boş satır satır sonu sanıldı (bantsız gövde) | Bilinen sınırlama; içerik kaybolmaz, `_work/in` JSON'unda hücreye elle taşı |

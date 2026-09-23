@@ -131,10 +131,11 @@ class TableScanner:
     def _tables_on(self, page):
         """Dolgulu hücre varsa tabloyu onlar belirler; hizalı tarama yalnız dolgusuz
         sayfada çalışır ki aynı tablo iki kez yakalanmasın."""
-        fills = PageFills(page, page.rect.height - self.footer_zone_top)
+        body_bottom = page.rect.height - self.footer_zone_top
+        fills = PageFills(page, body_bottom)
         spans = self._page_spans(page)
         if not fills.rects:
-            return AlignedTableFinder(spans).tables()
+            return AlignedTableFinder([span for span in spans if span["bbox"].y1 <= body_bottom]).tables()
         builder = TableBuilder(spans, fills, self.row_gap_ratio)
         return [table for cells in fills.table_groups() for table in builder.tables_in(cells)]
 

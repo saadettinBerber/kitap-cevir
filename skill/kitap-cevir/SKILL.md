@@ -247,7 +247,8 @@ denklem LaTeX'i aynen kalır.
 | Denklem kayboluyor / `latex` boş | Denklem fontu Type3 değilse `references/extraction.md` → `math_font_prefix`; çevirmen görsel okuyamıyorsa `translator.vision` = `false` (PNG her zaman gösterilir) |
 | Tablonun bütün satırları tek hücrede `<br>` ile birleşik | `table_row_gap_ratio` kitaba göre ölçülmeli (`references/extraction.md`) |
 | Sayfadan koca bir bölüm (tablo, başlık, paragraf) eksik | ODL caption'ı liste sanıp altına gömmüş olabilir; `flatten_nested_lists` bunu açar, açmıyorsa ham ODL çıktısına bak |
-| Tablo düz metin olarak geliyor | Dolgulu (zebra) ve kenarlık çizgili tablolar otomatik yakalanır. Çizgisiz ve dolgusuz tablolar için otomatik yol **yok** (bilinen sınırlama): hücreleri `_work/in/page-N.json`'da elle `table` bloğuna çevir (`references/extraction.md` belirti tablosu) |
+| Tablo düz metin olarak geliyor | Dolgulu (zebra), kenarlık çizgili ve kalın başlıklı sütun hizalı tablolar (sayfaya bölünmüşleri dahil) otomatik yakalanır. Geri kalanı elle `table` bloğuna çevrilir (`references/extraction.md` belirti tablosu) |
+| Sayfanın ilk paragrafı çıkarımda yok | Kitapta koşu başlığı yok: `extraction.running_header` = `"none"` |
 | Çıkarım düzeldi ama eski sayfalar eski yapıda | **D. Taşıma** (yeniden çeviri gerekmez) |
 | Okuyucu eski veriyi gösteriyor | `index.html`'deki `?v=N` sürüm ekini artır |
 | Kavram kartları sayfanın konusuyla ilgisiz kod örneğine dönüşüyor | `progress.json → concepts.kinds` listesini kitaba göre daralt (A.4 tablosu), sonra **C. Kavram kartları** |

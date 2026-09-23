@@ -5,7 +5,7 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from extraction.tables.aligned_tables import AlignedTableFinder, HeaderColumns
+from extraction.tables.aligned_tables import AlignedTableFinder, TableColumns
 from extraction.tables.table_scan import scan_tables
 
 BOLD, REGULAR = "Helvetica-Bold", "Helvetica"
@@ -29,25 +29,29 @@ def _table_spans(body_rows):
     return header + [span for row in body for span in row]
 
 
+def _write_page_number(page):
+    page.insert_text(fitz.Point(300, page.rect.height - 20), "21", fontsize=10, fontname="helvetica")
+
+
 def _draw_fill(page):
     page.draw_rect(fitz.Rect(300, 600, 400, 620), color=None, fill=(0.9, 0.9, 0.9))
 
 
-class HeaderColumnsTest(unittest.TestCase):
+class TableColumnsTest(unittest.TestCase):
     def setUp(self):
-        self.columns = HeaderColumns(_row(("Method", "Purpose"), FIRST_ROW_Y, BOLD))
+        self.columns = TableColumns.of_header(_row(("Method", "Purpose"), FIRST_ROW_Y, BOLD))
 
     def test_header_must_be_bold_and_have_two_columns(self):
-        self.assertTrue(HeaderColumns.starts_table(_row(("A", "B"), 0, BOLD)))
-        self.assertFalse(HeaderColumns.starts_table(_row(("A", "B"), 0)))
-        self.assertFalse(HeaderColumns.starts_table(_row(("A",), 0, BOLD)))
+        self.assertTrue(TableColumns.is_header(_row(("A", "B"), 0, BOLD)))
+        self.assertFalse(TableColumns.is_header(_row(("A", "B"), 0)))
+        self.assertFalse(TableColumns.is_header(_row(("A",), 0, BOLD)))
 
     def test_header_columns_need_a_gutter(self):
         chapter = [_span("Chapter 11", 72, 0, BOLD), _span(": Pipeline", 132, 0, BOLD)]
         emphasis = [_span("for instance", 72, 0, BOLD), _span("must", 149, 0, BOLD)]
-        self.assertFalse(HeaderColumns.starts_table(chapter))
-        self.assertFalse(HeaderColumns.starts_table(emphasis))
-        self.assertTrue(HeaderColumns.starts_table([_span("Feature", 72, 0, BOLD), _span("Items", 144, 0, BOLD)]))
+        self.assertFalse(TableColumns.is_header(chapter))
+        self.assertFalse(TableColumns.is_header(emphasis))
+        self.assertTrue(TableColumns.is_header([_span("Feature", 72, 0, BOLD), _span("Items", 144, 0, BOLD)]))
 
     def test_row_filling_one_column_does_not_fit(self):
         self.assertFalse(self.columns.fits(_row(("only",), 0)))
@@ -68,13 +72,73 @@ class AlignedTableFinderTest(unittest.TestCase):
         self.assertEqual(block["rows"][0], [{"en": "Method"}, {"en": "Purpose"}])
         self.assertEqual(block["rows"][3], [{"en": "m2"}, {"en": "does 2"}])
 
-    def test_header_with_two_body_rows_is_not_a_table(self):
-        self.assertEqual(AlignedTableFinder(_table_spans(2)).tables(), [])
+    def test_header_with_two_body_rows_followed_by_text_is_not_a_table(self):
+        after = _row(("tail",), FIRST_ROW_Y + ROW_GAP * 3)
+        self.assertEqual(AlignedTableFinder(_table_spans(2) + after).tables(), [])
 
     def test_table_ends_at_first_row_that_does_not_fit(self):
         after = _row(("tail",), FIRST_ROW_Y + ROW_GAP * 5)
         rows = AlignedTableFinder(_table_spans(3) + after).tables()[0]["block"]["rows"]
         self.assertEqual(len(rows), 4)
+
+
+class SplitTableTest(unittest.TestCase):
+    """Sayfa sonuna düşen tablo parçası (Effective Java s.2): başlık ve tek satır;
+    tablo sonraki sayfada sürer."""
+
+    def test_header_with_one_row_at_page_end_is_a_table(self):
+        rows = AlignedTableFinder(_table_spans(1)).tables()[0]["block"]["rows"]
+        self.assertEqual(rows, [[{"en": "Method"}, {"en": "Purpose"}], [{"en": "m0"}, {"en": "does 0"}]])
+
+    def test_header_with_one_row_followed_by_text_is_not_a_table(self):
+        after = _row(("tail",), FIRST_ROW_Y + ROW_GAP * 2)
+        self.assertEqual(AlignedTableFinder(_table_spans(1) + after).tables(), [])
+
+    def test_bold_header_alone_at_page_end_is_not_a_table(self):
+        self.assertEqual(AlignedTableFinder(_table_spans(0)).tables(), [])
+
+
+def _continued_rows(count, first_y=FIRST_ROW_Y):
+    rows = [_row((f"JDK 1.{index}", f"Java 1.{index}"), first_y + ROW_GAP * index) for index in range(count)]
+    return [span for row in rows for span in row]
+
+
+class ContinuedTableTest(unittest.TestCase):
+    """Önceki sayfadan süren tablo (Effective Java s.3): başlık satırı yok,
+    sayfanın ilk satırından başlar."""
+
+    def test_aligned_rows_opening_the_page_are_a_table_without_header(self):
+        block = AlignedTableFinder(_continued_rows(3)).tables()[0]["block"]
+        self.assertEqual(block["header_rows"], 0)
+        self.assertEqual(block["rows"][2], [{"en": "JDK 1.2"}, {"en": "Java 1.2"}])
+
+    def test_continued_table_ends_at_body_text(self):
+        after = _row(("The examples are reasonably complete",), FIRST_ROW_Y + ROW_GAP * 3)
+        self.assertEqual(len(AlignedTableFinder(_continued_rows(3) + after).tables()[0]["block"]["rows"]), 3)
+
+    def test_styled_span_inside_a_cell_does_not_open_a_column(self):
+        italic_x = [_span("JDK 1.9.", 72, FIRST_ROW_Y), _span("x", 120, FIRST_ROW_Y, "Helvetica-Oblique"),
+                    _span("Java 1.9", 200, FIRST_ROW_Y)]
+        rows = AlignedTableFinder(italic_x + _continued_rows(2, FIRST_ROW_Y + ROW_GAP)).tables()[0]["block"]["rows"]
+        self.assertEqual(rows[0], [{"en": "JDK 1.9. x"}, {"en": "Java 1.9"}])
+
+    def test_running_header_line_above_does_not_hide_the_continuation(self):
+        running_header = [_span("Chapter 1 Introduction", 72, FIRST_ROW_Y - ROW_GAP)]
+        self.assertEqual(len(AlignedTableFinder(running_header + _continued_rows(3)).tables()), 1)
+
+    def test_table_with_its_own_header_below_running_header_keeps_the_header(self):
+        running_header = [_span("Chapter 1 Introduction", 72, FIRST_ROW_Y - ROW_GAP)]
+        block = AlignedTableFinder(running_header + _table_spans(3)).tables()[0]["block"]
+        self.assertEqual((block["header_rows"], block["rows"][0][0]), (1, {"en": "Method"}))
+
+    def test_aligned_rows_after_body_text_are_not_a_continuation(self):
+        prose = [_row((f"line {index} of a paragraph",), FIRST_ROW_Y + ROW_GAP * index)[0] for index in range(2)]
+        rows = _continued_rows(3, FIRST_ROW_Y + ROW_GAP * 2)
+        self.assertEqual(AlignedTableFinder(prose + rows).tables(), [])
+
+    def test_single_aligned_row_opening_the_page_is_not_a_table(self):
+        after = _row(("The examples are reasonably complete",), FIRST_ROW_Y + ROW_GAP)
+        self.assertEqual(AlignedTableFinder(_continued_rows(1) + after).tables(), [])
 
 
 class ScanTablesTest(unittest.TestCase):
@@ -85,10 +149,10 @@ class ScanTablesTest(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def _write_pdf(self, *drawings):
+    def _write_pdf(self, *drawings, body_rows=3):
         document = fitz.open()
         page = document.new_page()
-        rows = [(("Method", "Purpose"), "helvetica-bold")] + [((f"m{i}", f"does {i}"), "helvetica") for i in range(3)]
+        rows = [(("Method", "Purpose"), "helvetica-bold")] + [((f"m{i}", f"does {i}"), "helvetica") for i in range(body_rows)]
         for index, (texts, font) in enumerate(rows):
             for text, x in zip(texts, COLUMN_X):
                 page.insert_text(fitz.Point(x, FIRST_ROW_Y + ROW_GAP * index), text, fontsize=10, fontname=font)
@@ -100,6 +164,10 @@ class ScanTablesTest(unittest.TestCase):
     def test_unfilled_page_finds_aligned_table(self):
         self._write_pdf()
         self.assertEqual(len(scan_tables(self.pdf, 1)[0]["block"]["rows"]), 4)
+
+    def test_page_number_in_footer_does_not_hide_the_page_end(self):
+        self._write_pdf(_write_page_number, body_rows=1)
+        self.assertEqual(len(scan_tables(self.pdf, 1)[0]["block"]["rows"]), 2)
 
     def test_page_with_fills_skips_aligned_scan(self):
         self._write_pdf(_draw_fill)
