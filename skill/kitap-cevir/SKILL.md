@@ -29,6 +29,23 @@ SKILL="${CLAUDE_SKILL_DIR}"
 | `migrate 5 13`, `migrate all`, "sayfaları yeni çıkarıma taşı" | **D. Taşıma** |
 | `backfill` | Çevrilmiş sayfalara PDF görsellerini geriye dönük ekle: `python3 $SKILL/scripts/backfill_images.py [N ...]` |
 
+## Görevler ve kimin yürüttüğü
+
+İş üç ayrı **görev tanımına** bölünür; her birinin kendi girdisi, çıktısı ve
+şablonu vardır. Bölünen görevdir, yürütücü değil:
+
+| Görev | Girdi → çıktı | Şablon |
+|-------|---------------|--------|
+| Çıkarım (betik) | PDF sayfası → `_work/in/page-N.json` (yalnız `en`) | `prepare_page.py` |
+| Çeviri | `_work/in/page-N.json` → `_work/out/page-N.json` (`tr`, kart yok) | B → Çevirmen agent şablonu |
+| Kartlar (en son) | `_work/cards/in/page-N.json` → `_work/cards/out/page-N.json` | C.3 şablonu |
+
+Alt agent açılabiliyorsa çeviri ve kart görevleri paralel alt agent'lara
+verilir. Açılamıyorsa (araç yok, izin yok ya da tek agent'lı bir ortam) **aynı
+şablonları ana agent sırayla kendisi uygular**: önce sayfaları çevirip
+sonlandırır, sonra kartlara geçer. Çeviri sırasında kart üretilmez; görevler
+aynı agent'ta da birbirine karışmaz.
+
 ## Bağımlılıklar
 
 `python3`, `pip install -U opendataloader-pdf pymupdf`, Java 11+ (OpenDataLoader
