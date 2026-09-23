@@ -10,13 +10,19 @@ const Concepts = (function () {
     const list = concepts || [];
     if (pageNum !== null) byPage[pageNum] = list;
     if (!list.length) { root.innerHTML = ""; return; }
-    root.innerHTML = `<h3 class="concepts-title"><span class="en-text">Concepts on this page</span>` +
-      `<span class="tr-text">Bu sayfadaki kavramlar</span></h3>` +
+    root.innerHTML = `<h3 class="concepts-title">${label("Concepts on this page", "Bu sayfadaki kavramlar")}</h3>` +
       `<div class="chips">${list.map((c, i) => chip(pageNum, c, i)).join("")}</div>`;
   }
 
+  // Etiketler arayüz metnidir: iki dil kiplerinde yalnız Türkçesi görünür (ui-pair).
+  // lang="en": büyük harfe çevrilince "i" Türkçe kurala göre "İ" olmasın.
   function label(en, tr) {
-    return `<span class="en-text">${en}</span><span class="tr-text">${tr}</span>`;
+    return `<span class="ui-pair"><span class="en-text" lang="en">${en}</span><span class="tr-text">${tr}</span></span>`;
+  }
+
+  // İçerik metni: iki dil kiplerinde İngilizcesinin altında Türkçesi ayrı blok olur.
+  function cardText(unit) {
+    return `<span class="card-text">${Blocks.pair(unit)}</span>`;
   }
 
   // Kart türleri (kind): explain, contrast, tradeoff, code — references/FORMAT.md.
@@ -41,7 +47,7 @@ const Concepts = (function () {
   function sampleBody(sample) {
     if (!sample) return "";
     if (sample.code) return `<pre><code>${Highlight.render(sample.code, sample.lang)}</code></pre>`;
-    if (sample.text) return `<p class="sample-text">${Blocks.pair(sample.text)}</p>`;
+    if (sample.text) return `<p class="sample-text">${cardText(sample.text)}</p>`;
     return "";
   }
 
@@ -49,12 +55,12 @@ const Concepts = (function () {
     const labels = SIDE_LABELS[kind];
     const body = labels ? sampleBody(concept[side]) : "";
     if (!body) return "";
-    const why = concept[side].why ? `<p class="why">${Blocks.pair(concept[side].why)}</p>` : "";
+    const why = concept[side].why ? `<p class="why">${cardText(concept[side].why)}</p>` : "";
     return `<span class="label-${side}">${label(...labels[side])}</span>${body}${why}`;
   }
 
   function optionCell([field, en, tr], option) {
-    const text = Blocks.pair(option[field] || {});
+    const text = cardText(option[field] || {});
     if (field === "name") return `<th scope="row">${text}</th>`;
     return `<td><span class="cell-label">${label(en, tr)}</span>${text}</td>`;
   }
@@ -69,11 +75,11 @@ const Concepts = (function () {
 
   function structuredBody(concept) {
     const kind = kindOf(concept);
-    const summary = concept.summary ? `<h4>${label("Concept", "Kavram")}</h4><p>${Blocks.pair(concept.summary)}</p>` : "";
+    const summary = concept.summary ? `<h4>${label("Concept", "Kavram")}</h4><p>${cardText(concept.summary)}</p>` : "";
     const middle = kind === "tradeoff" ? tradeoffTable(concept)
       : example(concept, "bad", kind) + example(concept, "good", kind);
     const tipLabel = TIP_LABELS[kind] || DEFAULT_TIP_LABEL;
-    const tip = concept.tip ? `<div class="tip"><strong>${label(...tipLabel)}</strong>${Blocks.pair(concept.tip)}</div>` : "";
+    const tip = concept.tip ? `<div class="tip"><strong>${label(...tipLabel)}</strong>${cardText(concept.tip)}</div>` : "";
     return summary + middle + tip;
   }
 

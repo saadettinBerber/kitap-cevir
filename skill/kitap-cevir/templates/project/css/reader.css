@@ -232,7 +232,8 @@ a { color: var(--navy); }
 [data-lang="parallel"] .ui-pair .en-text { display: none; }
 [data-lang="parallel"] .running-head .en-text { display: inline; }
 [data-lang="parallel"] .sheet[data-lang="en"] .running-head .tr-text { display: none; }
-[data-lang="parallel"] .sheet[data-lang="en"] .running-head .en-text { display: inline; }
+[data-lang="parallel"] .sheet[data-lang="en"] .running-head .en-text,
+[data-lang="parallel"] .sheet[data-lang="en"] .concepts .en-text { display: inline; }
 [data-lang="parallel"] .sheet[data-lang="tr"] .running-head .en-text { display: none; }
 
 .status { text-align: center; color: var(--ink-soft); font-family: var(--font-sans); padding: 80px 0; }
@@ -368,6 +369,9 @@ pre code { background: none; padding: 0; color: inherit; }
 .tradeoff thead th { font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-soft); border-bottom-width: 2px; }
 .tradeoff tbody th { width: 26%; color: var(--navy); font-weight: 700; }
 .tradeoff .cell-label { display: none; }
+/* İki dil kiplerinde kart içeriği: İngilizce üstte, Türkçesi altında ayrı blok */
+[data-lang="both"] .card-text > .tr-text,
+[data-lang="parallel"] .card-text > .tr-text { display: block; margin-top: .35em; color: var(--tr); }
 .explanation { background: rgba(27,42,71,.05); border-left: 3px solid var(--ink-soft); padding: 10px 16px; border-radius: 0 8px 8px 0; margin-bottom: 12px; font-size: .9rem; }
 
 /* ---------- Çekmeceler (İçindekiler, Sözlük) ---------- */
