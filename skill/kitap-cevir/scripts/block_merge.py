@@ -3,13 +3,10 @@ bölüm açılışı (numara + başlık + yazar satırı) ve satır içi denklem
 import re
 
 from math_scan import placeholder
+from odl_runner import bbox_of
 
 _CHAPTER_AUTHOR = re.compile(r"^(?:by|with) [A-Z]")
 _FOOTNOTE_MARKER = re.compile(r"^[a-z0-9]$")
-
-
-def _bbox(element):
-    return element.get("bounding box") or [0, 0, 0, 0]
 
 
 def _is_marker(element):
@@ -18,8 +15,8 @@ def _is_marker(element):
 
 
 def _same_line(marker, element):
-    overlap = min(_bbox(marker)[3], _bbox(element)[3]) - max(_bbox(marker)[1], _bbox(element)[1])
-    return overlap > 0 and _bbox(element)[0] > _bbox(marker)[0]
+    overlap = min(bbox_of(marker)[3], bbox_of(element)[3]) - max(bbox_of(marker)[1], bbox_of(element)[1])
+    return overlap > 0 and bbox_of(element)[0] > bbox_of(marker)[0]
 
 
 def flatten_nested_lists(elements):
@@ -89,7 +86,7 @@ def _hosts(element, item, page_height):
     """Öğe, denklem kutusunu dikeyde kapsıyorsa ev sahibidir (ODL sol-alt orijin)."""
     top, bottom = page_height - item["bbox"].y0, page_height - item["bbox"].y1
     center = (top + bottom) / 2
-    return _bbox(element)[1] <= center <= _bbox(element)[3]
+    return bbox_of(element)[1] <= center <= bbox_of(element)[3]
 
 
 def insert_inline_math(elements, items, page_height):
@@ -109,7 +106,7 @@ def insert_inline_math(elements, items, page_height):
 
 def _is_fragment_of(element, host):
     """Başka öğenin kutusu içindeki tek karakterlik öğe (alt/üst simge) parçadır."""
-    inner, outer = _bbox(element), _bbox(host)
+    inner, outer = bbox_of(element), bbox_of(host)
     return (element is not host and len((element.get("content") or "").strip()) == 1
             and outer[0] <= inner[0] and inner[2] <= outer[2]
             and outer[1] <= inner[1] and inner[3] <= outer[3])

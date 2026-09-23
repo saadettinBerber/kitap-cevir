@@ -11,6 +11,12 @@ import tempfile
 import opendataloader_pdf
 
 CONTENT_TYPES = ("heading", "paragraph", "table", "image", "caption", "list")
+_NO_BBOX = (0, 0, 0, 0)
+
+
+def bbox_of(element):
+    """ODL öğesinin kutusu [x0, bottom, x1, top]; sol-alt orijinlidir."""
+    return element.get("bounding box") or _NO_BBOX
 
 
 def _flatten(node, out):

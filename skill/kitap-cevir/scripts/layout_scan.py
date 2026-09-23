@@ -9,8 +9,8 @@ import re
 
 import fitz
 
-from code_lines import (MONO_CHAR_WIDTH_RATIO, page_lines, prose_script_fixes,
-                        script_fixes, uses_script_layout)
+from code_lines import page_lines
+from script_marks import ScriptFixes
 from project import DEFAULT_EXTRACTION
 
 BLANK_LINE_GAP_RATIO = 1.6        # bu oranın üstündeki dikey boşluk = boş satır
@@ -33,7 +33,7 @@ class CodeFont:
 def _group_code_lines(lines):
     groups, current = [], []
     for line in lines:
-        if line["is_code"]:
+        if line.is_code:
             current.append(line)
         elif current:
             groups.append(current)
@@ -44,26 +44,24 @@ def _group_code_lines(lines):
 
 
 def _indent_of(line, left_edge):
-    char_width = line["spans"][0]["size"] * MONO_CHAR_WIDTH_RATIO
-    return max(0, round((line["bbox"][0] - left_edge) / char_width))
+    return max(0, round((line.left - left_edge) / line.char_width))
 
 
 def _blank_lines_before(line, previous):
     if previous is None:
         return 0
-    line_height = line["bbox"][3] - line["bbox"][1]
-    gap = line["bbox"][1] - previous["bbox"][1]
-    return 1 if gap > line_height * BLANK_LINE_GAP_RATIO else 0
+    gap = line.top - previous.top
+    return 1 if gap > line.height * BLANK_LINE_GAP_RATIO else 0
 
 
 def _code_block(group):
-    left_edge = min(line["bbox"][0] for line in group)
+    left_edge = min(line.left for line in group)
     rendered, previous = [], None
     for line in group:
         rendered.extend([""] * _blank_lines_before(line, previous))
-        rendered.append(" " * _indent_of(line, left_edge) + line["text"])
+        rendered.append(" " * _indent_of(line, left_edge) + line.text)
         previous = line
-    return {"y0": group[0]["bbox"][1], "y1": group[-1]["bbox"][3],
+    return {"y0": group[0].top, "y1": group[-1].bottom,
             "code": "\n".join(rendered)}
 
 
@@ -81,12 +79,12 @@ def _is_markable_token(token):
 def _inline_code_tokens(lines):
     tokens = []
     for line in lines:
-        if line["is_code"]:
+        if line.is_code:
             continue
-        if uses_script_layout(line):
-            tokens.append(line["text"].strip())
+        if line.uses_script_layout():
+            tokens.append(line.text.strip())
             continue
-        for span in line["spans"]:
+        for span in line.spans:
             token = _clean_token(span["text"])
             if span["is_code"] and _is_markable_token(token):
                 tokens.append(token)
@@ -94,7 +92,7 @@ def _inline_code_tokens(lines):
 
 
 def _hyphen_pair(line, next_line):
-    text, following = line["text"].rstrip(), next_line["text"].lstrip()
+    text, following = line.text.rstrip(), next_line.text.lstrip()
     if not text.endswith("-") or not following[:1].isupper():
         return None
     head = text[:-1].split()[-1] if text[:-1].split() else ""
@@ -119,12 +117,13 @@ def scan_page(pdf_path, pdf_page, settings=None):
     try:
         page = document[pdf_page - 1]
         lines = page_lines(page, code_font)
+        fixes = ScriptFixes(lines)
         return {
             "page_height": page.rect.height,
             "code_blocks": [_code_block(g) for g in _group_code_lines(lines)],
             "inline_code": _inline_code_tokens(lines),
-            "hyphen_fixes": {**_hyphenated_names(lines), **script_fixes(lines)},
-            "script_fixes": prose_script_fixes(lines),
+            "hyphen_fixes": {**_hyphenated_names(lines), **fixes.for_code()},
+            "script_fixes": fixes.for_prose(),
         }
     finally:
         document.close()

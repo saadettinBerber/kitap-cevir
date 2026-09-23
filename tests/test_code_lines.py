@@ -38,14 +38,14 @@ class CodeLinesTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def test_superscript_and_split_fragments_form_one_code_line(self):
-        code = [line for line in self.lines if line["is_code"]]
+        code = [line for line in self.lines if line.is_code]
         self.assertEqual(len(code), 1)
-        self.assertTrue(code[0]["text"].startswith("(3 x 10^23) ="))
-        self.assertTrue(code[0]["text"].endswith("236 days"))
+        self.assertTrue(code[0].text.startswith("(3 x 10^23) ="))
+        self.assertTrue(code[0].text.endswith("236 days"))
 
     def test_single_letter_before_prose_is_not_a_code_line(self):
-        prose = [line for line in self.lines if not line["is_code"]]
-        texts = [line["text"] for line in prose]
+        prose = [line for line in self.lines if not line.is_code]
+        texts = [line.text for line in prose]
         self.assertTrue(any("W" in text for text in texts), texts)
 
 
