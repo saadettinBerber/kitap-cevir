@@ -27,6 +27,10 @@ class OdlLayoutReader:
         return OdlTree(tree, page.height).layout()
 
 
+def layout_reader():
+    return OdlLayoutReader()
+
+
 def _load_single_json(out_dir):
     files = glob.glob(os.path.join(out_dir, "*.json"))
     if not files:

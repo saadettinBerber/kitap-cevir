@@ -23,6 +23,7 @@ DEFAULT_EXTRACTION = {
     "header_zone_bottom": 610,
     "footer_zone_top": 30,
     "running_header": "top",
+    "layout_reader": "odl",
     "chapter_number_min_size": 40,
     "chapter_title_min_size": 20,
     "section_min_size": 13.5,

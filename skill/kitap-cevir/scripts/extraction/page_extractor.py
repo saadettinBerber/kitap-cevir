@@ -1,6 +1,6 @@
 """Bir PDF kitap sayfasını yapılı bloklara ayırır. İki sinyali birleştirir:
-  1. Düzen okuyucusu (LayoutReader; varsayılanı OpenDataLoader) -> başlık,
-     paragraf, liste, görsel, caption, okuma sırası
+  1. Düzen okuyucusu (LayoutReader; extraction.layout_reader: odl | liteparse)
+     -> başlık, paragraf, liste, görsel, caption, okuma sırası
   2. Metin ve çizim katmanı (PdfPage; PyMuPDF) -> kod listeleri, satır içi kod,
      tire onarımı (layout_scan), çizgisiz tablolar (table_scan), denklemler (math_scan)
 
@@ -15,8 +15,8 @@ from extraction.equations.math_scan import MathScanner
 from extraction.odl_elements import OdlElements
 from extraction.page_regions import PageRegions
 from extraction.page_zones import PageZones
-from extraction.pdf.odl_adapter import OdlLayoutReader
 from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
+from extraction.pdf.readers import layout_reader_for
 from extraction.tables.table_scan import TableScanner
 from extraction.text_fixer import TextFixer
 from extraction.text_layer.layout_scan import scan_page
@@ -35,8 +35,10 @@ class PageExtractor:
         self.tables = TableScanner(self.settings)
 
     @classmethod
-    def with_odl(cls, settings):
-        return cls(settings, OdlLayoutReader())
+    def for_settings(cls, settings):
+        """Düzen okuyucusu ayardan seçilir (layout_reader)."""
+        merged = {**DEFAULT_EXTRACTION, **settings}
+        return cls(merged, layout_reader_for(merged))
 
     def extract(self, pdf_path, pdf_page, image_dir):
         """Sayfayı {blocks, running_header, math} olarak döndürür; görseller image_dir'e yazılır."""

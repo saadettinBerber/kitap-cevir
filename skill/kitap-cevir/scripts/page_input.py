@@ -37,7 +37,7 @@ class PageInputBuilder:
 
     @classmethod
     def for_progress(cls, project, progress):
-        return cls(project, progress, PageExtractor.with_odl(extraction_settings(progress)))
+        return cls(project, progress, PageExtractor.for_settings(extraction_settings(progress)))
 
     def hyphen_fixes(self, pdf_page):
         return self.extractor.hyphen_fixes(self.pdf, pdf_page)

@@ -1,6 +1,7 @@
 """PDF kütüphaneleri sınırının testleri (Bl.8 · Clean Boundaries): Box'ın
 PyMuPDF Rect'iyle aynı davrandığı sınır koşulları, PyMuPDF adaptörünün
 öğrenme testleri ve ODL ağacının `LayoutElement`e çevrilmesi."""
+import importlib.util
 import os
 import tempfile
 import unittest
@@ -10,7 +11,8 @@ import fitz
 from pdf_fakes import FakeLayoutReader, element, real_page
 from extraction.page_extractor import PageExtractor
 from extraction.pdf.geometry import Box
-from extraction.pdf.odl_adapter import OdlTree
+from extraction.pdf.odl_adapter import OdlLayoutReader, OdlTree
+from extraction.pdf.readers import InvalidLayoutReader, layout_reader_for
 
 PNG_SIGNATURE = b"\x89PNG"
 
@@ -139,6 +141,22 @@ class ReplaceableLayoutReaderTest(unittest.TestCase):
             extracted = PageExtractor(settings, reader).extract(pdf, 1, os.path.join(tmp, "images"))
         self.assertEqual(extracted["blocks"], [{"type": "para", "sentences": [{"en": "Top line."}]}])
         self.assertIsNone(extracted["running_header"])
+
+
+class LayoutReaderChoiceTest(unittest.TestCase):
+    """extraction.layout_reader okuyucuyu seçer; yanlış ad kurulumda reddedilir."""
+
+    def test_unknown_reader_is_rejected_with_the_choices(self):
+        with self.assertRaisesRegex(InvalidLayoutReader, "odl \\| liteparse"):
+            layout_reader_for({"layout_reader": "pdfminer"})
+
+    def test_odl_is_the_default(self):
+        self.assertIsInstance(PageExtractor.for_settings({}).layout_reader, OdlLayoutReader)
+
+    @unittest.skipUnless(importlib.util.find_spec("liteparse"), "liteparse kurulu değil")
+    def test_liteparse_is_chosen_by_name(self):
+        reader = layout_reader_for({"layout_reader": "liteparse"})
+        self.assertEqual(type(reader).__name__, "LiteParseLayoutReader")
 
 
 if __name__ == "__main__":
