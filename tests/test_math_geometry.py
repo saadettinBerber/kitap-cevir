@@ -53,7 +53,7 @@ def _scan(table_rule=None, settings=SETTINGS):
     pdf = os.path.join(tmp.name, "m.pdf")
     _make_pdf(pdf, table_rule)
     with real_page(pdf) as page:
-        return tmp, MathScanner(with_defaults(settings), os.path.join(tmp.name, "images")).scan(page)
+        return tmp, MathScanner(with_defaults(settings), page, os.path.join(tmp.name, "images")).scan()
 
 
 class GeometryMathTest(unittest.TestCase):

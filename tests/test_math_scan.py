@@ -23,7 +23,7 @@ class MathScanTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.images = os.path.join(self.tmp.name, "images")
-        self.result = MathScanner(SETTINGS, self.images).scan(_page())
+        self.result = MathScanner(SETTINGS, _page(), self.images).scan()
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -53,15 +53,15 @@ class MathScanTest(unittest.TestCase):
     def test_single_size_short_run_becomes_plain_text(self):
         line = (span("area ", (72, 90, 100, 102)), span("πr", (100, 90, 112, 102), MATH_FONT, 11),
                 span(" grows", (112, 90, 150, 102)))
-        [item] = MathScanner(SETTINGS, self.images).scan(FakePdfPage(lines=[line]))["inline"]
+        [item] = MathScanner(SETTINGS, FakePdfPage(lines=[line]), self.images).scan()["inline"]
         self.assertEqual((item["kind"], item["text"]), ("text", "πr"))
 
     def test_page_without_math_font_yields_nothing(self):
-        result = MathScanner(with_defaults({"math_font_prefix": "NoSuchFont"}), self.images).scan(_page())
+        result = MathScanner(with_defaults({"math_font_prefix": "NoSuchFont"}), _page(), self.images).scan()
         self.assertEqual(result, {"display": [], "inline": []})
 
     def test_empty_prefix_means_no_math_font(self):
-        result = MathScanner(with_defaults({"math_font_prefix": ""}), self.images).scan(_page())
+        result = MathScanner(with_defaults({"math_font_prefix": ""}), _page(), self.images).scan()
         self.assertEqual(result, {"display": [], "inline": []})
 
 
@@ -80,7 +80,7 @@ class DisplayRegionTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.images = os.path.join(self.tmp.name, "images")
-        self.result = MathScanner(SETTINGS, self.images).scan(_display_with_mixed_line())
+        self.result = MathScanner(SETTINGS, _display_with_mixed_line(), self.images).scan()
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -147,7 +147,7 @@ def _fraction_under_caption():
 class GeometryCaptionTest(unittest.TestCase):
     def test_caption_above_the_fraction_stays_out_of_the_equation(self):
         with tempfile.TemporaryDirectory() as images:
-            result = MathScanner(with_defaults({"math_geometry": True}), images).scan(_fraction_under_caption())
+            result = MathScanner(with_defaults({"math_geometry": True}), _fraction_under_caption(), images).scan()
         [region] = result["display"]
         self.assertEqual(region["block"]["text"], "A = ma mc")
 
