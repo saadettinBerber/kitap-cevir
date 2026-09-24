@@ -1,3 +1,4 @@
+import argparse
 import json
 import os
 import sys
@@ -9,7 +10,7 @@ import fitz
 
 import _paths  # noqa: F401
 import init_book
-from init_book import slugify
+from init_book import card_kinds, slugify
 
 PAGE_COUNT = 3
 
@@ -29,6 +30,24 @@ class SlugifyTest(unittest.TestCase):
 
     def test_empty_falls_back(self):
         self.assertEqual(slugify("!!!"), "kitap")
+
+
+class CardKindsTest(unittest.TestCase):
+    """--card-kinds: virgülle ayrılmış, izinli kart türleri."""
+
+    def test_order_is_kept_and_spaces_are_trimmed(self):
+        self.assertEqual(card_kinds(" tradeoff, explain "), ["tradeoff", "explain"])
+
+    def test_empty_items_are_skipped(self):
+        self.assertEqual(card_kinds("code,,contrast,"), ["code", "contrast"])
+
+    def test_unknown_kind_is_rejected_by_name(self):
+        with self.assertRaisesRegex(argparse.ArgumentTypeError, "kod"):
+            card_kinds("code,kod")
+
+    def test_empty_list_is_rejected(self):
+        with self.assertRaises(argparse.ArgumentTypeError):
+            card_kinds(" , ")
 
 
 class InitBookTest(unittest.TestCase):
