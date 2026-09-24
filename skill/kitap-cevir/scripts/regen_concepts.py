@@ -19,6 +19,19 @@ from project import Project
 _RANGE = re.compile(r"^(\d+)-(\d+)$")
 
 
+def select_pages(specs, available):
+    """'all', tek numaralar ve '5-40' aralıkları; (seçilen, atlanan çevrilmemiş) sayfalar."""
+    if specs == ["all"]:
+        return available, []
+    wanted = {page for spec in specs for page in _expand(spec)}
+    return [page for page in available if page in wanted], sorted(wanted - set(available))
+
+
+def _expand(spec):
+    match = _RANGE.match(spec)
+    return range(int(match.group(1)), int(match.group(2)) + 1) if match else [int(spec)]
+
+
 class CardRegenerator:
     """Bir projenin çevrilmiş sayfaları için kart agent'ı girdisini hazırlar ve
     agent çıktısını denetleyip sayfalara yazar."""
@@ -32,19 +45,6 @@ class CardRegenerator:
     @classmethod
     def for_project(cls, project):
         return cls(project, project.load_settings().concepts())
-
-    def select_pages(self, specs):
-        """'all', tek numaralar ve '5-40' aralıkları; (seçilen, atlanan çevrilmemiş) sayfalar."""
-        available = self.project.translated_pages()
-        if specs == ["all"]:
-            return available, []
-        wanted = {page for spec in specs for page in self._expand(spec)}
-        return [page for page in available if page in wanted], sorted(wanted - set(available))
-
-    @staticmethod
-    def _expand(spec):
-        match = _RANGE.match(spec)
-        return range(int(match.group(1)), int(match.group(2)) + 1) if match else [int(spec)]
 
     def cards_path(self, stage, page):
         return self.project.work_cards_file(stage, page)
@@ -107,8 +107,9 @@ def main():
     if len(sys.argv) < 3 or sys.argv[1] not in ACTIONS:
         print(__doc__)
         sys.exit(1)
-    regenerator = CardRegenerator.for_project(Project.discover())
-    pages, skipped = regenerator.select_pages(sys.argv[2:])
+    project = Project.discover()
+    regenerator = CardRegenerator.for_project(project)
+    pages, skipped = select_pages(sys.argv[2:], project.translated_pages())
     if skipped:
         print(f"  ! çevrilmemiş sayfalar atlandı: {', '.join(map(str, skipped))}")
     ACTIONS[sys.argv[1]](regenerator, pages)

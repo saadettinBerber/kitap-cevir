@@ -6,7 +6,7 @@ import unittest
 import _paths  # noqa: F401
 from page_document import PageDocument
 from project import Project
-from regen_concepts import CardRegenerator
+from regen_concepts import CardRegenerator, select_pages
 
 PROGRESS = {"book": {"slug": "demo"}, "book_pdf": "book.pdf", "pdf_offset": 0,
             "extraction": {"default_code_language": "python"},
@@ -26,6 +26,14 @@ def _explain(card_id):
     return {"id": card_id, "kind": "explain", "title": _pair(), "summary": _pair(), "tip": _pair()}
 
 
+class SelectPagesTest(unittest.TestCase):
+    def test_ranges_are_expanded_and_untranslated_pages_skipped(self):
+        self.assertEqual(select_pages(["1-5", "9"], [4, 7]), ([4], [1, 2, 3, 5, 9]))
+
+    def test_all_selects_every_translated_page(self):
+        self.assertEqual(select_pages(["all"], [4, 7]), ([4, 7], []))
+
+
 class RegenConceptsTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -43,10 +51,6 @@ class RegenConceptsTest(unittest.TestCase):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as handle:
             json.dump({"concepts": cards}, handle)
-
-    def test_select_pages_expands_ranges_and_skips_untranslated(self):
-        self.assertEqual(self.regenerator.select_pages(["1-5", "9"]), ([4], [1, 2, 3, 5, 9]))
-        self.assertEqual(self.regenerator.select_pages(["all"]), ([4], []))
 
     def test_card_input_flattens_text_blocks(self):
         document = self.regenerator.card_input(PAGE)
