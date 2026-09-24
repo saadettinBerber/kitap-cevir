@@ -51,7 +51,9 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │   ├── migrate_page.py       çevrilmiş sayfaları yeni çıkarıma taşır (yeniden çeviri yok)
 │   ├── backfill_images.py    görselleri geriye dönük ekler
 │   │   # proje durumu
-│   ├── project.py            proje kökü, progress.json, varsayılan ayarlar
+│   ├── project.py            Project: proje kökü ve dosya yolları, progress.json okuma/yazma
+│   ├── progress.py           Progress: ilerleme kaydı (sayfalar, bölümler, son çevrilen sayfa)
+│   ├── book_settings.py      BookSettings: kitap ayarları varsayılanlarla (PDF, çıkarım, kartlar)
 │   ├── page_document.py      PageDocument: page-N.js okuma/yazma, çevrilecek metin birimleri
 │   ├── page_blocks.py        Block.of: blok türüne göre davranış (birimler, kart girdisi, çapa)
 │   ├── page_input.py         PageInputBuilder: sayfanın çevirmen girdisi (bloklar, bölüm, bağlam)
