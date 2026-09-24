@@ -55,6 +55,7 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │   ├── progress.py           Progress: ilerleme kaydı (sayfalar, bölümler, son çevrilen sayfa)
 │   ├── book_settings.py      BookSettings: kitap ayarları varsayılanlarla (PDF, çıkarım, kartlar)
 │   ├── page_document.py      PageDocument: page-N.js okuma/yazma, çevrilecek metin birimleri
+│   ├── translated_pages.py   TranslatedPages: page-N.js ve görsel klasörünün deposu
 │   ├── page_blocks.py        Block.of: blok türüne göre davranış (birimler, kart girdisi, çapa)
 │   ├── page_input.py         PageInputBuilder: sayfanın çevirmen girdisi (bloklar, bölüm, bağlam)
 │   ├── book_pdf.py           BookPdf: kitap PDF'i tek açılışta; sayfa çıkarımı + komşu sayfa bağlamı
