@@ -80,11 +80,12 @@ def parse_args(argv=None):
 
 
 class BookSetup:
-    """Komut satırı seçeneklerinden yeni bir kitap projesi kurar."""
+    """Komut satırı seçeneklerinden yeni bir kitap projesi kurar; open_pdf: yol → PdfDocument."""
 
-    def __init__(self, args):
+    def __init__(self, args, open_pdf):
         self.args = args
         self.target = os.path.abspath(args.target)
+        self.open_pdf = open_pdf
 
     def run(self):
         self._ensure_empty_target()
@@ -133,7 +134,7 @@ class BookSetup:
                 "subtitle_tr": args.subtitle_tr, "author": args.author, "series": args.series}
 
     def _page_count(self, pdf_name):
-        with PyMuPdfDocument.open(os.path.join(self.target, pdf_name)) as document:
+        with self.open_pdf(os.path.join(self.target, pdf_name)) as document:
             return document.page_count
 
     def _chapters(self):
@@ -155,7 +156,7 @@ def report(project, progress):
 
 
 def main():
-    project = BookSetup(parse_args()).run()
+    project = BookSetup(parse_args(), PyMuPdfDocument.open).run()
     report(project, project.load_progress())
 
 

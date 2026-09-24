@@ -1,27 +1,19 @@
 import argparse
 import json
 import os
-import sys
 import tempfile
 import unittest
 from unittest import mock
 
-import fitz
-
-import _paths  # noqa: F401
-import init_book
-from init_book import card_kinds, parse_args, slugify
+from pdf_fakes import FakePdfDocument, FakePdfPage
+from init_book import BookSetup, card_kinds, parse_args, slugify
 
 PAGE_COUNT = 3
 
 
-def _make_pdf(path):
-    document = fitz.open()
-    for number in range(PAGE_COUNT):
-        page = document.new_page()
-        page.insert_text((72, 72), f"Sayfa {number + 1}")
-    document.save(path)
-    document.close()
+def _open_pdf(path):
+    """PyMuPdfDocument.open gibi; yol yalnız kopyanın yerini gösterir, sayfalar sahtedir."""
+    return FakePdfDocument(pages=[FakePdfPage() for _ in range(PAGE_COUNT)], pdf_path=path)
 
 
 class SlugifyTest(unittest.TestCase):
@@ -69,7 +61,8 @@ class InitBookTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.pdf = os.path.join(self.tmp.name, "kaynak.pdf")
-        _make_pdf(self.pdf)
+        with open(self.pdf, "wb") as pdf:
+            pdf.write(b"%PDF sahte")
         self.target = os.path.join(self.tmp.name, "proje")
         chapters = [{"num": 1, "en": "One", "tr": "Bir", "start": 1}]
         self.chapters = os.path.join(self.tmp.name, "chapters.json")
@@ -79,10 +72,9 @@ class InitBookTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def _run(self, extra=()):
-        argv = ["init_book.py", "--pdf", self.pdf, "--title", "Demo Kitap", "--author", "Yazar",
+        argv = ["--pdf", self.pdf, "--title", "Demo Kitap", "--author", "Yazar",
                 "--offset", "1", "--total", "2", "--chapters", self.chapters, "--target", self.target, *extra]
-        with mock.patch.object(sys, "argv", argv):
-            init_book.main()
+        return BookSetup(parse_args(argv), _open_pdf).run()
 
     def test_creates_project_skeleton(self):
         self._run()
