@@ -40,7 +40,7 @@ class PyMuPdfPage:
 
     @staticmethod
     def _spans(line):
-        return tuple(Span(raw["text"], raw["font"], raw["size"], _box(raw["bbox"]), line["bbox"][1])
+        return tuple(Span(raw["text"], raw["font"], raw["size"], _box(raw["bbox"]), line["bbox"][1], raw["origin"][1])
                      for raw in line["spans"] if raw["text"].strip())
 
     def drawings(self):

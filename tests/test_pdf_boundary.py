@@ -72,6 +72,13 @@ class PyMuPdfAdapterTest(unittest.TestCase):
         self.assertEqual(top.line_y, top.box.y0)
         self.assertGreater(bottom.box.y0, 600)
 
+    def test_baseline_is_the_insertion_point_inside_the_box(self):
+        with real_page(self.pdf) as page:
+            top = page.text_lines()[0][0]
+        self.assertEqual(top.baseline, 100)
+        self.assertLess(top.box.y0, top.baseline)
+        self.assertLess(top.baseline, top.box.y1)
+
     def test_page_knows_where_it_comes_from(self):
         with real_page(self.pdf) as page:
             self.assertEqual((page.pdf_path, page.number, page.height), (self.pdf, 1, 842))

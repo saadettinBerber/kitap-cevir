@@ -13,6 +13,7 @@ class Span:
     size: float
     box: Box
     line_y: float           # satırının üst kenarı; aynı satırın parçaları aynı değeri taşır
+    baseline: float         # harflerin oturduğu çizgi; simge ondan yukarı ya da aşağı kayar
 
 
 @dataclass(frozen=True)

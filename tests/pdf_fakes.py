@@ -16,8 +16,8 @@ PAGE_HEIGHT = 800.0
 
 
 def span(text, box, font="Helvetica", size=10.0):
-    """Satırı kendi üst kenarı olan parça."""
-    return Span(text, font, size, Box(*box), box[1])
+    """Satırı kendi üst kenarı, taban çizgisi kendi alt kenarı olan parça."""
+    return Span(text, font, size, Box(*box), box[1], box[3])
 
 
 def fill(*box):
