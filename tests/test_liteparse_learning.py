@@ -4,6 +4,11 @@ Kodumuzu değil, LiteParse adaptörünün dayandığı kütüphane davranışın
 LiteParse yükseltildiğinde bir varsayım bozulursa hata kitap çıktısında değil
 burada görünür. Sayfa, üretimdeki ayarlarla (LiteParseRunner) bir kez okunur.
 
+Blok yapısı da sabitlenir: satır içi denklem, komşu kelimelerini aynı blokta
+arar. LiteParse bir liste maddesine ardından gelen paragrafı katınca komşu
+başka bloğa düşer ve denklem atlanır (ai-engineering 236). Bu davranış
+değişirse buradan duyulur.
+
 Testle sabitlenemeyen bir bulgu: LiteParse'ın puntosu kimi PDF'te metin
 katmanından farklıdır (Effective Java'da 20, PyMuPDF ve ODL'de 14.4). Bu yüzden
 adaptör font ve puntoyu PdfPage'den alır.
@@ -24,6 +29,10 @@ if HAS_LITEPARSE:
 BODY_SIZE = 11
 LIST_STEPS = ("First step of the list", "Second step of the list", "Third step of the list")
 FOOTER = "Learning Tests | 42"
+LINE_STEP = 14
+LAST_ITEM_BASELINE = 156
+FOLDED_PARAGRAPH = "Entropy and cross entropy share one notation."
+SEPARATE_PARAGRAPH = "Cross entropy is not symmetric."
 
 
 class _Writer:
@@ -32,8 +41,7 @@ class _Writer:
     def __init__(self, page):
         self.page = page
 
-    def line(self, y, *parts):
-        x = 72
+    def line(self, y, *parts, x=72):
         for text, font in parts:
             self.page.insert_text((x, y), text, fontsize=BODY_SIZE, fontname=font)
             x += fitz.get_text_length(text, font, BODY_SIZE)
@@ -59,6 +67,18 @@ def _write_learning_page(page):
     write.line(450, ("Multiply a * b, name snake_case in C:\\temp.", "helv"))
     write.line(520, ("Quote `pair` of backticks.", "helv"))
     page.insert_text((300, 800), FOOTER, fontsize=9, fontname="helv")
+
+
+def _write_list_page(page):
+    """Asılı girintili iki madde; hemen altında bir paragraf, açık bir boşluktan sonra bir paragraf daha."""
+    write = _Writer(page)
+    write.line(80, ("Cross entropy depends on two qualities:", "helv"))
+    write.line(110, ("1. The predictability of the training data,", "helv"), x=86)
+    write.line(124, ("measured by its entropy", "helv"), x=100)
+    write.line(142, ("2. How far the learned distribution", "helv"), x=86)
+    write.line(LAST_ITEM_BASELINE, ("diverges from the true one", "helv"), x=100)
+    write.line(LAST_ITEM_BASELINE + LINE_STEP + 4, (FOLDED_PARAGRAPH, "helv"), x=100)
+    write.line(LAST_ITEM_BASELINE + 5 * LINE_STEP, (SEPARATE_PARAGRAPH, "helv"))
 
 
 class _ParsedPage:
@@ -130,6 +150,17 @@ class LiteParseLearningTest(_ParsedPage, unittest.TestCase):
 
     def test_single_page_parse_keeps_the_running_footer(self):
         self.assertEqual(self.parsed.blocks[-1].text, FOOTER)
+
+
+@unittest.skipUnless(HAS_LITEPARSE, "liteparse kurulu değil")
+class ListContinuationTest(_ParsedPage, unittest.TestCase):
+    write_page = staticmethod(_write_list_page)
+
+    def test_paragraph_right_under_a_list_item_is_folded_into_it(self):
+        self.assertTrue(self._blocks("list_item")[-1].text.endswith(FOLDED_PARAGRAPH))
+
+    def test_paragraph_after_a_clear_gap_stays_apart(self):
+        self.assertEqual([block.text for block in self._blocks("paragraph")][-1], SEPARATE_PARAGRAPH)
 
 
 if __name__ == "__main__":
