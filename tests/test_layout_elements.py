@@ -161,5 +161,45 @@ class FlattenedInlineMathTest(unittest.TestCase):
         self.assertEqual(self._spliced(equation, "find α to go, then find to stop")[0],
                          "find α to go, then find θ to stop")
 
+
+class NeighbourWordBoundaryTest(unittest.TestCase):
+    """Komşu kelime tam kelime olarak aranır: harfle başlayan ya da biten yanı başka bir harfe
+    yapışık olamaz ('for', 'perform'un içinde değildir)."""
+
+    def _spliced(self, equation, text):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            [host] = LayoutElements([element(text, HOST_BOX)]).with_inline_math([equation]).items
+        return host.text, output.getvalue()
+
+    def test_following_word_is_not_found_inside_another_word(self):
+        equation = _equation(after="for", text="e ∑j exj")
+        self.assertEqual(self._spliced(equation, "one to perform for each value")[0], "one to perform ⟦eq-1⟧ for each value")
+
+    def test_preceding_word_is_not_found_inside_another_word(self):
+        equation = _equation(before="in", text="S")
+        self.assertEqual(self._spliced(equation, "a point within reach lies in")[0], "a point within reach lies in ⟦eq-1⟧")
+
+    def test_preceding_word_is_not_the_start_of_another_word(self):
+        text, output = self._spliced(_equation(before="u", text="u = W + α"), "for your use case")
+        self.assertEqual(text, "for your use case")
+        self.assertIn("atlandı", output)
+
+    def test_neighbours_around_flattened_text_are_whole_words(self):
+        equation = _equation("is", "The", text="[x1, x2, . . . , xN]")
+        self.assertEqual(self._spliced(equation, "so this is [x1, x2, The next")[0], "so this is ⟦eq-1⟧ The next")
+
+    def test_flattened_text_glued_to_a_neighbour_is_left_alone(self):
+        text, output = self._spliced(_equation("Let", "be", text="t1, t2, . . . , tq"), "Let t 1,t2, ,tqbe the terms")
+        self.assertEqual(text, "Let t 1,t2, ,tqbe the terms")
+        self.assertIn("atlandı", output)
+
+    def test_following_punctuation_may_touch_the_flattened_text(self):
+        equation = _equation("sum", ",", text="∑j exj")
+        self.assertEqual(self._spliced(equation, "the sum ∑j xj, and one")[0], "the sum ⟦eq-1⟧ , and one")
+
+    def test_preceding_punctuation_may_touch_the_flattened_text(self):
+        equation = _equation("merging:", "is", kind="text", text="W")
+        self.assertEqual(self._spliced(equation, "during merging:W is new")[0], "during merging: W is new")
+
 if __name__ == "__main__":
     unittest.main()

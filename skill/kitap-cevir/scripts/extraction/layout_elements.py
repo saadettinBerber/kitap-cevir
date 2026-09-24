@@ -116,13 +116,12 @@ class InlineEquation:
 
     def _splice(self, text):
         """insert'i metinde before/after komşu kelimelerinin arasına koyar."""
-        before, after = re.escape(self.before), re.escape(self.after)
         if self.before and self.after:
             return self._between_neighbours(text)
         if self.after:
-            return re.subn(after, f"{self.insert} {self.after}", text, count=1)
+            return re.subn(_word(self.after), lambda match: f"{self.insert} {match[0]}", text, count=1)
         if self.before:
-            return re.subn(before, f"{self.before} {self.insert}", text, count=1)
+            return re.subn(_word(self.before), lambda match: f"{match[0]} {self.insert}", text, count=1)
         return f"{text} {self.insert}", 1
 
     def _between_neighbours(self, text):
@@ -134,13 +133,21 @@ class InlineEquation:
     def _replace_between(self, text, gap):
         """Aralarında en çok gap harf bulunan ilk komşu çifti; aradaki metnin yerini insert alır.
         Boşluk olabildiğince uzun tutulur: sonraki kelime (',') denklemin içinde de geçebilir."""
-        pattern = rf"(?P<before>{_spellings(self.before)})\s*.{{0,{gap}}}\s*(?P<after>{_spellings(self.after)})"
+        pattern = rf"(?P<before>{_word(self.before)})\s*.{{0,{gap}}}\s*(?P<after>{_word(self.after)})"
         return re.subn(pattern, lambda match: f"{match['before']} {self.insert} {match['after']}", text, count=1)
+
+
+def _word(word):
+    """Komşu kelime tam kelime olarak aranır: harfle başlayan ya da biten yanı başka bir harfe
+    yapışık olamaz ('for', 'perform'un içinde değildir). Noktalama (',', '.') serbesttir."""
+    left = r"(?<!\w)" if word[:1].isalnum() else ""
+    right = r"(?!\w)" if word[-1:].isalnum() else ""
+    return left + _spellings(word) + right
 
 
 def _spellings(word):
     """Kelimenin metindeki yazılışları: olduğu gibi ya da bağlı harfsiz (LiteParse ﬁ'yi fi yazar)."""
-    return "|".join(re.escape(form) for form in sorted({word, unicodedata.normalize("NFKC", word)}))
+    return "(?:" + "|".join(re.escape(form) for form in sorted({word, unicodedata.normalize("NFKC", word)})) + ")"
 
 
 class CodeImageLink:
