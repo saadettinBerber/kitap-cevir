@@ -74,8 +74,7 @@ class SpanRow:
 
 
 class TableColumns:
-    """Tablonun sütunları: kalın başlıktan ya da başlıksız devamın ilk satırından
-    çıkar; satırlar bunlara göre ölçülür ve hücrelere dağıtılır."""
+    """Tablonun sütun sınırları; bir satırın parçalarını sütunlarına dağıtır."""
 
     def __init__(self, starts, right_edge):
         ends = [start - COLUMN_GUTTER for start in starts[1:]] + [right_edge + LAST_COLUMN_REACH]
