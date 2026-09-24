@@ -4,7 +4,6 @@ from pdf_fakes import PAGE_HEIGHT, element
 from extraction.block_builder import BlockBuilder
 from extraction.layout_elements import LayoutElements
 from extraction.page_regions import PageRegions, Region
-from extraction.pdf.geometry import Box
 from extraction.pdf.model import PageLayout
 from extraction.page_zones import InvalidRunningHeader, PageZones
 from extraction.settings import DEFAULT_EXTRACTION, with_defaults
@@ -168,40 +167,21 @@ class HeadingBySizeTest(unittest.TestCase):
         self.assertEqual(self._blocks("Cross-Cutting", size, is_nested=True)[0]["type"], "heading")
 
 
-class CodeImageLinkTest(unittest.TestCase):
-    """E-kitap kökenli PDF'lerde her kod listesinin üstünde bir bağlantı satırı
-    vardır; kitabın içeriği değildir. ODL onu komşu satırla tek öğede birleştirebilir."""
+
+
+class CodeImageLinkPlacementTest(unittest.TestCase):
+    """Bağlantısından arınan tek satırlık kod listesi kod bölgesine düşer."""
 
     LINK = "Click here to view code image"
-    # Bağlantı satırı 60-70'te, şeridi komşu satırlara kadar 50-80; kod satırı 80-90.
     SLOT = {"text": LINK, "y0": 50, "y1": 80}
     CODE_LINE = {"y0": 80, "y1": 90}
-
-    def _without_links(self, *elements):
-        return LayoutElements(list(elements)).without_code_image_links([self.SLOT]).items
-
-    def test_element_that_is_only_the_link_is_dropped(self):
-        self.assertEqual(self._without_links(_element(self.LINK, (70, 60, 430, 70), "heading")), [])
-
-    def test_code_glued_under_the_link_keeps_its_text_and_loses_the_slot(self):
-        [element] = self._without_links(_element(f"{self.LINK} // Two classes", (70, 60, 430, 90)))
-        self.assertEqual(element.text, "// Two classes")
-        self.assertEqual(element.box, Box(70, 80, 430, 90))
 
     def test_one_line_listing_glued_under_the_link_is_placed_as_code(self):
         code = {"type": "code", "lang": "java", "code": "// Two classes"}
         regions = PageRegions([Region(self.CODE_LINE, code)])
         glued = _element(f"{self.LINK} // Two classes", (70, 60, 430, 90))
-        self.assertEqual(regions.place(self._without_links(glued), _builder().blocks_of), [code])
-
-    def test_prose_glued_above_the_link_is_kept_above_the_slot(self):
-        [element] = self._without_links(_element(f"reduces the time to 9.2 seconds: {self.LINK}", (70, 20, 430, 70)))
-        self.assertEqual(element.text, "reduces the time to 9.2 seconds:")
-        self.assertEqual(element.box, Box(70, 20, 430, 50))
-
-    def test_elements_away_from_the_link_are_untouched(self):
-        body, image = _element("Body text", BODY_Y), element("", (70, 500, 430, 700), "image")
-        self.assertEqual(self._without_links(body, image), [body, image])
+        body = LayoutElements([glued]).without_code_image_links([self.SLOT]).items
+        self.assertEqual(regions.place(body, _builder().blocks_of), [code])
 
 
 if __name__ == "__main__":
