@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from pdf_fakes import FAKE_PNG, FakePdfPage, span
+from pdf_fakes import FAKE_PNG, FakePdfPage, span, stroke
 from extraction.equations.math_scan import MathScanner, placeholder
 from extraction.settings import with_defaults
 
@@ -91,6 +91,45 @@ class DisplayRegionTest(unittest.TestCase):
     def test_only_the_display_equation_is_cropped(self):
         self.assertEqual(len(self.result["display"]), 1)
         self.assertEqual(os.listdir(self.images), [self.result["display"][0]["block"]["src"]])
+
+
+def _inline_on(line):
+    with tempfile.TemporaryDirectory() as images:
+        [item] = MathScanner(SETTINGS, images).scan(FakePdfPage(lines=[line]))["inline"]
+    return item
+
+
+class NeighbourWordsTest(unittest.TestCase):
+    """Satır içi denklemin yeri, cümledeki komşu kelimeleriyle bulunur."""
+
+    def test_equation_opening_the_line_has_no_word_before(self):
+        item = _inline_on((span("x", (72, 90, 78, 102), MATH_FONT, 11), span(" grows fast", (78, 90, 140, 102))))
+        self.assertEqual((item["before"], item["after"]), ("", "grows"))
+
+    def test_equation_closing_the_line_has_no_word_after(self):
+        item = _inline_on((span("it minimizes ", (72, 90, 140, 102)), span("x", (140, 90, 146, 102), MATH_FONT, 11)))
+        self.assertEqual((item["before"], item["after"]), ("minimizes", ""))
+
+    def test_blank_neighbour_gives_no_word(self):
+        item = _inline_on((span(" ", (72, 90, 76, 102)), span("x", (76, 90, 82, 102), MATH_FONT, 11)))
+        self.assertEqual((item["before"], item["after"]), ("", ""))
+
+
+def _fraction_under_caption():
+    """Kesir çizgisinin hemen üstünde denklem başlığı; altında uzak bir gövde satırı."""
+    caption = (span("Equation 3-3. Abstractness", (72, 182, 200, 192)),)
+    numerator = (span("A = ma", (87, 196, 125, 206)),)
+    denominator = (span("mc", (106, 210, 125, 220)),)
+    prose = (span("In the equation, ma represents abstract elements.", (72, 260, 432, 272)),)
+    return FakePdfPage(lines=[caption, numerator, denominator, prose], shapes=[stroke(106, 208, 125, 208.6)])
+
+
+class GeometryCaptionTest(unittest.TestCase):
+    def test_caption_above_the_fraction_stays_out_of_the_equation(self):
+        with tempfile.TemporaryDirectory() as images:
+            result = MathScanner(with_defaults({"math_geometry": True}), images).scan(_fraction_under_caption())
+        [region] = result["display"]
+        self.assertEqual(region["block"]["text"], "A = ma mc")
 
 
 if __name__ == "__main__":
