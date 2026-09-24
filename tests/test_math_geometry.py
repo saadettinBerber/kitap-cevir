@@ -5,6 +5,7 @@ import unittest
 import fitz
 
 from pdf_fakes import real_page
+from extraction.equations.math_geometry import Rule, TextColumn
 from extraction.equations.math_scan import MathScanner
 from extraction.settings import with_defaults
 
@@ -95,6 +96,26 @@ class GeometryMathTest(unittest.TestCase):
         tmp, result = _scan(settings={})
         with tmp:
             self.assertEqual(result["display"], [])
+
+
+class TextColumnTest(unittest.TestCase):
+    def setUp(self):
+        self.column = TextColumn([fitz.Rect(72, 100, 372, 110), fitz.Rect(72, 120, 360, 130)])
+
+    def _rule(self, *bars):
+        rule = Rule(fitz.Rect(*bars[0]))
+        rule.bars += [fitz.Rect(*bar) for bar in bars[1:]]
+        return rule
+
+    def test_short_indented_bar_is_a_fraction(self):
+        self.assertTrue(self.column.holds_fraction(self._rule((180, 150, 240, 151))))
+
+    def test_bar_from_column_edge_is_not_a_fraction(self):
+        self.assertFalse(self.column.holds_fraction(self._rule((72, 150, 120, 151))))
+
+    def test_segmented_full_width_rule_is_not_a_fraction(self):
+        rule = self._rule((150, 150, 200, 151), (200, 150, 300, 151))
+        self.assertFalse(self.column.holds_fraction(rule))
 
 
 if __name__ == "__main__":

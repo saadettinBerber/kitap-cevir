@@ -1,9 +1,6 @@
 import unittest
 
-import fitz
-
 from pdf_fakes import span
-from extraction.equations.math_geometry import Rule, TextColumn
 from extraction.text_layer.script_marks import ScriptMark
 from extraction.text_layer.text_line import LineSpan, TextLine
 
@@ -45,26 +42,6 @@ class ScriptMarkTest(unittest.TestCase):
     def test_unknown_characters_keep_marker_notation(self):
         part = TextLine.of_spans([_span("K", 10, False, size=7)])
         self.assertEqual(ScriptMark(part, "_").as_unicode(), "_K")
-
-
-class TextColumnTest(unittest.TestCase):
-    def setUp(self):
-        self.column = TextColumn([fitz.Rect(72, 100, 372, 110), fitz.Rect(72, 120, 360, 130)])
-
-    def _rule(self, *bars):
-        rule = Rule(fitz.Rect(*bars[0]))
-        rule.bars += [fitz.Rect(*bar) for bar in bars[1:]]
-        return rule
-
-    def test_short_indented_bar_is_a_fraction(self):
-        self.assertTrue(self.column.holds_fraction(self._rule((180, 150, 240, 151))))
-
-    def test_bar_from_column_edge_is_not_a_fraction(self):
-        self.assertFalse(self.column.holds_fraction(self._rule((72, 150, 120, 151))))
-
-    def test_segmented_full_width_rule_is_not_a_fraction(self):
-        rule = self._rule((150, 150, 200, 151), (200, 150, 300, 151))
-        self.assertFalse(self.column.holds_fraction(rule))
 
 
 if __name__ == "__main__":
