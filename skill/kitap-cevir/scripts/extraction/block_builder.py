@@ -12,6 +12,22 @@ _BIBLIOGRAPHY_ENTRY = re.compile(r"^\[[A-Za-z0-9]+\]:")
 _LIST_MARKER = re.compile(r"^(\d+[.)])\s")
 
 
+def _looks_like_paragraph(text):
+    """ODL karışık fontlu (satır içi kod/denklem) gövde satırını başlık sanabilir;
+    uzun ya da noktalamayla biten 'başlık' gövde metnidir."""
+    return len(text) > MAX_HEADING_CHARS or text.endswith((".", ":", ";", ","))
+
+
+def _sentences(text):
+    return [{"en": sentence} for sentence in split_sentences(text) if not is_numeric_only(sentence)]
+
+
+def _paragraph_style(text, font):
+    if _BIBLIOGRAPHY_ENTRY.match(text):
+        return "reference"
+    return "quote" if "Italic" in font else ""
+
+
 class TypeScale:
     """Başlığı puntosu ele verir: bölüm numarası, bölüm başlığı, kesit ve alt kesit
     eşikleri (progress.json -> extraction)."""
@@ -107,7 +123,7 @@ class BlockBuilder:
         text, size = self._plain(element), element.font_size
         if not text:
             return []
-        if self._looks_like_paragraph(text):
+        if _looks_like_paragraph(text):
             return self._paragraph_blocks(element)
         if self.scale.is_chapter_number(size) and text.isdigit():
             return [{"type": "chapter_number", "num": int(text)}]
@@ -117,12 +133,6 @@ class BlockBuilder:
             return [{"type": "caption", "kind": "listing", "en": text}]
         return [{"type": "heading", "level": self.scale.heading_level(size), "en": text}]
 
-    @staticmethod
-    def _looks_like_paragraph(text):
-        """ODL karışık fontlu (satır içi kod/denklem) gövde satırını başlık sanabilir;
-        uzun ya da noktalamayla biten 'başlık' gövde metnidir."""
-        return len(text) > MAX_HEADING_CHARS or text.endswith((".", ":", ";", ","))
-
     def _paragraph_blocks(self, element):
         text = self._plain(element)
         if not text or is_numeric_only(text):
@@ -130,21 +140,11 @@ class BlockBuilder:
         special = self.special.blocks_of(element, text)
         if special:
             return special
-        block = {"type": "para", "sentences": self._sentences(self.fixer.rich(text))}
-        style = self._paragraph_style(text, element.font)
+        block = {"type": "para", "sentences": _sentences(self.fixer.rich(text))}
+        style = _paragraph_style(text, element.font)
         if style:
             block["style"] = style
         return [block] if block["sentences"] else []
-
-    @staticmethod
-    def _sentences(text):
-        return [{"en": sentence} for sentence in split_sentences(text) if not is_numeric_only(sentence)]
-
-    @staticmethod
-    def _paragraph_style(text, font):
-        if _BIBLIOGRAPHY_ENTRY.match(text):
-            return "reference"
-        return "quote" if "Italic" in font else ""
 
     def _list_item_blocks(self, element):
         """Liste maddesi paragrafa dönüşürken numarası korunur ('2. If the shop
