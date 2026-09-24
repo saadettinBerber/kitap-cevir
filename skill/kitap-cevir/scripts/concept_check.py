@@ -67,33 +67,38 @@ class TradeoffRules:
         return problems
 
 
-class ContrastRules:
-    """contrast kartının iki tarafı da iki dilli metin ve `why` taşır."""
+class SidedRules:
+    """bad/good taraflı kartlar (TEMPLATE METHOD): her tarafın bir gövdesi ve iki
+    dilli `why` açıklaması vardır; gövdenin ne olduğunu alt sınıf söyler."""
 
     def problems(self, card):
         problems = []
         for side in SIDES:
             sample = card.get(side) or {}
-            body = [] if sample.get("code") else _missing_pair(sample.get("text"), f"{side}.text")
-            problems += body + _missing_pair(sample.get("why"), f"{side}.why")
+            problems += self._body_problems(sample, side) + _missing_pair(sample.get("why"), f"{side}.why")
         return problems
 
+    def _body_problems(self, sample, side):
+        raise NotImplementedError
 
-class CodeRules:
-    """code kartının iki tarafı da kitabın izin verdiği dilde kod ve iki dilli `why` taşır."""
+
+class ContrastRules(SidedRules):
+    """contrast tarafının gövdesi iki dilli metindir; kod taşıyan taraf metinsiz olabilir."""
+
+    def _body_problems(self, sample, side):
+        if sample.get("code"):
+            return []
+        return _missing_pair(sample.get("text"), f"{side}.text")
+
+
+class CodeRules(SidedRules):
+    """code tarafının gövdesi kitabın izin verdiği dilde koddur."""
 
     def __init__(self, langs):
         self.langs = langs
         self.normal_langs = {_normal_lang(lang) for lang in langs}
 
-    def problems(self, card):
-        problems = []
-        for side in SIDES:
-            sample = card.get(side) or {}
-            problems += self._code_side(sample, side) + _missing_pair(sample.get("why"), f"{side}.why")
-        return problems
-
-    def _code_side(self, sample, side):
+    def _body_problems(self, sample, side):
         if not str(sample.get("code", "")).strip():
             return [f"{side}.code boş"]
         if _normal_lang(sample.get("lang")) not in self.normal_langs:
