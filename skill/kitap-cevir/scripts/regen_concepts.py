@@ -23,13 +23,15 @@ class CardRegenerator:
     """Bir projenin çevrilmiş sayfaları için kart agent'ı girdisini hazırlar ve
     agent çıktısını denetleyip sayfalara yazar."""
 
-    def __init__(self, project, checker):
+    def __init__(self, project, spec):
+        """spec = BookSettings.concepts(); agent'a gider, kartlar ona göre denetlenir."""
         self.project = project
-        self.checker = checker
+        self.spec = spec
+        self.checker = CardChecker(spec)
 
     @classmethod
     def for_project(cls, project):
-        return cls(project, CardChecker(project.load_settings().concepts()))
+        return cls(project, project.load_settings().concepts())
 
     def select_pages(self, specs):
         """'all', tek numaralar ve '5-40' aralıkları; çevrilmemiş sayfalar atlanır."""
@@ -61,7 +63,7 @@ class CardRegenerator:
         return {"id": page_data["id"], "page": page_data["page"],
                 "chapter": page_data.get("chapter", {}), "section": page_data.get("section", {}),
                 "title": page_data.get("title", {}), "content": content,
-                "concepts_spec": self.checker.spec, "concepts": []}
+                "concepts_spec": self.spec, "concepts": []}
 
     def apply(self, pages):
         """{sayfa: sorunlar}; sorunsuz sayfaların kartları yazılmıştır."""
