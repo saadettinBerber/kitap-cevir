@@ -4,9 +4,10 @@ import unittest
 
 import fitz
 
-from pdf_fakes import real_page
+from pdf_fakes import real_page, stroke
 from extraction.equations.math_geometry import Rule, TextColumn
 from extraction.equations.math_scan import MathScanner
+from extraction.pdf.geometry import Box
 from extraction.settings import with_defaults
 
 SETTINGS = {"math_geometry": True}
@@ -100,11 +101,10 @@ class GeometryMathTest(unittest.TestCase):
 
 class TextColumnTest(unittest.TestCase):
     def setUp(self):
-        self.column = TextColumn([fitz.Rect(72, 100, 372, 110), fitz.Rect(72, 120, 360, 130)])
+        self.column = TextColumn([Box(72, 100, 372, 110), Box(72, 120, 360, 130)])
 
     def _rule(self, *bars):
-        rule = Rule(fitz.Rect(*bars[0]))
-        rule.bars += [fitz.Rect(*bar) for bar in bars[1:]]
+        [rule] = Rule.from_drawings([stroke(*bar) for bar in bars])
         return rule
 
     def test_short_indented_bar_is_a_fraction(self):
