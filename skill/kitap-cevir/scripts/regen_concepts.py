@@ -84,9 +84,12 @@ class CardOutputs:
     def _write_if_valid(self, page, cards):
         problems = self.checker.problems(cards)
         if not problems:
-            document = PageDocument.read(self.project.page_js(page))
-            PageDocument({**document.data, "concepts": cards}).write(self.project.page_js(document.data["page"]))
+            self._replace_cards(page, cards)
         return problems
+
+    def _replace_cards(self, page, cards):
+        path = self.project.page_js(page)
+        PageDocument({**PageDocument.read(path).data, "concepts": cards}).write(path)
 
 
 def _run_prepare(project, pages):
