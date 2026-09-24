@@ -4,7 +4,6 @@ import fitz
 
 from pdf_fakes import span
 from extraction.equations.math_geometry import Rule, TextColumn
-from extraction.equations.math_scan import SpanRun
 from extraction.text_layer.script_marks import ScriptMark
 from extraction.text_layer.text_line import LineSpan, TextLine
 
@@ -46,13 +45,6 @@ class ScriptMarkTest(unittest.TestCase):
     def test_unknown_characters_keep_marker_notation(self):
         part = TextLine.of_spans([_span("K", 10, False, size=7)])
         self.assertEqual(ScriptMark(part, "_").as_unicode(), "_K")
-
-
-class SpanRunTest(unittest.TestCase):
-    def test_split_groups_consecutive_spans_by_kind(self):
-        spans = [{"font": name} for name in ("Body", "Type3a", "Type3b", "Body")]
-        runs = SpanRun.split(spans, lambda span: span["font"].startswith("Type3"))
-        self.assertEqual([(run.is_math, len(run.spans)) for run in runs], [(False, 1), (True, 2), (False, 1)])
 
 
 class TextColumnTest(unittest.TestCase):

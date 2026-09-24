@@ -84,7 +84,7 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │       │   ├── text_line.py      TextLine: bir taban çizgisinin parçaları
 │       │   └── script_marks.py   alt/üst simge bağlama ve düzeltmeleri
 │       ├── tables/           çizgisiz (dolgulu) tablolar: table_scan.py, table_grid.py
-│       └── equations/        math_scan.py (Type3 font), math_geometry.py (kesir çizgisi)
+│       └── equations/        math_scan.py (Type3 font), math_line.py (satırın denklem parçaları), math_geometry.py (kesir çizgisi)
 ├── references/
 │   ├── FORMAT.md             sayfa veri formatı, kavram kartları, agent sözleşmesi
 │   ├── translation-style.md  çeviri kuralları
