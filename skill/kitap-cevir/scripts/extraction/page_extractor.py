@@ -19,7 +19,7 @@ from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from extraction.pdf.readers import layout_reader_for
 from extraction.tables.table_scan import TableScanner
 from extraction.text_fixer import TextFixer
-from extraction.text_layer.layout_scan import scan_page
+from extraction.text_layer.layout_scan import LayoutScanner
 
 _INLINE_MATH_FIELDS = ("id", "src", "text", "latex")
 
@@ -32,6 +32,7 @@ class PageExtractor:
         self.layout_reader = layout_reader
         self.zones = PageZones(self.settings)
         self.tables = TableScanner(self.settings)
+        self.text_layer = LayoutScanner(self.settings)
 
     @classmethod
     def for_settings(cls, settings):
@@ -45,7 +46,7 @@ class PageExtractor:
 
     def extract_page(self, page, image_dir):
         header, body = self.zones.split(self.layout_reader.read(page, image_dir))
-        layout = scan_page(page.pdf_path, page.number, self.settings)
+        layout = self.text_layer.scan(page)
         math = MathScanner(self.settings, image_dir).scan(page)
         regions = PageRegions.from_layout(layout, self.tables.scan(page) + math["display"], self._code_block)
         body = (OdlElements(body).flatten_nested_lists().drop_nested_fragments().merge_footnote_markers()
@@ -56,7 +57,8 @@ class PageExtractor:
 
     def hyphen_fixes(self, pdf_path, pdf_page):
         """Satır sonunda bölünmüş sözcüklerin onarımı ('McGraw-' + 'Hill')."""
-        return scan_page(pdf_path, pdf_page, self.settings)["hyphen_fixes"]
+        with PyMuPdfDocument.open(pdf_path) as document:
+            return self.text_layer.scan(document.page(pdf_page))["hyphen_fixes"]
 
     def _code_block(self, region):
         return {"type": "code", "lang": self.settings["default_code_language"], "code": region["code"]}

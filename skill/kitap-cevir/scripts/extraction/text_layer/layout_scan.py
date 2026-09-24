@@ -8,7 +8,6 @@ Kod fontu ve boyut eşiği progress.json -> extraction ayarlarından gelir.
 """
 import re
 
-from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from extraction.text_layer.code_lines import CodeFont, PageLineReader
 from extraction.text_layer.script_marks import ScriptFixes
 
@@ -129,11 +128,8 @@ class LayoutScanner:
         self.code_font = CodeFont(settings)
         self.code_image_link_pattern = settings["code_image_link_pattern"]
 
-    def scan(self, pdf_path, pdf_page):
-        with PyMuPdfDocument.open(pdf_path) as document:
-            return self._scan_page(document.page(pdf_page))
-
-    def _scan_page(self, page):
+    def scan(self, page):
+        """page: PdfPage → {page_height, code_blocks, inline_code, hyphen_fixes, script_fixes, code_image_links}"""
         lines = PageLineReader(self.code_font).read(page)
         repairs, scripts = ProseRepairs(lines), ScriptFixes(lines)
         return {"page_height": page.height,
@@ -142,8 +138,3 @@ class LayoutScanner:
                 "hyphen_fixes": {**repairs.hyphenated_names(), **scripts.for_code()},
                 "script_fixes": scripts.for_prose(),
                 "code_image_links": CodeImageLinkLines(lines, self.code_image_link_pattern).slots()}
-
-
-def scan_page(pdf_path, pdf_page, settings):
-    """{page_height, code_blocks, inline_code, hyphen_fixes, script_fixes, code_image_links}"""
-    return LayoutScanner(settings).scan(pdf_path, pdf_page)
