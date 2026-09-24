@@ -71,16 +71,17 @@ class CardOutputs:
 
     def apply(self, pages):
         """{sayfa: sorunlar}; sorunsuz sayfaların kartları yazılmıştır."""
-        report = {}
-        for page in pages:
-            try:
-                report[page] = self._apply_page(page)
-            except FileNotFoundError:
-                report[page] = [f"çıktı yok: {self.project.relative_to_root(self.project.work_cards_file('out', page))}"]
-        return report
+        return {page: self._apply_page(page) for page in pages}
 
     def _apply_page(self, page):
-        cards = read_json(self.project.work_cards_file("out", page)).get("concepts", [])
+        path = self.project.work_cards_file("out", page)
+        try:
+            cards = read_json(path).get("concepts", [])
+        except FileNotFoundError:
+            return [f"çıktı yok: {self.project.relative_to_root(path)}"]
+        return self._write_if_valid(page, cards)
+
+    def _write_if_valid(self, page, cards):
         problems = self.checker.problems(cards)
         if not problems:
             document = PageDocument.read(self.project.page_js(page))

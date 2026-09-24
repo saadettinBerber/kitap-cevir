@@ -93,5 +93,11 @@ class CardOutputsTest(_BookTestCase):
     def test_apply_reports_missing_output(self):
         self.assertIn("çıktı yok", self.outputs.apply([4])[4][0])
 
+    def test_missing_page_is_not_reported_as_missing_output(self):
+        self._write_output([_explain("a"), _explain("b")])
+        os.remove(self.project.page_js(4))
+        with self.assertRaises(FileNotFoundError):
+            self.outputs.apply([4])
+
 if __name__ == "__main__":
     unittest.main()
