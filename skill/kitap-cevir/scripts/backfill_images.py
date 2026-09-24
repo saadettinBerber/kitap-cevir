@@ -34,12 +34,33 @@ def _similarity(anchor, candidate):
     return difflib.SequenceMatcher(None, anchor, candidate[:len(anchor) + 20]).ratio()
 
 
+class ImageFolder:
+    """Diskteki bir görsel klasörü: dosyanın varlığı, piksel boyutu ve kopyası."""
+
+    def __init__(self, path):
+        self.path = path
+
+    def has(self, src):
+        return os.path.isfile(self._file(src))
+
+    def size(self, src):
+        """(genişlik, yükseklik) piksel."""
+        return image_size(self._file(src))
+
+    def copy(self, src, target_dir):
+        os.makedirs(target_dir, exist_ok=True)
+        shutil.copy2(self._file(src), os.path.join(target_dir, src))
+
+    def _file(self, src):
+        return os.path.join(self.path, src)
+
+
 class PageImages:
     """PDF'ten yeniden çıkarılan sayfanın görselleri ve PDF'te önlerindeki metin."""
 
-    def __init__(self, blocks, image_dir):
+    def __init__(self, blocks, folder):
         self.blocks = [Block.of(block) for block in blocks]
-        self.image_dir = image_dir
+        self.folder = folder
 
     def anchored(self):
         """PDF sırasına göre (görsel src, önündeki metin) çiftleri; süs görseller atlanır."""
@@ -52,15 +73,11 @@ class PageImages:
                 previous_text = _plain(block.anchor_text())[:ANCHOR_CHARS] or previous_text
         return found
 
-    def _is_real(self, src):
-        path = os.path.join(self.image_dir, src)
-        if not os.path.isfile(path):
-            return False
-        return min(image_size(path)) >= MIN_IMAGE_SIDE_PX
-
     def copy(self, src, target_dir):
-        os.makedirs(target_dir, exist_ok=True)
-        shutil.copy2(os.path.join(self.image_dir, src), os.path.join(target_dir, src))
+        self.folder.copy(src, target_dir)
+
+    def _is_real(self, src):
+        return self.folder.has(src) and min(self.folder.size(src)) >= MIN_IMAGE_SIDE_PX
 
 
 class ImagePlacement:
@@ -108,7 +125,7 @@ class ImageBackfiller:
 
     def backfill_page(self, page):
         """Eklenen görsel sayısı; sayfa yalnız görsel eklendiyse yeniden yazılır."""
-        images = PageImages(self.builder.build(page)["blocks"], self.builder.image_dir(page))
+        images = PageImages(self.builder.build(page)["blocks"], ImageFolder(self.builder.image_dir(page)))
         page_document = PageDocument.read(self.project.page_js(page))
         added = self._place(images, ImagePlacement(page_document.data["blocks"]), page)
         if added:

@@ -5,7 +5,7 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
-from backfill_images import ImagePlacement, PageImages
+from backfill_images import ImageFolder, ImagePlacement, PageImages
 
 LARGE_PX, TINY_PX = 120, 10
 ANCHOR = "layers separate concerns"
@@ -27,7 +27,7 @@ class PageImagesTest(unittest.TestCase):
             blocks = [_para("Layers separate concerns."), {"type": "image", "src": "fig.png"},
                       {"type": "code", "code": "x = 1"}, {"type": "image", "src": "dot.png"},
                       {"type": "image", "src": "missing.png"}]
-            self.assertEqual(PageImages(blocks, folder).anchored(), [("fig.png", "layers separate concerns")])
+            self.assertEqual(PageImages(blocks, ImageFolder(folder)).anchored(), [("fig.png", "layers separate concerns")])
 
 
 class ImagePlacementTest(unittest.TestCase):
