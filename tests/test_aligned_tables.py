@@ -1,7 +1,7 @@
 import unittest
 
 from pdf_fakes import FakePdfPage, fill, span
-from extraction.tables.aligned_tables import AlignedTableFinder, TableColumns
+from extraction.tables.aligned_tables import AlignedTableFinder, SpanRow, TableColumns
 from extraction.settings import with_defaults
 from extraction.tables.table_scan import TableScanner
 
@@ -32,30 +32,37 @@ PAGE_NUMBER = _span("21", 300, A4_HEIGHT - 27)
 FILL = fill(300, 600, 400, 620)
 
 
-class TableColumnsTest(unittest.TestCase):
-    def setUp(self):
-        self.columns = TableColumns.of_header(_row(("Method", "Purpose"), FIRST_ROW_Y, BOLD))
-
+class SpanRowTest(unittest.TestCase):
     def test_header_must_be_bold_and_have_two_columns(self):
-        self.assertTrue(TableColumns.is_header(_row(("A", "B"), 0, BOLD)))
-        self.assertFalse(TableColumns.is_header(_row(("A", "B"), 0)))
-        self.assertFalse(TableColumns.is_header(_row(("A",), 0, BOLD)))
+        self.assertTrue(SpanRow(_row(("A", "B"), 0, BOLD)).is_header())
+        self.assertFalse(SpanRow(_row(("A", "B"), 0)).is_header())
+        self.assertFalse(SpanRow(_row(("A",), 0, BOLD)).is_header())
 
     def test_header_columns_need_a_gutter(self):
         chapter = [_span("Chapter 11", 72, 0, BOLD), _span(": Pipeline", 132, 0, BOLD)]
         emphasis = [_span("for instance", 72, 0, BOLD), _span("must", 149, 0, BOLD)]
-        self.assertFalse(TableColumns.is_header(chapter))
-        self.assertFalse(TableColumns.is_header(emphasis))
-        self.assertTrue(TableColumns.is_header([_span("Feature", 72, 0, BOLD), _span("Items", 144, 0, BOLD)]))
+        self.assertFalse(SpanRow(chapter).is_header())
+        self.assertFalse(SpanRow(emphasis).is_header())
+        self.assertTrue(SpanRow([_span("Feature", 72, 0, BOLD), _span("Items", 144, 0, BOLD)]).is_header())
+
+    def test_spans_are_grouped_into_lines_from_top_to_bottom(self):
+        rows = SpanRow.lines_of([_span("b", 144, 20), _span("a", 72, 20), _span("top", 72, 0)])
+        self.assertEqual([[span.text for span in row.spans] for row in rows], [["top"], ["a", "b"]])
+
+
+class TableColumnsTest(unittest.TestCase):
+    def setUp(self):
+        self.columns = TableColumns.of_header(SpanRow(_row(("Method", "Purpose"), FIRST_ROW_Y, BOLD)))
 
     def test_row_filling_one_column_does_not_fit(self):
-        self.assertFalse(self.columns.fits(_row(("only",), 0)))
+        self.assertFalse(self.columns.fits(SpanRow(_row(("only",), 0))))
 
     def test_row_left_of_first_column_does_not_fit(self):
-        self.assertFalse(self.columns.fits([_span("far", 20, 0), _span("x", 200, 0)]))
+        self.assertFalse(self.columns.fits(SpanRow([_span("far", 20, 0), _span("x", 200, 0)])))
 
     def test_span_outside_every_column_is_dropped(self):
-        self.assertEqual([len(b) for b in self.columns.buckets([_span("a", 72, 0), _span("b", 400, 0)])], [1, 0])
+        row = SpanRow([_span("a", 72, 0), _span("b", 400, 0)])
+        self.assertEqual([len(bucket) for bucket in self.columns.buckets(row)], [1, 0])
 
 
 class AlignedTableFinderTest(unittest.TestCase):
