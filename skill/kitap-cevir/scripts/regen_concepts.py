@@ -34,15 +34,12 @@ class CardRegenerator:
         return cls(project, project.load_settings().concepts())
 
     def select_pages(self, specs):
-        """'all', tek numaralar ve '5-40' aralıkları; çevrilmemiş sayfalar atlanır."""
+        """'all', tek numaralar ve '5-40' aralıkları; (seçilen, atlanan çevrilmemiş) sayfalar."""
         available = self.project.translated_pages()
         if specs == ["all"]:
-            return available
+            return available, []
         wanted = {page for spec in specs for page in self._expand(spec)}
-        missing = sorted(wanted - set(available))
-        if missing:
-            print(f"  ! çevrilmemiş sayfalar atlandı: {', '.join(map(str, missing))}")
-        return [page for page in available if page in wanted]
+        return [page for page in available if page in wanted], sorted(wanted - set(available))
 
     @staticmethod
     def _expand(spec):
@@ -111,7 +108,10 @@ def main():
         print(__doc__)
         sys.exit(1)
     regenerator = CardRegenerator.for_project(Project.discover())
-    ACTIONS[sys.argv[1]](regenerator, regenerator.select_pages(sys.argv[2:]))
+    pages, skipped = regenerator.select_pages(sys.argv[2:])
+    if skipped:
+        print(f"  ! çevrilmemiş sayfalar atlandı: {', '.join(map(str, skipped))}")
+    ACTIONS[sys.argv[1]](regenerator, pages)
 
 
 if __name__ == "__main__":

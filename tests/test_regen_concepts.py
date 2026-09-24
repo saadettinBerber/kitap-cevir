@@ -45,8 +45,8 @@ class RegenConceptsTest(unittest.TestCase):
             json.dump({"concepts": cards}, handle)
 
     def test_select_pages_expands_ranges_and_skips_untranslated(self):
-        self.assertEqual(self.regenerator.select_pages(["1-5", "9"]), [4])
-        self.assertEqual(self.regenerator.select_pages(["all"]), [4])
+        self.assertEqual(self.regenerator.select_pages(["1-5", "9"]), ([4], [1, 2, 3, 5, 9]))
+        self.assertEqual(self.regenerator.select_pages(["all"]), ([4], []))
 
     def test_card_input_flattens_text_blocks(self):
         document = self.regenerator.card_input(PAGE)
