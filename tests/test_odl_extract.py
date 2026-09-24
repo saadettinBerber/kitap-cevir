@@ -145,6 +145,29 @@ class ChapterLabelTest(unittest.TestCase):
         self.assertEqual(blocks[0]["type"], "para")
 
 
+class HeadingBySizeTest(unittest.TestCase):
+    """Başlığı puntosu ele verir; okuyucu onu paragraf sansa da."""
+
+    CHAPTER_SIZE = DEFAULT_EXTRACTION["chapter_title_min_size"]
+
+    def _blocks(self, text, size, **fields):
+        return _builder().blocks_of(element(text, BODY_Y, font_size=size, **fields))
+
+    def test_paragraph_at_chapter_title_size_is_the_chapter(self):
+        self.assertEqual(self._blocks("Chapter 1. Introduction", self.CHAPTER_SIZE),
+                         [{"type": "chapter", "en": "Chapter 1. Introduction"}])
+
+    def test_paragraph_just_below_chapter_size_stays_a_paragraph(self):
+        self.assertEqual(self._blocks("Chapter 1. Introduction", self.CHAPTER_SIZE - 0.1)[0]["type"], "para")
+
+    def test_large_sentence_is_still_a_paragraph(self):
+        self.assertEqual(self._blocks("A large opening sentence.", self.CHAPTER_SIZE)[0]["type"], "para")
+
+    def test_nested_element_needs_only_subsection_size(self):
+        size = DEFAULT_EXTRACTION["subsection_min_size"]
+        self.assertEqual(self._blocks("Cross-Cutting", size, is_nested=True)[0]["type"], "heading")
+
+
 class CodeImageLinkTest(unittest.TestCase):
     """E-kitap kökenli PDF'lerde her kod listesinin üstünde bir bağlantı satırı
     vardır; kitabın içeriği değildir. ODL onu komşu satırla tek öğede birleştirebilir."""

@@ -33,7 +33,7 @@ class BlockBuilder:
         if label:
             return label
         kind = element.kind
-        if kind == "paragraph" and self._is_nested_heading(element):
+        if kind == "paragraph" and self._reads_as_heading(element):
             kind = "heading"
         build = self._builders.get(kind)
         return build(element) if build else []
@@ -47,10 +47,15 @@ class BlockBuilder:
         match = self.chapter_label.match(self._plain(element)) if self.chapter_label else None
         return [{"type": "chapter_number", "num": int(match.group(1))}] if match else []
 
-    def _is_nested_heading(self, element):
-        """Liste maddesine gömülmüş öğelerin tipini ODL düzleştirir (hepsi
-        paragraf olur); başlık puntosundaki bir öğe aslında başlıktır."""
-        return element.is_nested and element.font_size >= self.settings["subsection_min_size"]
+    def _reads_as_heading(self, element):
+        """Başlığı puntosu ele verir, okuyucunun türü değil. Liste maddesine gömülmüş
+        öğelerin tipini ODL düzleştirir (hepsi paragraf olur): alt başlık puntosu
+        yeter. Okuyucu bölüm başlığını paragraf sanabilir (LiteParse): bölüm başlığı
+        puntosu yeter. Uzun ya da noktalamayla biten metin yine paragraf kalır."""
+        size = element.font_size
+        if element.is_nested:
+            return size >= self.settings["subsection_min_size"]
+        return size >= self.settings["chapter_title_min_size"]
 
     def _heading_blocks(self, element):
         text, size = self._plain(element), element.font_size
