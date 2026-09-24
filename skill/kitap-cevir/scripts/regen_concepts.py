@@ -45,10 +45,13 @@ class CardInputs:
         return cls(project, project.load_settings().concepts())
 
     def prepare(self, pages):
-        for page in pages:
-            path = self.project.work_cards_file("in", page)
-            write_json(path, self.card_input(PageDocument.read(self.project.page_js(page)).data))
-        return [self.project.relative_to_root(self.project.work_cards_file("in", page)) for page in pages]
+        """Yazılan girdilerin proje köküne göre yolları."""
+        return [self._write_input(page) for page in pages]
+
+    def _write_input(self, page):
+        path = self.project.work_cards_file("in", page)
+        write_json(path, self.card_input(PageDocument.read(self.project.page_js(page)).data))
+        return self.project.relative_to_root(path)
 
     def card_input(self, page_data):
         content = [unit for unit in (block.card_unit() for block in PageDocument(page_data).blocks()) if unit]
