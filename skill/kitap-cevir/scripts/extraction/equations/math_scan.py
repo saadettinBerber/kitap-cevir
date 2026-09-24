@@ -12,6 +12,7 @@ Koordinatlar üst orijinlidir.
 """
 import os
 import re
+from dataclasses import dataclass
 
 from extraction.equations.math_geometry import FractionEquationFinder
 from extraction.pdf.geometry import Box
@@ -62,6 +63,47 @@ class SpanRun:
         return " ".join(span.text for span in self.spans).split()
 
 
+class MathLine:
+    """Bir metin satırı; denklem fontundaki ve düz metindeki ardışık parçalarına bölünmüş."""
+
+    def __init__(self, spans, is_math_span):
+        self.spans = spans
+        self.runs = SpanRun.split(spans, is_math_span)
+
+    @property
+    def rect(self):
+        return SpanRun.union(self.spans)
+
+    @property
+    def text(self):
+        return "".join(span.text for span in self.spans).strip()
+
+    def is_display(self):
+        """Satırın tamamı denklem fontunda: ayrı satır denklemi."""
+        return len(self.runs) == 1 and self.runs[0].is_math
+
+    def inline_runs(self):
+        """Cümle içindeki denklem parçaları, komşu kelimeleriyle; ayrı satır denkleminde yoktur."""
+        if self.is_display():
+            return []
+        return [InlineRun(run, self._word_before(index), self._word_after(index))
+                for index, run in enumerate(self.runs) if run.is_math]
+
+    def _word_before(self, index):
+        return "".join(self.runs[index - 1].words()[-1:]) if index > 0 else ""
+
+    def _word_after(self, index):
+        return "".join(self.runs[index + 1].words()[:1]) if index + 1 < len(self.runs) else ""
+
+
+@dataclass(frozen=True)
+class InlineRun:
+    """Satır içi denklem parçası ve cümledeki komşu kelimeleri; denklem metne bu ikisinin arasına girer."""
+    run: SpanRun
+    before: str
+    after: str
+
+
 class EquationCropper:
     """Denklem bölgelerini PNG olarak kırpar; kimlikler sayfa içinde sırayla eq-N."""
 
@@ -99,45 +141,35 @@ class MathScanner:
     def scan(self, page):
         """{"display": [{y0, y1, block}], "inline": [{kind, bbox, before, after, ...}]}.
         Ayrı satır denkleminin bandına düşen parça onun bir parçasıdır, satır içi sayılmaz."""
-        lines = page.text_lines()
+        lines = [MathLine(spans, self._is_math) for spans in page.text_lines()]
         rects = self._display_rects(lines) + self._geometry_rects(page, lines)
-        inline = [item for spans in lines if not self._is_display_line(spans)
-                  for item in self._inline_items(page, SpanRun.split(spans, self._is_math), rects)]
+        inline = [self._inline_item(page, inline_run) for line in lines for inline_run in line.inline_runs()
+                  if not _in_band(inline_run.run.rect, rects)]
         return {"display": [self.cropper.display_region(page, rect) for rect in rects], "inline": inline}
-
-    def _is_display_line(self, spans):
-        runs = SpanRun.split(spans, self._is_math)
-        return len(runs) == 1 and runs[0].is_math
 
     def _is_math(self, span):
         """Boş önek "bu kitapta denklem fontu yok" demektir; startswith("") her fontla eşleşirdi."""
         return bool(self.prefix) and span.font.startswith(self.prefix)
 
-    def _is_caption(self, spans):
+    def _is_caption(self, line):
         """Denklem başlığı ("Equation 3-3. Abstractness") denklemin hemen
         üstündedir ama çevrilecek bir caption'dır, PNG'ye girmemeli."""
-        return bool(self.caption.match("".join(span.text for span in spans).strip()))
+        return bool(self.caption.match(line.text))
 
-    def _inline_items(self, page, runs, display_rects):
-        return [self._inline_item(page, runs, index) for index, run in enumerate(runs)
-                if run.is_math and not _in_band(run.rect, display_rects)]
-
-    def _inline_item(self, page, runs, index):
-        before = runs[index - 1].words()[-1:] if index > 0 else []
-        after = runs[index + 1].words()[:1] if index + 1 < len(runs) else []
-        run = runs[index]
-        item = {"bbox": run.rect, "before": "".join(before), "after": "".join(after)}
+    def _inline_item(self, page, inline_run):
+        run = inline_run.run
+        item = {"bbox": run.rect, "before": inline_run.before, "after": inline_run.after}
         if run.is_simple():
             return {**item, "kind": "text", "text": run.text}
-        return {**item, "kind": "image", **self.cropper.equation(page, item["bbox"])}
+        return {**item, "kind": "image", **self.cropper.equation(page, run.rect)}
 
     def _display_rects(self, lines):
-        return self._merge_adjacent([SpanRun.union(spans) for spans in lines if self._is_display_line(spans)])
+        return self._merge_adjacent([line.rect for line in lines if line.is_display()])
 
     def _geometry_rects(self, page, lines):
         if not self.uses_geometry:
             return []
-        line_rects = [SpanRun.union(spans) for spans in lines if not self._is_caption(spans)]
+        line_rects = [line.rect for line in lines if not self._is_caption(line)]
         return FractionEquationFinder(line_rects).regions(page.drawings())
 
     @staticmethod
