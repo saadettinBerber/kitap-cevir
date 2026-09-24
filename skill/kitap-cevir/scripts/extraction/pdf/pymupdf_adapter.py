@@ -23,6 +23,10 @@ class PyMuPdfDocument:
     def __exit__(self, *_):
         self.document.close()
 
+    @property
+    def page_count(self):
+        return self.document.page_count
+
     def page(self, number):
         return PyMuPdfPage(self.pdf_path, number, self.document[number - 1])
 

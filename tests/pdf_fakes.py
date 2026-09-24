@@ -1,4 +1,4 @@
-"""PDF'siz testler için `PdfPage` / `LayoutReader` sahteleri ve düz veri kurucuları.
+"""PDF'siz testler için `PdfDocument` / `PdfPage` / `LayoutReader` sahteleri ve düz veri kurucuları.
 
 Kutular sol-üst orijinli (x0, y0, x1, y1) demetleriyle verilir. Gerçek PDF
 gereken sınır testleri `real_page` ile PyMuPDF adaptörünü kullanır.
@@ -55,6 +55,26 @@ class FakePdfPage:
 
     def png(self, box, dpi):
         return FAKE_PNG
+
+
+@dataclass
+class FakePdfDocument:
+    """Sayfaları elle verilen belge; `with` ile açılıp kapanır gibi davranır."""
+    pages: list = field(default_factory=list)
+    pdf_path: str = "fake.pdf"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return None
+
+    @property
+    def page_count(self):
+        return len(self.pages)
+
+    def page(self, number):
+        return self.pages[number - 1]
 
 
 @dataclass

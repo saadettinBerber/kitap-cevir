@@ -12,6 +12,7 @@ from pdf_fakes import FakeLayoutReader, element, real_page
 from extraction.page_extractor import PageExtractor
 from extraction.pdf.geometry import Box
 from extraction.pdf.odl_adapter import OdlLayoutReader, OdlTree
+from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from extraction.pdf.readers import InvalidLayoutReader, layout_reader_for
 from extraction.settings import with_defaults
 
@@ -82,6 +83,10 @@ class PyMuPdfAdapterTest(unittest.TestCase):
     def test_plain_text_follows_reading_order(self):
         with real_page(self.pdf) as page:
             self.assertEqual(page.text().split(), ["Top", "line", "Bottom", "line"])
+
+    def test_document_counts_its_pages(self):
+        with PyMuPdfDocument.open(self.pdf) as document:
+            self.assertEqual(document.page_count, 1)
 
     def test_page_knows_where_it_comes_from(self):
         with real_page(self.pdf) as page:

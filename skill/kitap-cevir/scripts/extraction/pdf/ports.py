@@ -26,6 +26,15 @@ class PdfPage(Protocol):
         """Kutunun görüntüsü, PNG baytları."""
 
 
+class PdfDocument(Protocol):
+    """Açık bir PDF; `with` bloğunun sonunda kapanır."""
+    pdf_path: str
+    page_count: int
+
+    def page(self, number: int) -> PdfPage:
+        """1'den başlayan numarasıyla sayfa."""
+
+
 class LayoutReader(Protocol):
     """Sayfanın düzenini (başlık, paragraf, liste, tablo, görsel) okuyan motor."""
 
