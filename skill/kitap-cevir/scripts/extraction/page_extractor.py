@@ -15,7 +15,6 @@ from extraction.equations.math_scan import MathScanner
 from extraction.odl_elements import OdlElements
 from extraction.page_regions import PageRegions
 from extraction.page_zones import PageZones
-from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from extraction.pdf.readers import layout_reader_for
 from extraction.tables.table_scan import TableScanner
 from extraction.text_fixer import TextFixer
@@ -39,12 +38,8 @@ class PageExtractor:
         """Düzen okuyucusu ayardan seçilir (layout_reader)."""
         return cls(settings, layout_reader_for(settings))
 
-    def extract(self, pdf_path, pdf_page, image_dir):
-        """Sayfayı {blocks, running_header, math} olarak döndürür; görseller image_dir'e yazılır."""
-        with PyMuPdfDocument.open(pdf_path) as document:
-            return self.extract_page(document.page(pdf_page), image_dir)
-
-    def extract_page(self, page, image_dir):
+    def extract(self, page, image_dir):
+        """page: PdfPage → {blocks, running_header, math}; görseller image_dir'e yazılır."""
         header, body = self.zones.split(self.layout_reader.read(page, image_dir))
         layout = self.text_layer.scan(page)
         math = MathScanner(self.settings, image_dir).scan(page)
@@ -56,7 +51,7 @@ class PageExtractor:
                 "running_header": header, "math": self._inline_images(math)}
 
     def hyphen_fixes(self, page):
-        """Satır sonunda bölünmüş sözcüklerin onarımı ('McGraw-' + 'Hill')."""
+        """page: PdfPage; satır sonunda bölünmüş sözcüklerin onarımı ('McGraw-' + 'Hill')."""
         return self.text_layer.scan(page)["hyphen_fixes"]
 
     def _code_block(self, region):

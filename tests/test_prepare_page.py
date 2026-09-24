@@ -29,7 +29,7 @@ class _FakeExtractor:
     def __init__(self, blocks_by_pdf_page):
         self.blocks_by_pdf_page = blocks_by_pdf_page
 
-    def extract_page(self, page, image_dir):
+    def extract(self, page, image_dir):
         return {"blocks": self.blocks_by_pdf_page[page.number], "math": [],
                 "running_header": {"is_chapter": False, "text": "Styles"}}
 

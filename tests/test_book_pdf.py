@@ -38,7 +38,7 @@ class _RecordingExtractor:
     def __init__(self):
         self.pages = []
 
-    def extract_page(self, page, image_dir):
+    def extract(self, page, image_dir):
         self.pages.append((page.number, image_dir))
         return {"blocks": [], "math": [], "running_header": None}
 

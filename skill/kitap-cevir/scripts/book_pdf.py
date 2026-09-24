@@ -41,7 +41,7 @@ class BookPdf:
     def extract(self, pdf_page, image_dir):
         """{blocks, running_header, math, context}; görseller image_dir'e yazılır."""
         with self.open_pdf() as document:
-            extracted = self.extractor.extract_page(document.page(pdf_page), image_dir)
+            extracted = self.extractor.extract(document.page(pdf_page), image_dir)
             return {**extracted, "context": context_snippets(document, pdf_page)}
 
     def hyphen_fixes(self, pdf_page):
