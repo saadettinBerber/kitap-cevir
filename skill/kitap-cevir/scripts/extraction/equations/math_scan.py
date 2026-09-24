@@ -97,18 +97,17 @@ class MathScanner:
         self.cropper = EquationCropper(image_dir)
 
     def scan(self, page):
-        """{"display": [{y0, y1, block}], "inline": [{kind, bbox, before, after, ...}]}"""
-        display, inline, line_rects = [], [], []
-        for spans in page.text_lines():
-            if not self._is_caption(spans):
-                line_rects.append(SpanRun.union(spans))
-            runs = SpanRun.split(spans, self._is_math)
-            if len(runs) == 1 and runs[0].is_math:
-                display.append(spans)
-            else:
-                inline += self._inline_items(page, runs)
-        regions = self._display_regions(page, display) + self._geometry_regions(page, line_rects)
-        return {"display": regions, "inline": inline}
+        """{"display": [{y0, y1, block}], "inline": [{kind, bbox, before, after, ...}]}.
+        Ayrı satır denkleminin bandına düşen parça onun bir parçasıdır, satır içi sayılmaz."""
+        lines = page.text_lines()
+        rects = self._display_rects(lines) + self._geometry_rects(page, lines)
+        inline = [item for spans in lines if not self._is_display_line(spans)
+                  for item in self._inline_items(page, SpanRun.split(spans, self._is_math), rects)]
+        return {"display": [self.cropper.display_region(page, rect) for rect in rects], "inline": inline}
+
+    def _is_display_line(self, spans):
+        runs = SpanRun.split(spans, self._is_math)
+        return len(runs) == 1 and runs[0].is_math
 
     def _is_math(self, span):
         """Boş önek "bu kitapta denklem fontu yok" demektir; startswith("") her fontla eşleşirdi."""
@@ -119,8 +118,9 @@ class MathScanner:
         üstündedir ama çevrilecek bir caption'dır, PNG'ye girmemeli."""
         return bool(self.caption.match("".join(span.text for span in spans).strip()))
 
-    def _inline_items(self, page, runs):
-        return [self._inline_item(page, runs, index) for index, run in enumerate(runs) if run.is_math]
+    def _inline_items(self, page, runs, display_rects):
+        return [self._inline_item(page, runs, index) for index, run in enumerate(runs)
+                if run.is_math and not _in_band(run.rect, display_rects)]
 
     def _inline_item(self, page, runs, index):
         before = runs[index - 1].words()[-1:] if index > 0 else []
@@ -131,15 +131,14 @@ class MathScanner:
             return {**item, "kind": "text", "text": run.text}
         return {**item, "kind": "image", **self.cropper.equation(page, item["bbox"])}
 
-    def _display_regions(self, page, lines):
-        rects = self._merge_adjacent([SpanRun.union(spans) for spans in lines])
-        return [self.cropper.display_region(page, rect) for rect in rects]
+    def _display_rects(self, lines):
+        return self._merge_adjacent([SpanRun.union(spans) for spans in lines if self._is_display_line(spans)])
 
-    def _geometry_regions(self, page, line_rects):
+    def _geometry_rects(self, page, lines):
         if not self.uses_geometry:
             return []
-        rects = FractionEquationFinder(line_rects).regions(page.drawings())
-        return [self.cropper.display_region(page, rect) for rect in rects]
+        line_rects = [SpanRun.union(spans) for spans in lines if not self._is_caption(spans)]
+        return FractionEquationFinder(line_rects).regions(page.drawings())
 
     @staticmethod
     def _merge_adjacent(rects):
@@ -150,6 +149,11 @@ class MathScanner:
             else:
                 merged.append(rect)
         return merged
+
+
+def _in_band(rect, bands):
+    """Kutunun ortası bantlardan birinin dikey aralığında mı?"""
+    return any(band.y0 <= rect.center_y <= band.y1 for band in bands)
 
 
 def placeholder(item_id):

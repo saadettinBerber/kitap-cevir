@@ -65,5 +65,33 @@ class MathScanTest(unittest.TestCase):
         self.assertEqual(result, {"display": [], "inline": []})
 
 
+def _display_with_mixed_line():
+    """İki tam denklem satırı ve aralarında denklem fontunda olmayan '…' taşıyan
+    bir satır (ai-engineering PDF 245): ayrı satır denkleminin parçası."""
+    top = (span("P(x1, x2)", (72, 50, 150, 62), MATH_FONT, 11),)
+    mixed = (span("P(x", (72, 58, 90, 68), MATH_FONT, 11), span("1", (90, 62, 94, 69), MATH_FONT, 7),
+             span("\u2026", (121, 58, 130, 68)),
+             span(",xn)", (131, 58, 160, 68), MATH_FONT, 11))
+    bottom = (span("= (1/P)", (72, 66, 130, 78), MATH_FONT, 11),)
+    return FakePdfPage(lines=[top, mixed, bottom])
+
+
+class DisplayRegionTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.images = os.path.join(self.tmp.name, "images")
+        self.result = MathScanner(SETTINGS, self.images).scan(_display_with_mixed_line())
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_mixed_line_inside_a_display_equation_has_no_inline_items(self):
+        self.assertEqual(self.result["inline"], [])
+
+    def test_only_the_display_equation_is_cropped(self):
+        self.assertEqual(len(self.result["display"]), 1)
+        self.assertEqual(os.listdir(self.images), [self.result["display"][0]["block"]["src"]])
+
+
 if __name__ == "__main__":
     unittest.main()
