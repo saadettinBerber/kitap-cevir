@@ -43,6 +43,9 @@ class PyMuPdfPage:
         return tuple(Span(raw["text"], raw["font"], raw["size"], _box(raw["bbox"]), line["bbox"][1], raw["origin"][1])
                      for raw in line["spans"] if raw["text"].strip())
 
+    def text(self):
+        return self.page.get_text()
+
     def drawings(self):
         return [Drawing(_box(drawing["rect"]), bool(drawing.get("fill"))) for drawing in self.page.get_drawings()]
 

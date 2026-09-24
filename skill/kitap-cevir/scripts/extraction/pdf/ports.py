@@ -15,6 +15,9 @@ class PdfPage(Protocol):
     def text_lines(self) -> list[tuple[Span, ...]]:
         """Satırlar ve parçaları, kütüphanenin okuma sırasıyla; boş satır yok."""
 
+    def text(self) -> str:
+        """Sayfanın düz metni, kütüphanenin okuma sırasıyla."""
+
     def drawings(self) -> list[Drawing]: ...
 
     def text_in(self, box: Box) -> str: ...

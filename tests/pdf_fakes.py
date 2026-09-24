@@ -44,6 +44,9 @@ class FakePdfPage:
     def text_lines(self):
         return [tuple(line) for line in self.lines]
 
+    def text(self):
+        return "\n".join(" ".join(s.text for s in line) for line in self.lines)
+
     def drawings(self):
         return list(self.shapes)
 

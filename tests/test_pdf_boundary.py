@@ -79,6 +79,10 @@ class PyMuPdfAdapterTest(unittest.TestCase):
         self.assertLess(top.box.y0, top.baseline)
         self.assertLess(top.baseline, top.box.y1)
 
+    def test_plain_text_follows_reading_order(self):
+        with real_page(self.pdf) as page:
+            self.assertEqual(page.text().split(), ["Top", "line", "Bottom", "line"])
+
     def test_page_knows_where_it_comes_from(self):
         with real_page(self.pdf) as page:
             self.assertEqual((page.pdf_path, page.number, page.height), (self.pdf, 1, 842))
