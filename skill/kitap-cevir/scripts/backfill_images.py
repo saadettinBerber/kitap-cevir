@@ -6,7 +6,7 @@ Her çevrilmiş sayfa için PDF'ten görseller çıkarılır; her görsel, PDF't
 güvenlidir (aynı görsel iki kez eklenmez).
 
 Kullanım (proje dizininde): python3 backfill_images.py [N ...]
-(argümansız: tüm çevrilmiş sayfalar)
+(argümansız: progress.json'da kayıtlı tüm çevrilmiş sayfalar)
 """
 import difflib
 import os
@@ -129,7 +129,7 @@ class ImageBackfiller:
 def main():
     project = Project.discover()
     backfiller = ImageBackfiller.for_project(project)
-    pages = [int(a) for a in sys.argv[1:]] or project.translated_pages()
+    pages = [int(a) for a in sys.argv[1:]] or project.load_progress().translated_pages()
     total = 0
     for page in sorted(pages):
         added = backfiller.backfill_page(page)

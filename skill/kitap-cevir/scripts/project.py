@@ -4,9 +4,7 @@ Proje kökü: içinde progress.json bulunan ilk dizin (çalışma dizininden yuk
 doğru aranır). KITAP_ROOT ortam değişkeni ayarlıysa doğrudan o kullanılır.
 Betikler skill dizininde yaşar; proje dizini her kitap için ayrıdır.
 """
-import glob
 import os
-import re
 
 from book_settings import BookSettings
 from json_file import read_json, write_json
@@ -16,7 +14,6 @@ PROGRESS_FILE = "progress.json"
 GLOSSARY_FILE = "glossary.md"
 WORK_DIR = "_work"
 ENV_ROOT = "KITAP_ROOT"
-_PAGE_FILE = re.compile(r"page-(\d+)\.js$")
 
 
 class ProjectNotFound(FileNotFoundError):
@@ -97,10 +94,6 @@ class Project:
 
     def work_cards_file(self, stage, page):
         return _page_path(os.path.join(self._work_cards, stage), page, ".json")
-
-    def translated_pages(self):
-        matches = (_PAGE_FILE.search(path) for path in glob.glob(os.path.join(self._pages_dir, "page-*.js")))
-        return sorted(int(match.group(1)) for match in matches if match)
 
 
 def _page_path(directory, page, suffix):

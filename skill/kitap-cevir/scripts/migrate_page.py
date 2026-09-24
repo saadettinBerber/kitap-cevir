@@ -4,7 +4,7 @@
       çevirileri yeni yapıya aktarır, _work/out/page-N.json yazar; eşleşmeyen
       birimler _work/migrate/pending-N.json'a düşer. Eksiksiz sayfalar hemen
       sonlandırılır (--no-finalize ile ertelenir).
-  python3 migrate_page.py all              -> data/pages altındaki tüm sayfalar
+  python3 migrate_page.py all              -> progress.json'da kayıtlı tüm çevrilmiş sayfalar
   python3 migrate_page.py apply 13 31      -> _work/migrate/done-N.json içindeki
       çevirileri ({path, tr} ve {src, latex}) uygulayıp sonlandırır.
 """
@@ -132,12 +132,13 @@ def _status(result):
 
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    migrator = Migrator.for_project(Project.discover())
+    project = Project.discover()
+    migrator = Migrator.for_project(project)
     if args[:1] == ["apply"]:
         _apply_done(migrator, args[1:])
         return
     finalizes_complete = "--no-finalize" not in sys.argv
-    for page in migrator.project.translated_pages() if args == ["all"] else [int(a) for a in args]:
+    for page in project.load_progress().translated_pages() if args == ["all"] else [int(a) for a in args]:
         result = migrator.run(page)
         result["finalized"] = result["complete"] and finalizes_complete
         if result["finalized"]:

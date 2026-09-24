@@ -2,7 +2,7 @@
 
 Kullanım (proje dizininde):
   python3 regen_concepts.py prepare 5 13 40-60  -> _work/cards/in/page-N.json (kart agent'ı girdisi)
-  python3 regen_concepts.py prepare all         -> data/pages altındaki tüm sayfalar
+  python3 regen_concepts.py prepare all         -> progress.json'da kayıtlı tüm çevrilmiş sayfalar
   python3 regen_concepts.py apply 5 13 | all    -> _work/cards/out/page-N.json içindeki kartları
       denetler ve data/pages/page-N.js'e yazar; sorunlu sayfa yazılmaz, sorunları basılır.
 
@@ -123,7 +123,7 @@ def main():
         print(__doc__)
         sys.exit(1)
     project = Project.discover()
-    pages, skipped = select_pages(sys.argv[2:], project.translated_pages())
+    pages, skipped = select_pages(sys.argv[2:], project.load_progress().translated_pages())
     if skipped:
         print(f"  ! çevrilmemiş sayfalar atlandı: {', '.join(map(str, skipped))}")
     ACTIONS[sys.argv[1]](project, pages)
