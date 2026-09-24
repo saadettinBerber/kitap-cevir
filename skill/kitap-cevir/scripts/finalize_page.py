@@ -83,15 +83,7 @@ class PageFinalizer:
     def _register(self, document):
         """Sayfayı progress.json'a kaydeder, last_translated_page'i ilerletir."""
         progress = self.project.load_progress()
-        progress.data["pages"][str(document["page"])] = {
-            "pdf_page": document["pdf_page"],
-            "chapter": document.get("chapter", {}).get("num"),
-            "title_en": document.get("title", {}).get("en", ""),
-            "title_tr": document.get("title", {}).get("tr", ""),
-            "section_en": document.get("section", {}).get("en", ""),
-            "section_tr": document.get("section", {}).get("tr", ""),
-        }
-        progress.data["last_translated_page"] = max(progress.data["last_translated_page"], document["page"])
+        progress.record_translation(document)
         self.project.save_progress(progress)
         return progress
 

@@ -39,25 +39,19 @@ class PagePreparer:
         return write_json(self.project.work_input(document["page"]), document)
 
     def mark_blank(self, page):
-        self.progress.data["pages"][str(page)] = {"blank": True, "pdf_page": self.progress.pdf_page(page)}
-        self.progress.data["last_translated_page"] = max(self.progress.data["last_translated_page"], page)
+        self.progress.mark_blank(page)
         self.project.save_progress(self.progress)
 
     def prepare_pages(self, spec, count):
         """Hazırlanan sayfaların özetleri; boş sayfa özet üretmez."""
         if spec not in NEXT_ALIASES:
             return self._prepare_requested(int(spec))
-        wanted = count or self.progress.data.get("pages_per_run", 1)
+        wanted = count or self.progress.pages_per_run()
         prepared = []
-        for page in self._candidate_pages(wanted + MAX_BLANK_SKIPS):
+        for page in self.progress.next_pages(wanted + MAX_BLANK_SKIPS):
             if len(prepared) < wanted:
                 prepared += self._prepare_next(page)
         return prepared
-
-    def _candidate_pages(self, count):
-        start = self.progress.data["last_translated_page"] + 1
-        end = min(start + count - 1, self.progress.data["book_total_pages"])
-        return list(range(start, end + 1))
 
     def _prepare_requested(self, page):
         prepared = self._prepare(page)
