@@ -21,6 +21,7 @@ NUMERATOR = (span("A =", (87, 191, 102, 205)), span("ma", (106, 191, 120, 205)))
 DENOMINATOR = (span("mc", (106, 208, 119, 222)),)
 PROSE = (span("In the equation, ma represents abstract elements.", (COLUMN_LEFT, PROSE_TOP, 303, 263), size=10.5),)
 FRACTION_BAR = stroke(106, 208, 125, 208)
+EQUATION_CAPTION = (span("Equation 3-3. Abstractness", (COLUMN_LEFT, 177, 200, 187)),)
 
 
 def _table_rule(*stops):
@@ -29,8 +30,8 @@ def _table_rule(*stops):
     return [stroke(left, TABLE_RULE_Y, right, TABLE_RULE_Y) for left, right in zip(stops, stops[1:])]
 
 
-def _scan(*shapes, settings=SETTINGS):
-    page = FakePdfPage(lines=[NUMERATOR, DENOMINATOR, PROSE], shapes=[FRACTION_BAR, *shapes])
+def _scan(lines=(NUMERATOR, DENOMINATOR, PROSE), shapes=(), settings=SETTINGS):
+    page = FakePdfPage(lines=list(lines), shapes=[FRACTION_BAR, *shapes])
     with tempfile.TemporaryDirectory() as images:
         return MathScanner(with_defaults(settings), page, images).scan()
 
@@ -53,13 +54,18 @@ class GeometryMathTest(unittest.TestCase):
         self.assertLess(region["y1"], PROSE_TOP)
         self.assertNotIn("represents", region["block"]["text"])
 
+    def test_caption_above_the_fraction_stays_out_of_the_equation(self):
+        """Denklem başlığı denklemin hemen üstündedir ama çevrilecek bir caption'dır."""
+        [region] = _scan(lines=(EQUATION_CAPTION, NUMERATOR, DENOMINATOR, PROSE))["display"]
+        self.assertEqual(region["block"]["text"], "A = ma mc")
+
     def test_full_width_rule_is_not_a_fraction_bar(self):
-        self.assertEqual(len(_scan(*_table_rule(COLUMN_LEFT, COLUMN_RIGHT))["display"]), 1)
+        self.assertEqual(len(_scan(shapes=_table_rule(COLUMN_LEFT, COLUMN_RIGHT))["display"]), 1)
 
     def test_segmented_table_rule_is_not_a_fraction_bar(self):
         """Kenarlığın sütun kenarından başlamayan parçası tek başına kesir
         çizgisine benzer; test hizanın tamamına bakılmasını korur."""
-        self.assertEqual(len(_scan(*_table_rule(COLUMN_LEFT, TABLE_RULE_SPLIT, COLUMN_RIGHT))["display"]), 1)
+        self.assertEqual(len(_scan(shapes=_table_rule(COLUMN_LEFT, TABLE_RULE_SPLIT, COLUMN_RIGHT))["display"]), 1)
 
     def test_detection_is_off_by_default(self):
         self.assertEqual(_scan(settings={})["display"], [])

@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from pdf_fakes import FAKE_PNG, FakePdfPage, span, stroke
+from pdf_fakes import FAKE_PNG, FakePdfPage, span
 from extraction.equations.math_scan import MathScanner, placeholder
 from extraction.settings import with_defaults
 
@@ -91,23 +91,6 @@ class DisplayRegionTest(unittest.TestCase):
     def test_only_the_display_equation_is_cropped(self):
         self.assertEqual(len(self.result["display"]), 1)
         self.assertEqual(os.listdir(self.images), [self.result["display"][0]["block"]["src"]])
-
-
-def _fraction_under_caption():
-    """Kesir çizgisinin hemen üstünde denklem başlığı; altında uzak bir gövde satırı."""
-    caption = (span("Equation 3-3. Abstractness", (72, 182, 200, 192)),)
-    numerator = (span("A = ma", (87, 196, 125, 206)),)
-    denominator = (span("mc", (106, 210, 125, 220)),)
-    prose = (span("In the equation, ma represents abstract elements.", (72, 260, 432, 272)),)
-    return FakePdfPage(lines=[caption, numerator, denominator, prose], shapes=[stroke(106, 208, 125, 208.6)])
-
-
-class GeometryCaptionTest(unittest.TestCase):
-    def test_caption_above_the_fraction_stays_out_of_the_equation(self):
-        with tempfile.TemporaryDirectory() as images:
-            result = MathScanner(with_defaults({"math_geometry": True}), _fraction_under_caption(), images).scan()
-        [region] = result["display"]
-        self.assertEqual(region["block"]["text"], "A = ma mc")
 
 
 if __name__ == "__main__":
