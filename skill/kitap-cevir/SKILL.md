@@ -51,6 +51,8 @@ aynı agent'ta da birbirine karışmaz.
 `python3`, `pip install -U opendataloader-pdf pymupdf`, Java 11+ (OpenDataLoader
 Java tabanlıdır). `ModuleNotFoundError` görürsen pip komutunu çalıştır; `java`
 yoksa kullanıcıdan kurmasını iste (`sudo apt install default-jre` vb.).
+`progress.json -> extraction.layout_reader: "liteparse"` seçilen kitapta ayrıca
+`pip install -U liteparse` gerekir (Java gerekmez).
 
 ## A. Kurulum (`init`)
 

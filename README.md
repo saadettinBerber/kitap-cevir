@@ -16,6 +16,7 @@ birikir.
 git clone https://github.com/saadettinBerber/kitap-cevir ~/Desktop/kitap-cevir
 ln -s ~/Desktop/kitap-cevir/skill/kitap-cevir ~/.claude/skills/kitap-cevir
 python3 -m pip install -U opendataloader-pdf pymupdf   # Java 11+ gerekir
+python3 -m pip install -U liteparse                    # isteğe bağlı: layout_reader "liteparse"
 ```
 
 Claude Code'u yeniden başlatınca `/kitap-cevir` görünür.
@@ -65,7 +66,9 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │       │   ├── geometry.py       Box: sol-üst orijinli kutu
 │       │   ├── ports.py          PdfPage, LayoutReader arayüzleri
 │       │   ├── pymupdf_adapter.py  PdfPage ← PyMuPDF
-│       │   └── odl_adapter.py    LayoutReader ← OpenDataLoader (koordinatı sınırda çevirir)
+│       │   ├── odl_adapter.py    LayoutReader ← OpenDataLoader (koordinatı sınırda çevirir)
+│       │   ├── liteparse_adapter.py  LayoutReader ← LiteParse (Java'sız, hızlı; font/punto metin katmanından)
+│       │   └── readers.py        extraction.layout_reader: odl | liteparse
 │       ├── page_zones.py     koşu başlığı ve alt bilgi
 │       ├── block_builder.py  düzen öğesi → blok; ChapterOpener bölüm açılışını birleştirir
 │       ├── page_regions.py   kod/tablo/denklem bölgelerinin okuma sırasına yerleşimi
