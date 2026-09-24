@@ -10,7 +10,7 @@ import fitz
 
 import _paths  # noqa: F401
 import init_book
-from init_book import card_kinds, slugify
+from init_book import card_kinds, parse_args, slugify
 
 PAGE_COUNT = 3
 
@@ -50,6 +50,21 @@ class CardKindsTest(unittest.TestCase):
             card_kinds(" , ")
 
 
+REQUIRED = ["--pdf", "kitap.pdf", "--title", "Demo Kitap", "--author", "Yazar", "--offset", "1", "--total", "2"]
+
+
+class ParseArgsTest(unittest.TestCase):
+    def test_card_kinds_default_to_all(self):
+        self.assertEqual(parse_args(REQUIRED).card_kinds, ["explain", "contrast", "tradeoff", "code"])
+
+    def test_card_kinds_can_be_chosen(self):
+        self.assertEqual(parse_args(REQUIRED + ["--card-kinds", "tradeoff, explain"]).card_kinds, ["tradeoff", "explain"])
+
+    def test_unknown_card_kind_stops_the_command(self):
+        with self.assertRaises(SystemExit), mock.patch("sys.stderr"):
+            parse_args(REQUIRED + ["--card-kinds", "code,kod"])
+
+
 class InitBookTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -84,15 +99,6 @@ class InitBookTest(unittest.TestCase):
         progress = json.load(open(os.path.join(self.target, "progress.json"), encoding="utf-8"))
         self.assertEqual(progress["concepts"], {"kinds": ["explain", "contrast", "tradeoff", "code"],
                                                 "code_comment_lang": "en"})
-
-    def test_card_kinds_can_be_chosen(self):
-        self._run(["--card-kinds", "tradeoff, explain"])
-        progress = json.load(open(os.path.join(self.target, "progress.json"), encoding="utf-8"))
-        self.assertEqual(progress["concepts"]["kinds"], ["tradeoff", "explain"])
-
-    def test_unknown_card_kind_is_rejected(self):
-        with self.assertRaises(SystemExit), mock.patch("sys.stderr"):
-            self._run(["--card-kinds", "code,kod"])
 
     def test_placeholders_are_filled(self):
         self._run()

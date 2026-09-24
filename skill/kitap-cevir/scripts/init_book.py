@@ -58,7 +58,8 @@ def card_kinds(text):
     return kinds
 
 
-def parse_args():
+def parse_args(argv=None):
+    """argv verilmezse komut satırı (sys.argv) okunur."""
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--pdf", required=True)
     parser.add_argument("--title", required=True)
@@ -75,7 +76,7 @@ def parse_args():
                         help="izinli kavram kartı türleri, virgülle (references/FORMAT.md)")
     parser.add_argument("--pages-per-run", type=int, default=DEFAULT_PAGES_PER_RUN)
     parser.add_argument("--target", default=os.getcwd())
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 class BookSetup:
