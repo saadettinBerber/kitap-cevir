@@ -5,8 +5,8 @@ import unittest
 
 import fitz
 
-import _paths  # noqa: F401
-from page_input import PageInputBuilder, context_snippets
+from pdf_fakes import FakePdfDocument, FakePdfPage, span
+from page_input import CONTEXT_CHARS, PageInputBuilder, context_snippets
 from prepare_page import PagePreparer
 from progress import Progress
 from project import Project
@@ -25,22 +25,30 @@ def _document(page_count):
     return document
 
 
+def _fake_document(page_count):
+    pages = [FakePdfPage(lines=[(span(f"Sayfa {number}", (72, 60, 120, 72)),)], number=number)
+             for number in range(1, page_count + 1)]
+    return FakePdfDocument(pages)
+
+
 class ContextSnippetsTest(unittest.TestCase):
     def test_middle_page_sees_both_neighbours(self):
-        with _document(3) as document:
-            self.assertEqual(context_snippets(document, 2), {"prev_tail": "Sayfa 1", "next_head": "Sayfa 3"})
+        self.assertEqual(context_snippets(_fake_document(3), 2), {"prev_tail": "Sayfa 1", "next_head": "Sayfa 3"})
 
     def test_first_page_has_no_previous_text(self):
-        with _document(3) as document:
-            self.assertEqual(context_snippets(document, 1)["prev_tail"], "")
+        self.assertEqual(context_snippets(_fake_document(3), 1)["prev_tail"], "")
 
     def test_last_page_has_no_following_text(self):
-        with _document(3) as document:
-            self.assertEqual(context_snippets(document, 3)["next_head"], "")
+        self.assertEqual(context_snippets(_fake_document(3), 3)["next_head"], "")
 
     def test_single_page_document_has_no_context(self):
-        with _document(1) as document:
-            self.assertEqual(context_snippets(document, 1), {"prev_tail": "", "next_head": ""})
+        self.assertEqual(context_snippets(_fake_document(1), 1), {"prev_tail": "", "next_head": ""})
+
+    def test_neighbour_text_is_cut_to_the_context_size(self):
+        long_page = FakePdfPage(lines=[(span("x" * (CONTEXT_CHARS + 5), (72, 60, 500, 72)),)])
+        document = FakePdfDocument([long_page, FakePdfPage(), long_page])
+        self.assertEqual({key: len(text) for key, text in context_snippets(document, 2).items()},
+                         {"prev_tail": CONTEXT_CHARS, "next_head": CONTEXT_CHARS})
 
 
 class _FakeExtractor:

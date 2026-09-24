@@ -2,9 +2,8 @@
 kesit bilgisi, komşu sayfalardan bağlam. prepare_page, migrate_page ve
 backfill_images kullanır. Şema: references/FORMAT.md.
 """
-import fitz
-
 from extraction.page_extractor import PageExtractor
+from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from extraction.text_utils import normalize_spaces
 
 CONTEXT_CHARS = 700
@@ -14,10 +13,11 @@ def _page_text(document, pdf_page):
     """İlk sayfanın öncesi ve son sayfanın sonrası boş metindir."""
     if not 1 <= pdf_page <= document.page_count:
         return ""
-    return normalize_spaces(document[pdf_page - 1].get_text())
+    return normalize_spaces(document.page(pdf_page).text())
 
 
 def context_snippets(document, pdf_page):
+    """document: PdfDocument; komşu sayfaların bitişik uçları."""
     return {"prev_tail": _page_text(document, pdf_page - 1)[-CONTEXT_CHARS:],
             "next_head": _page_text(document, pdf_page + 1)[:CONTEXT_CHARS]}
 
@@ -60,5 +60,5 @@ class PageInputBuilder:
         return self.progress.section_of(page - 1)
 
     def _context(self, pdf_page):
-        with fitz.open(self.pdf) as document:
+        with PyMuPdfDocument.open(self.pdf) as document:
             return context_snippets(document, pdf_page)
