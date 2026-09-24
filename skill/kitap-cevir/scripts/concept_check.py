@@ -46,15 +46,36 @@ def _duplicate_ids(cards):
     return duplicates
 
 
+class CodeRules:
+    """code kartının iki tarafı da kitabın izin verdiği dilde kod ve iki dilli `why` taşır."""
+
+    def __init__(self, langs):
+        self.langs = langs
+        self.normal_langs = {_normal_lang(lang) for lang in langs}
+
+    def problems(self, card):
+        problems = []
+        for side in SIDES:
+            sample = card.get(side) or {}
+            problems += self._code_side(sample, side) + _missing_pair(sample.get("why"), f"{side}.why")
+        return problems
+
+    def _code_side(self, sample, side):
+        if not str(sample.get("code", "")).strip():
+            return [f"{side}.code boş"]
+        if _normal_lang(sample.get("lang")) not in self.normal_langs:
+            return [f"{side}.lang {sample.get('lang')!r} izinli değil ({', '.join(self.langs)})"]
+        return []
+
+
 class CardChecker:
     """Bir sayfanın kartlarını kitabın kart ayarlarına göre denetler;
     spec = BookSettings.concepts()."""
 
     def __init__(self, spec):
         self.spec = spec
-        self.code_langs = {_normal_lang(lang) for lang in spec["code_langs"]}
         self.kind_checks = {"explain": self._explain_problems, "contrast": self._contrast_problems,
-                            "tradeoff": self._tradeoff_problems, "code": self._code_problems}
+                            "tradeoff": self._tradeoff_problems, "code": CodeRules(spec["code_langs"]).problems}
 
     def problems(self, cards):
         problems = []
@@ -73,20 +94,6 @@ class CardChecker:
         for field in ("title", "summary", "tip"):
             problems += _missing_pair(card.get(field), field)
         return problems + self.kind_checks[kind](card)
-
-    def _code_problems(self, card):
-        problems = []
-        for side in SIDES:
-            sample = card.get(side) or {}
-            problems += self._code_side(sample, side) + _missing_pair(sample.get("why"), f"{side}.why")
-        return problems
-
-    def _code_side(self, sample, side):
-        if not str(sample.get("code", "")).strip():
-            return [f"{side}.code boş"]
-        if _normal_lang(sample.get("lang")) not in self.code_langs:
-            return [f"{side}.lang {sample.get('lang')!r} izinli değil ({', '.join(self.spec['code_langs'])})"]
-        return []
 
     @staticmethod
     def _contrast_problems(card):
