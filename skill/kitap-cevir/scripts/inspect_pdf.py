@@ -59,6 +59,29 @@ def _folio_candidates(lines):
     return [number for number in numbers if 0 < number <= MAX_FOLIO]
 
 
+class FolioOffsets:
+    """Basılı sayfa numaralarından ofset oyları (PDF sayfası - kitap sayfası)."""
+
+    def __init__(self, votes, examples):
+        self.votes = votes
+        self.examples = examples
+
+    @classmethod
+    def of_folios(cls, folios):
+        """folios: (PDF sayfası, basılı numara) çiftleri; eksi ofset sayılmaz."""
+        votes, examples = Counter(), {}
+        for pdf_page, folio in folios:
+            offset = pdf_page - folio
+            if offset >= 0:
+                votes[offset] += 1
+                examples.setdefault(offset, (pdf_page, folio))
+        return cls(votes, examples)
+
+    def most_likely(self, count):
+        """[(ofset, oy, ilk örnek)], en çok oy alan önce."""
+        return [(offset, votes, self.examples[offset]) for offset, votes in self.votes.most_common(count)]
+
+
 class PdfInspector:
     """Açık bir PDF (PdfDocument) üzerinde tanıma komutları: info, text, layout, offset."""
 
@@ -88,23 +111,13 @@ class PdfInspector:
             print(f"  {font:28} {size:5.1f}  {count}")
 
     def offset(self, first, last):
-        votes, examples = self._offset_votes(first, last)
-        if not votes:
+        candidates = FolioOffsets.of_folios(self._folios(first, last)).most_likely(TOP_CANDIDATES)
+        if not candidates:
             print("Basılı sayfa numarası bulunamadı; ofseti elle belirleyin.")
             return
         print("Olası ofsetler (PDF sayfası - kitap sayfası):")
-        for offset, count in votes.most_common(TOP_CANDIDATES):
-            pdf_page, folio = examples[offset]
+        for offset, count, (pdf_page, folio) in candidates:
             print(f"  offset={offset:4}  {count:4} oy   örnek: PDF {pdf_page} = kitap {folio}")
-
-    def _offset_votes(self, first, last):
-        votes, examples = Counter(), {}
-        for number, folio in self._folios(first, last):
-            offset = number - folio
-            if offset >= 0:
-                votes[offset] += 1
-                examples.setdefault(offset, (number, folio))
-        return votes, examples
 
     def _folios(self, first, last):
         """(PDF sayfası, basılı sayfa numarası) adayları."""

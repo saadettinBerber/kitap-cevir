@@ -3,7 +3,7 @@ import io
 import unittest
 
 from pdf_fakes import FakePdfDocument, FakePdfPage, span
-from inspect_pdf import PdfInspector
+from inspect_pdf import FolioOffsets, PdfInspector
 
 OFFSET = 2
 BODY_PAGES = 4
@@ -44,6 +44,18 @@ class PdfInspectorTest(unittest.TestCase):
         report = _output(lambda: PdfInspector(_book()).layout(OFFSET + 1))
         self.assertIn("Body text of the chapter", report)
         self.assertIn("Font / boyut / karakter sayısı", report)
+
+
+class FolioOffsetsTest(unittest.TestCase):
+    def test_most_voted_offset_comes_first_with_its_first_example(self):
+        offsets = FolioOffsets.of_folios([(22, 20), (23, 21), (30, 5)])
+        self.assertEqual(offsets.most_likely(2), [(2, 2, (22, 20)), (25, 1, (30, 5))])
+
+    def test_negative_offset_is_not_counted(self):
+        self.assertEqual(FolioOffsets.of_folios([(3, 10)]).most_likely(1), [])
+
+    def test_zero_offset_is_counted(self):
+        self.assertEqual(FolioOffsets.of_folios([(7, 7)]).most_likely(1), [(0, 1, (7, 7))])
 
 
 if __name__ == "__main__":
