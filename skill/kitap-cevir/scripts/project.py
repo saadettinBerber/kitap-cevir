@@ -86,6 +86,7 @@ class Project:
         self.work_in = os.path.join(self.root, WORK_DIR, "in")
         self.work_out = os.path.join(self.root, WORK_DIR, "out")
         self.work_cards = os.path.join(self.root, WORK_DIR, "cards")
+        self.work_migrate = os.path.join(self.root, WORK_DIR, "migrate")
 
     def load_progress(self):
         return read_json(self.progress_path)
@@ -103,11 +104,31 @@ class Project:
         return os.path.relpath(path, self.root)
 
     def page_js(self, page):
-        return os.path.join(self.pages_dir, f"page-{page}.js")
+        return _page_path(self.pages_dir, page, ".js")
+
+    def page_images(self, page):
+        return _page_path(self.pages_dir, page, "_images")
+
+    def work_input(self, page):
+        return _page_path(self.work_in, page, ".json")
+
+    def work_images(self, page):
+        return _page_path(self.work_in, page, "_images")
+
+    def work_output(self, page):
+        return _page_path(self.work_out, page, ".json")
+
+    def work_cards_file(self, stage, page):
+        return _page_path(os.path.join(self.work_cards, stage), page, ".json")
 
     def translated_pages(self):
         matches = (_PAGE_FILE.search(path) for path in glob.glob(os.path.join(self.pages_dir, "page-*.js")))
         return sorted(int(match.group(1)) for match in matches if match)
+
+
+def _page_path(directory, page, suffix):
+    """Sayfa dosyalarının ad kuralı: page-N.js, page-N.json, page-N_images."""
+    return os.path.join(directory, f"page-{page}{suffix}")
 
 
 def extraction_settings(progress):

@@ -36,7 +36,7 @@ class PageDocumentTest(unittest.TestCase):
 
     def test_write_drops_private_fields_and_reads_back(self):
         with tempfile.TemporaryDirectory() as pages_dir:
-            path = PageDocument(self.PAGE).write(pages_dir)
+            path = PageDocument(self.PAGE).write(os.path.join(pages_dir, "page-2.js"))
             self.assertEqual(os.path.basename(path), "page-2.js")
             self.assertNotIn("context", PageDocument.read(path).data)
 

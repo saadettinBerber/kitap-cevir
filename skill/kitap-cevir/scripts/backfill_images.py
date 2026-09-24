@@ -114,11 +114,11 @@ class ImageBackfiller:
         page_document = PageDocument.read(self.project.page_js(page))
         added = self._place(images, ImagePlacement(page_document.data["blocks"]), page)
         if added:
-            page_document.write(self.project.pages_dir)
+            page_document.write(self.project.page_js(page))
         return added
 
     def _place(self, images, placement, page):
-        target_dir = os.path.join(self.project.pages_dir, f"page-{page}_images")
+        target_dir = self.project.page_images(page)
         added = 0
         for src, anchor in images.anchored():
             if not placement.has(src):

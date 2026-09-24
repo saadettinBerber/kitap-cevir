@@ -36,7 +36,7 @@ class PagePreparer:
         return cls(project, progress, PageInputBuilder.for_progress(project, progress))
 
     def write_input(self, document):
-        return write_json(os.path.join(self.project.work_in, f"{document['id']}.json"), document)
+        return write_json(self.project.work_input(document["page"]), document)
 
     def mark_blank(self, page):
         self.progress["pages"][str(page)] = {"blank": True, "pdf_page": self.builder.pdf_page(page)}

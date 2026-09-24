@@ -2,8 +2,6 @@
 kesit bilgisi, komşu sayfalardan bağlam. prepare_page, migrate_page ve
 backfill_images kullanır. Şema: references/FORMAT.md.
 """
-import os
-
 import fitz
 
 from extraction.page_extractor import PageExtractor
@@ -55,7 +53,7 @@ class PageInputBuilder:
         return page + self.progress["pdf_offset"]
 
     def image_dir(self, page):
-        return os.path.join(self.project.work_in, f"page-{page}_images")
+        return self.project.work_images(page)
 
     def _chapter(self, page):
         started = [chapter for chapter in self.progress["chapters"] if chapter["start"] <= page]

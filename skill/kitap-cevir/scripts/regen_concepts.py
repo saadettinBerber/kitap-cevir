@@ -8,7 +8,6 @@ Kullanım (proje dizininde):
 
 Agent çıktısı: {"concepts": [...]} — sözleşme: references/FORMAT.md → Kavram kartları.
 """
-import os
 import re
 import sys
 
@@ -49,7 +48,7 @@ class CardRegenerator:
         return range(int(match.group(1)), int(match.group(2)) + 1) if match else [int(spec)]
 
     def cards_path(self, stage, page):
-        return os.path.join(self.project.work_cards, stage, f"page-{page}.json")
+        return self.project.work_cards_file(stage, page)
 
     def prepare(self, pages):
         for page in pages:
@@ -79,7 +78,7 @@ class CardRegenerator:
         problems = self.checker.problems(cards)
         if not problems:
             document = PageDocument.read(self.project.page_js(page))
-            PageDocument({**document.data, "concepts": cards}).write(self.project.pages_dir)
+            PageDocument({**document.data, "concepts": cards}).write(self.project.page_js(document.data["page"]))
         return problems
 
 

@@ -34,7 +34,7 @@ class PageFinalizer:
     def finalize(self, translated_path):
         """Sayfayı projeye işler; dönen özet, CLI'ın basacağı uyarıları taşır."""
         page = self._read(translated_path)
-        page_js = page.write(self.project.pages_dir)
+        page_js = page.write(self.project.page_js(page.data["page"]))
         images = self._copy_images(page)
         progress = self._register(page.data)
         cards = page.data.get("concepts", [])
@@ -72,8 +72,8 @@ class PageFinalizer:
         sources = page.media_sources()
         if not sources:
             return 0
-        src_dir = os.path.join(self.project.work_in, f"{page.data['id']}_images")
-        dst_dir = os.path.join(self.project.pages_dir, f"{page.data['id']}_images")
+        src_dir = self.project.work_images(page.data["page"])
+        dst_dir = self.project.page_images(page.data["page"])
         os.makedirs(dst_dir, exist_ok=True)
         present = [name for name in sources if os.path.isfile(os.path.join(src_dir, name))]
         for name in present:

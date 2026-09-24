@@ -67,7 +67,7 @@ class Migrator:
         self.project = project
         self.builder = builder
         self.finalizer = finalizer
-        self.migrate_dir = os.path.join(project.root, "_work", "migrate")
+        self.migrate_dir = project.work_migrate
 
     @classmethod
     def for_project(cls, project):
@@ -98,7 +98,7 @@ class Migrator:
         return self.finalize(page)
 
     def _out_path(self, page):
-        return os.path.join(self.project.work_out, f"page-{page}.json")
+        return self.project.work_output(page)
 
     def _write_pending(self, page, pending, latex_items):
         os.makedirs(self.migrate_dir, exist_ok=True)

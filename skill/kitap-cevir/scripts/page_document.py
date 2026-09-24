@@ -22,10 +22,9 @@ class PageDocument:
             source = handle.read()
         return cls(json.loads(source[source.index("(") + 1:source.rindex(")")]))
 
-    def write(self, pages_dir):
-        os.makedirs(pages_dir, exist_ok=True)
+    def write(self, path):
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         payload = {key: value for key, value in self.data.items() if key not in PRIVATE_FIELDS}
-        path = os.path.join(pages_dir, f"{self.data['id']}.js")
         with open(path, "w", encoding="utf-8") as handle:
             handle.write("window.PAGE(" + json.dumps(payload, ensure_ascii=False) + ");\n")
         return path

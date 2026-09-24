@@ -32,7 +32,7 @@ class RegenConceptsTest(unittest.TestCase):
         with open(os.path.join(self.tmp.name, "progress.json"), "w", encoding="utf-8") as handle:
             json.dump(PROGRESS, handle)
         self.project = Project(self.tmp.name)
-        PageDocument(PAGE).write(self.project.pages_dir)
+        PageDocument(PAGE).write(self.project.page_js(PAGE["page"]))
         self.regenerator = CardRegenerator.for_project(self.project)
 
     def tearDown(self):
