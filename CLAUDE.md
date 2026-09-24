@@ -51,4 +51,5 @@ Bu depodaki karşılıkları:
   - sınıf (Bl.10, Bl.6): tek değişme nedeni, uyum, melez, elden ele taşınan değişken
   - sistem ve kalıp (Bl.11, Bl.12, haritanın "Bağlantılar" dalı): kurulum/kullanım ayrımı, tekrar, ihtiyaç → kalıp
   Bulgular haritadaki başlık adıyla yazılır; tereddütte kitaba bakılır. `clean-code-reviewer` ajanı kullanılmaz.
+- Commit'ler atomiktir: tek değişiklik, tek cümlelik mesaj, gövde yok. Mesaja "ve" giriyorsa commit bölünür.
 - Commit mesajları Türkçedir, yapay zeka imzası ya da `Co-Authored-By` satırı eklenmez. Commit yalnız istenince atılır.
