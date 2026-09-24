@@ -42,7 +42,7 @@ class PageExtractor:
         elements = extract_odl_elements(page.pdf_path, page.number, image_dir)
         layout = scan_page(page.pdf_path, page.number, self.settings)
         header, body = self.zones.split(elements)
-        math = MathScanner(self.settings, image_dir).scan(page.pdf_path, page.number)
+        math = MathScanner(self.settings, image_dir).scan(page)
         regions = PageRegions.from_layout(layout, self.tables.scan(page) + math["display"], self._code_block)
         body = (OdlElements(body).flatten_nested_lists().drop_nested_fragments().merge_footnote_markers()
                 .with_inline_math(math["inline"], layout["page_height"])

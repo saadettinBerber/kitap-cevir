@@ -13,11 +13,10 @@ Koordinatlar üst orijinlidir.
 import os
 import re
 
-import fitz
-
 from extraction.equations.math_geometry import FractionEquationFinder
-from project import DEFAULT_EXTRACTION
+from extraction.pdf.geometry import Box
 from extraction.text_utils import normalize_spaces
+from project import DEFAULT_EXTRACTION
 
 CROP_DPI = 220
 CROP_PADDING = 3
@@ -46,10 +45,7 @@ class SpanRun:
 
     @staticmethod
     def union(spans):
-        rect = fitz.Rect(spans[0]["bbox"])
-        for span in spans[1:]:
-            rect |= span["bbox"]
-        return rect
+        return Box.enclosing(span.box for span in spans)
 
     @property
     def rect(self):
@@ -57,14 +53,14 @@ class SpanRun:
 
     @property
     def text(self):
-        return normalize_spaces("".join(span["text"] for span in self.spans))
+        return normalize_spaces("".join(span.text for span in self.spans))
 
     def is_simple(self):
-        sizes = {round(span["size"], 1) for span in self.spans}
+        sizes = {round(span.size, 1) for span in self.spans}
         return len(self.spans) <= SIMPLE_MAX_SPANS and len(sizes) == 1
 
     def words(self):
-        return " ".join(span["text"] for span in self.spans).split()
+        return " ".join(span.text for span in self.spans).split()
 
 
 class EquationCropper:
@@ -78,7 +74,7 @@ class EquationCropper:
         self.counter += 1
         item_id = f"eq-{self.counter}"
         return {"id": item_id, "src": self._crop(page, rect, item_id),
-                "text": normalize_spaces(page.get_text("text", clip=rect)), "latex": ""}
+                "text": normalize_spaces(page.text_in(rect)), "latex": ""}
 
     def display_region(self, page, rect):
         equation = self.equation(page, rect)
@@ -87,9 +83,8 @@ class EquationCropper:
 
     def _crop(self, page, rect, item_id):
         os.makedirs(self.image_dir, exist_ok=True)
-        clip = fitz.Rect(rect.x0 - CROP_PADDING, rect.y0 - CROP_PADDING,
-                         rect.x1 + CROP_PADDING, rect.y1 + CROP_PADDING)
-        page.get_pixmap(dpi=CROP_DPI, clip=clip).save(os.path.join(self.image_dir, f"{item_id}.png"))
+        with open(os.path.join(self.image_dir, f"{item_id}.png"), "wb") as png:
+            png.write(page.png(rect.expanded(CROP_PADDING), CROP_DPI))
         return f"{item_id}.png"
 
 
@@ -103,14 +98,10 @@ class MathScanner:
         self.caption = re.compile(settings["equation_caption_pattern"])
         self.cropper = EquationCropper(image_dir)
 
-    def scan(self, pdf_path, pdf_page):
+    def scan(self, page):
         """{"display": [{y0, y1, block}], "inline": [{kind, bbox, before, after, ...}]}"""
-        with fitz.open(pdf_path) as document:
-            return self._scan_page(document[pdf_page - 1])
-
-    def _scan_page(self, page):
         display, inline, line_rects = [], [], []
-        for spans in self._lines(page):
+        for spans in page.text_lines():
             if not self._is_caption(spans):
                 line_rects.append(SpanRun.union(spans))
             runs = SpanRun.split(spans, self._is_math)
@@ -121,23 +112,14 @@ class MathScanner:
         regions = self._display_regions(page, display) + self._geometry_regions(page, line_rects)
         return {"display": regions, "inline": inline}
 
-    @staticmethod
-    def _lines(page):
-        lines = (line for block in page.get_text("dict")["blocks"] for line in block.get("lines", []))
-        for line in lines:
-            spans = [{"bbox": fitz.Rect(s["bbox"]), "font": s["font"], "size": s["size"],
-                      "text": s["text"]} for s in line["spans"] if s["text"].strip()]
-            if spans:
-                yield spans
-
     def _is_math(self, span):
         """Boş önek "bu kitapta denklem fontu yok" demektir; startswith("") her fontla eşleşirdi."""
-        return bool(self.prefix) and span["font"].startswith(self.prefix)
+        return bool(self.prefix) and span.font.startswith(self.prefix)
 
     def _is_caption(self, spans):
         """Denklem başlığı ("Equation 3-3. Abstractness") denklemin hemen
         üstündedir ama çevrilecek bir caption'dır, PNG'ye girmemeli."""
-        return bool(self.caption.match("".join(s["text"] for s in spans).strip()))
+        return bool(self.caption.match("".join(span.text for span in spans).strip()))
 
     def _inline_items(self, page, runs):
         return [self._inline_item(page, runs, index) for index, run in enumerate(runs) if run.is_math]
@@ -158,7 +140,7 @@ class MathScanner:
     def _geometry_regions(self, page, line_rects):
         if not self.uses_geometry:
             return []
-        rects = FractionEquationFinder(line_rects).regions(page)
+        rects = FractionEquationFinder(line_rects).regions(page.drawings())
         return [self.cropper.display_region(page, rect) for rect in rects]
 
     @staticmethod
@@ -166,9 +148,9 @@ class MathScanner:
         merged = []
         for rect in sorted(rects, key=lambda r: r.y0):
             if merged and rect.y0 - merged[-1].y1 <= rect.height * LINE_MERGE_RATIO:
-                merged[-1] |= rect
+                merged[-1] = merged[-1].union(rect)
             else:
-                merged.append(fitz.Rect(rect))
+                merged.append(rect)
         return merged
 
 

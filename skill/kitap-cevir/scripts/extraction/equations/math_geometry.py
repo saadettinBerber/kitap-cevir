@@ -6,7 +6,7 @@ toplam limitleri) iki boyutlu tek bir denklem oluşturur. Tablo kenarlığı ve
 alt bilgi kuralı da yatay çizgidir; ayrım metin sütununa göre yapılır.
 Koordinatlar üst orijinlidir.
 """
-import fitz
+from extraction.pdf.geometry import Box
 
 BAR_MAX_HEIGHT = 2.0          # bundan kalını çizgi değil dolgu dikdörtgenidir
 BAR_MIN_WIDTH = 4.0
@@ -29,9 +29,9 @@ class Rule:
         return rect.height <= BAR_MAX_HEIGHT and rect.width >= BAR_MIN_WIDTH
 
     @classmethod
-    def from_drawings(cls, page):
+    def from_drawings(cls, drawings):
         rules = []
-        for bar in sorted((d["rect"] for d in page.get_drawings() if cls.is_bar(d["rect"])),
+        for bar in sorted((drawing.box for drawing in drawings if cls.is_bar(drawing.box)),
                           key=lambda rect: rect.y0):
             if rules and rules[-1].is_level_with(bar):
                 rules[-1].bars.append(bar)
@@ -74,17 +74,17 @@ class FractionEquationFinder:
     def __init__(self, line_rects):
         self.line_rects = line_rects
 
-    def regions(self, page):
+    def regions(self, drawings):
         if not self.line_rects:
             return []
         column = TextColumn(self.line_rects)
-        bars = [bar for rule in Rule.from_drawings(page) if column.holds_fraction(rule) for bar in rule.bars]
+        bars = [bar for rule in Rule.from_drawings(drawings) if column.holds_fraction(rule) for bar in rule.bars]
         return self._merge_overlapping([self._grow(bar) for bar in bars])
 
     def _grow(self, bar):
         """Kesir çizgisinden başlayıp pay, payda, denklemin sol yanı ve toplam
         limitlerini toplar; bölge büyüdükçe yeni komşular çıktığı için yinelenir."""
-        region = fitz.Rect(bar)
+        region = bar
         for _ in range(MAX_GROWTH_PASSES):
             grown = self._with_neighbours(region)
             if grown == region:
@@ -93,15 +93,8 @@ class FractionEquationFinder:
         return region
 
     def _with_neighbours(self, region):
-        grown = fitz.Rect(region)
-        for rect in self.line_rects:
-            if self._vertical_gap(region, rect) <= EQUATION_LINE_GAP:
-                grown |= rect
-        return grown
-
-    @staticmethod
-    def _vertical_gap(first, second):
-        return max(0.0, first.y0 - second.y1, second.y0 - first.y1)
+        near = [rect for rect in self.line_rects if region.vertical_gap(rect) <= EQUATION_LINE_GAP]
+        return Box.enclosing([region, *near])
 
     @staticmethod
     def _merge_overlapping(rects):
@@ -109,7 +102,7 @@ class FractionEquationFinder:
         merged = []
         for rect in sorted(rects, key=lambda r: r.y0):
             if merged and merged[-1].intersects(rect):
-                merged[-1] |= rect
+                merged[-1] = merged[-1].union(rect)
             else:
-                merged.append(fitz.Rect(rect))
+                merged.append(rect)
         return merged
