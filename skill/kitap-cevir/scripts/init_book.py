@@ -20,9 +20,8 @@ import os
 import re
 import shutil
 
-import fitz
-
 from book_settings import CARD_KINDS, DEFAULT_CODE_COMMENT_LANG
+from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from json_file import read_json
 from progress import Progress
 from project import PROGRESS_FILE, Project
@@ -133,7 +132,7 @@ class BookSetup:
                 "subtitle_tr": args.subtitle_tr, "author": args.author, "series": args.series}
 
     def _page_count(self, pdf_name):
-        with fitz.open(os.path.join(self.target, pdf_name)) as document:
+        with PyMuPdfDocument.open(os.path.join(self.target, pdf_name)) as document:
             return document.page_count
 
     def _chapters(self):
