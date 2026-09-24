@@ -34,24 +34,24 @@ class SelectPagesTest(unittest.TestCase):
         self.assertEqual(select_pages(["all"], [4, 7]), ([4, 7], []))
 
 
-class RegenConceptsTest(unittest.TestCase):
+class _BookTestCase(unittest.TestCase):
+    """Tek çevrilmiş sayfalı (4) bir kitap projesi; testi yoktur."""
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         with open(os.path.join(self.tmp.name, "progress.json"), "w", encoding="utf-8") as handle:
             json.dump(PROGRESS, handle)
         self.project = Project(self.tmp.name)
         PageDocument(PAGE).write(self.project.page_js(PAGE["page"]))
-        self.inputs = CardInputs.for_project(self.project)
-        self.regenerator = CardOutputs.for_project(self.project)
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def _write_output(self, cards):
-        path = self.project.work_cards_file("out", 4)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as handle:
-            json.dump({"concepts": cards}, handle)
+
+class CardInputsTest(_BookTestCase):
+    def setUp(self):
+        super().setUp()
+        self.inputs = CardInputs.for_project(self.project)
 
     def test_card_input_flattens_text_blocks(self):
         document = self.inputs.card_input(PAGE)
@@ -66,21 +66,32 @@ class RegenConceptsTest(unittest.TestCase):
             spec = json.load(handle)["concepts_spec"]
         self.assertEqual((spec["kinds"], spec["code_langs"]), (["explain", "tradeoff"], ["python"]))
 
+
+class CardOutputsTest(_BookTestCase):
+    def setUp(self):
+        super().setUp()
+        self.outputs = CardOutputs.for_project(self.project)
+
+    def _write_output(self, cards):
+        path = self.project.work_cards_file("out", 4)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump({"concepts": cards}, handle)
+
     def test_apply_replaces_only_concepts(self):
         self._write_output([_explain("a"), _explain("b")])
-        self.assertEqual(self.regenerator.apply([4]), {4: []})
+        self.assertEqual(self.outputs.apply([4]), {4: []})
         page = PageDocument.read(self.project.page_js(4)).data
         self.assertEqual([card["id"] for card in page["concepts"]], ["a", "b"])
         self.assertEqual(page["blocks"], PAGE["blocks"])
 
     def test_apply_keeps_page_when_cards_are_invalid(self):
         self._write_output([_explain("a")])
-        self.assertEqual(self.regenerator.apply([4]), {4: ["kart sayısı 1 (2-4 olmalı)"]})
+        self.assertEqual(self.outputs.apply([4]), {4: ["kart sayısı 1 (2-4 olmalı)"]})
         self.assertEqual(PageDocument.read(self.project.page_js(4)).data["concepts"], PAGE["concepts"])
 
     def test_apply_reports_missing_output(self):
-        self.assertIn("çıktı yok", self.regenerator.apply([4])[4][0])
-
+        self.assertIn("çıktı yok", self.outputs.apply([4])[4][0])
 
 if __name__ == "__main__":
     unittest.main()
