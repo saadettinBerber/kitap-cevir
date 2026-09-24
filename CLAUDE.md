@@ -46,4 +46,9 @@ Bu depodaki karşılıkları:
   - eski kodun `git worktree`'si
   - 30 sayfalık çıkarım (blok JSON + PNG özetleri)
   - finalize, regen, taşıma ve görsel ekleme akışları
+- Yazdıktan sonra, commit'ten önce kod zihin haritasına göre bir daha ele alınır. Kalıp ihtiyacı çoğu zaman ancak yazılmış kodda görünür (Bl.3 · How Do You Write Functions Like This?, Bl.12 kural 2-4). Üç düzeyde bakılır:
+  - fonksiyon (Bl.3): boyut, tek iş, argüman, CQS
+  - sınıf (Bl.10, Bl.6): tek değişme nedeni, uyum, melez, elden ele taşınan değişken
+  - sistem ve kalıp (Bl.11, Bl.12, haritanın "Bağlantılar" dalı): kurulum/kullanım ayrımı, tekrar, ihtiyaç → kalıp
+  Bulgular haritadaki başlık adıyla yazılır; tereddütte kitaba bakılır. `clean-code-reviewer` ajanı kullanılmaz.
 - Commit mesajları Türkçedir, yapay zeka imzası ya da `Co-Authored-By` satırı eklenmez. Commit yalnız istenince atılır.
