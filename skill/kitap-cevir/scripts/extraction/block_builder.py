@@ -94,43 +94,52 @@ class BlockBuilder:
         self.listing_caption = re.compile(settings["listing_caption_pattern"])
         label = settings["chapter_label_pattern"]
         self.chapter_label = re.compile(label) if label else None
-        self._builders = {"list item": self._list_item_blocks, "heading": self._heading_blocks,
+        self._builders = {"chapter label": self._chapter_label_blocks,
+                          "list item": self._list_item_blocks, "heading": self._heading_blocks,
                           "paragraph": self._paragraph_blocks, "list": self._list_blocks,
                           "image": self._image_blocks, "caption": self._caption_blocks,
                           "table": self._table_blocks}
 
     def blocks_of(self, element):
-        label = self._chapter_label_blocks(element)
-        if label:
-            return label
-        kind = element.kind
-        if kind == "paragraph" and self.scale.reads_as_heading(element):
-            kind = "heading"
-        build = self._builders.get(kind)
+        build = self._builders.get(self._kind_of(element))
         return build(element) if build else []
+
+    def _kind_of(self, element):
+        """Okuyucunun verdiği tür düzeltilir: bölüm etiketi satırı, puntosu başlık
+        olan paragraf ve gövde metni gibi okunan başlık."""
+        text = self._plain(element)
+        if self._is_chapter_label(text):
+            return "chapter label"
+        kind = "heading" if element.kind == "paragraph" and self.scale.reads_as_heading(element) else element.kind
+        if kind == "heading" and _looks_like_paragraph(text):
+            return "paragraph"
+        return kind
 
     def _plain(self, element):
         return self.fixer.plain(element.text)
 
+    def _is_chapter_label(self, text):
+        return bool(self.chapter_label and self.chapter_label.match(text))
+
     def _chapter_label_blocks(self, element):
         """Bölüm etiketi satırı (CHAPTER 7 gibi); ODL kimi kitapta bunu paragraf
         sanar, ChapterOpener numarayı bölüm başlığına taşır."""
-        match = self.chapter_label.match(self._plain(element)) if self.chapter_label else None
-        return [{"type": "chapter_number", "num": int(match.group(1))}] if match else []
+        match = self.chapter_label.match(self._plain(element))
+        return [{"type": "chapter_number", "num": int(match.group(1))}]
 
     def _heading_blocks(self, element):
-        text, size = self._plain(element), element.font_size
-        if not text:
-            return []
-        if _looks_like_paragraph(text):
-            return self._paragraph_blocks(element)
+        text = self._plain(element)
+        return [self._heading_block(text, element.font_size)] if text else []
+
+    def _heading_block(self, text, size):
+        """Başlık türü punto ve desenden: bölüm numarası, bölüm başlığı, listing caption, kesit."""
         if self.scale.is_chapter_number(size) and text.isdigit():
-            return [{"type": "chapter_number", "num": int(text)}]
+            return {"type": "chapter_number", "num": int(text)}
         if self.scale.is_chapter_title(size):
-            return [{"type": "chapter", "en": text}]
+            return {"type": "chapter", "en": text}
         if self.listing_caption.match(text):
-            return [{"type": "caption", "kind": "listing", "en": text}]
-        return [{"type": "heading", "level": self.scale.heading_level(size), "en": text}]
+            return {"type": "caption", "kind": "listing", "en": text}
+        return {"type": "heading", "level": self.scale.heading_level(size), "en": text}
 
     def _paragraph_blocks(self, element):
         text = self._plain(element)
