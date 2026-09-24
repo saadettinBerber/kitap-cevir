@@ -7,6 +7,7 @@ import _paths  # noqa: F401
 from finalize_page import PageFinalizer
 from page_document import PageDocument
 from project import Project
+from translated_pages import TranslatedPages
 
 GLOSSARY = ("# S\n\n| İngilizce Terim | Türkçe Karşılığı | Açıklama/Not |\n"
             "|----------------|-----------------|-------------|\n")
@@ -64,8 +65,8 @@ class FinalizeTest(unittest.TestCase):
         self.assertEqual((result["cards_pending"], result["card_problems"]), (False, ["kart sayısı 1 (2-4 olmalı)"]))
 
     def test_page_js_round_trips(self):
-        result = PageFinalizer(self.project).finalize(self.out)
-        self.assertEqual(PageDocument.read(result["page_js"]).data["title"], {"en": "T", "tr": "B"})
+        PageFinalizer(self.project).finalize(self.out)
+        self.assertEqual(TranslatedPages(self.project).get(3).data["title"], {"en": "T", "tr": "B"})
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ from json_file import read_json
 from page_document import PageDocument
 from project import Project
 from reader_data import Glossary, TableOfContents
+from translated_pages import TranslatedPages
 
 _REQUIRED_FIELDS = ("id", "page", "pdf_page", "blocks")
 
@@ -30,11 +31,12 @@ class PageFinalizer:
 
     def __init__(self, project):
         self.project = project
+        self.pages = TranslatedPages(project)
 
     def finalize(self, translated_path):
         """Sayfayı projeye işler; dönen özet, CLI'ın basacağı uyarıları taşır."""
         page = self._read(translated_path)
-        page_js = page.write(self.project.page_js(page.data["page"]))
+        page_js = self.pages.save(page)
         images = self._copy_images(page)
         progress = self._register(page.data)
         cards = page.data.get("concepts", [])
@@ -72,7 +74,7 @@ class PageFinalizer:
         if not sources:
             return 0
         src_dir = self.project.work_images(page.data["page"])
-        dst_dir = self.project.page_images(page.data["page"])
+        dst_dir = self.pages.images_dir(page.data["page"])
         os.makedirs(dst_dir, exist_ok=True)
         present = [name for name in sources if os.path.isfile(os.path.join(src_dir, name))]
         for name in present:
