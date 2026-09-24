@@ -54,7 +54,7 @@ class CardInputsTest(_BookTestCase):
         self.inputs = CardInputs.for_project(self.project)
 
     def test_card_input_flattens_text_blocks(self):
-        document = self.inputs.card_input(PAGE)
+        document = self.inputs.card_input(PageDocument(PAGE))
         self.assertEqual(document["content"], [
             {"type": "heading", "en": "Styles", "tr": "Tarzlar"},
             {"type": "para", "en": "A. B.", "tr": "A. B."}])

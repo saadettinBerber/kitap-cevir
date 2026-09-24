@@ -50,11 +50,12 @@ class CardInputs:
 
     def _write_input(self, page):
         path = self.project.work_cards_file("in", page)
-        write_json(path, self.card_input(PageDocument.read(self.project.page_js(page)).data))
+        write_json(path, self.card_input(PageDocument.read(self.project.page_js(page))))
         return self.project.relative_to_root(path)
 
-    def card_input(self, page_data):
-        content = [unit for unit in (block.card_unit() for block in PageDocument(page_data).blocks()) if unit]
+    def card_input(self, document):
+        page_data = document.data
+        content = [unit for unit in (block.card_unit() for block in document.blocks()) if unit]
         return {"id": page_data["id"], "page": page_data["page"],
                 "chapter": page_data.get("chapter", {}), "section": page_data.get("section", {}),
                 "title": page_data.get("title", {}), "content": content,
