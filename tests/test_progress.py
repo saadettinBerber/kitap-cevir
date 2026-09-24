@@ -36,5 +36,30 @@ class SettingsTest(unittest.TestCase):
                 Progress({"concepts": concepts}).concepts_settings()
 
 
+
+class PageLocationTest(unittest.TestCase):
+    CHAPTERS = [{"num": 1, "en": "One", "tr": "Bir", "start": 3}, {"num": 2, "en": "Two", "tr": "İki", "start": 10}]
+
+    def setUp(self):
+        self.progress = Progress({"pdf_offset": 19, "chapters": self.CHAPTERS,
+                                  "pages": {"4": {"section_en": "Intro", "section_tr": "Giriş"}}})
+
+    def test_pdf_page_adds_the_offset(self):
+        self.assertEqual(self.progress.pdf_page(1), 20)
+
+    def test_chapter_starts_on_its_first_page(self):
+        self.assertEqual(self.progress.chapter_of(10)["num"], 2)
+        self.assertEqual(self.progress.chapter_of(9)["num"], 1)
+
+    def test_page_before_the_first_chapter_has_no_chapter(self):
+        self.assertEqual(self.progress.chapter_of(2), {"num": 0, "en": "", "tr": ""})
+
+    def test_section_comes_from_the_recorded_page(self):
+        self.assertEqual(self.progress.section_of(4), {"en": "Intro", "tr": "Giriş"})
+
+    def test_unrecorded_page_has_an_empty_section(self):
+        self.assertEqual(self.progress.section_of(5), {"en": "", "tr": ""})
+
+
 if __name__ == "__main__":
     unittest.main()

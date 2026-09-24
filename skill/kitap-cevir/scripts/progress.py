@@ -11,6 +11,7 @@ DEFAULT_BOOK = {"slug": "kitap", "title": "", "subtitle": "", "subtitle_tr": "",
 CARD_KINDS = ("explain", "contrast", "tradeoff", "code")
 _LEGACY_MODE_KINDS = {"code": ["code"], "contrast": ["contrast", "code"], "explain": ["explain"]}
 DEFAULT_CODE_COMMENT_LANG = "en"
+UNKNOWN_CHAPTER = {"num": 0, "en": "", "tr": ""}
 
 
 class InvalidConceptSettings(ValueError):
@@ -25,6 +26,21 @@ class Progress:
 
     def book_pdf(self):
         return self.data["book_pdf"]
+
+    def pdf_page(self, page):
+        return page + self.data["pdf_offset"]
+
+    def chapter_of(self, page):
+        """Sayfanın içinde bulunduğu bölüm; ilk bölümden önceki sayfanın bölümü yoktur."""
+        started = [chapter for chapter in self.data["chapters"] if chapter["start"] <= page]
+        if not started:
+            return dict(UNKNOWN_CHAPTER)
+        return {key: started[-1][key] for key in ("num", "en", "tr")}
+
+    def section_of(self, page):
+        """Kaydedilmiş sayfanın kesiti; kaydı olmayan sayfanın kesiti boştur."""
+        entry = self.data["pages"].get(str(page), {})
+        return {"en": entry.get("section_en", ""), "tr": entry.get("section_tr", "")}
 
     def extraction_settings(self):
         return with_defaults(self.data.get("extraction", {}))

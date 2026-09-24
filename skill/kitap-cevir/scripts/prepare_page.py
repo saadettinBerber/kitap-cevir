@@ -39,7 +39,7 @@ class PagePreparer:
         return write_json(self.project.work_input(document["page"]), document)
 
     def mark_blank(self, page):
-        self.progress.data["pages"][str(page)] = {"blank": True, "pdf_page": self.builder.pdf_page(page)}
+        self.progress.data["pages"][str(page)] = {"blank": True, "pdf_page": self.progress.pdf_page(page)}
         self.progress.data["last_translated_page"] = max(self.progress.data["last_translated_page"], page)
         self.project.save_progress(self.progress)
 

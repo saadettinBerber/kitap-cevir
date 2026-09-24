@@ -8,7 +8,6 @@ from extraction.page_extractor import PageExtractor
 from extraction.text_utils import normalize_spaces
 
 CONTEXT_CHARS = 700
-UNKNOWN_CHAPTER = {"num": 0, "en": "", "tr": ""}
 
 
 def _page_text(document, pdf_page):
@@ -40,25 +39,16 @@ class PageInputBuilder:
         return self.extractor.hyphen_fixes(self.pdf, pdf_page)
 
     def build(self, page):
-        pdf_page = self.pdf_page(page)
+        pdf_page = self.progress.pdf_page(page)
         extracted = self.extractor.extract(self.pdf, pdf_page, self.image_dir(page))
         return {"id": f"page-{page}", "page": page, "pdf_page": pdf_page,
-                "chapter": self._chapter(page), "section": self._section(page, extracted["running_header"]),
+                "chapter": self.progress.chapter_of(page), "section": self._section(page, extracted["running_header"]),
                 "title": {"en": "", "tr": ""}, "blocks": extracted["blocks"], "math": extracted["math"],
                 "concepts": [], "glossary_new": [],
                 "context": self._context(pdf_page)}
 
-    def pdf_page(self, page):
-        return page + self.progress.data["pdf_offset"]
-
     def image_dir(self, page):
         return self.project.work_images(page)
-
-    def _chapter(self, page):
-        started = [chapter for chapter in self.progress.data["chapters"] if chapter["start"] <= page]
-        if not started:
-            return dict(UNKNOWN_CHAPTER)
-        return {key: started[-1][key] for key in ("num", "en", "tr")}
 
     def _section(self, page, header):
         """Koşu başlığı yoksa bölüm açılış sayfasıdır (kesit yok); tek sayfa
@@ -67,8 +57,7 @@ class PageInputBuilder:
             return {"en": "", "tr": ""}
         if not header["is_chapter"] and header["text"]:
             return {"en": header["text"], "tr": ""}
-        previous = self.progress.data["pages"].get(str(page - 1), {})
-        return {"en": previous.get("section_en", ""), "tr": previous.get("section_tr", "")}
+        return self.progress.section_of(page - 1)
 
     def _context(self, pdf_page):
         with fitz.open(self.pdf) as document:
