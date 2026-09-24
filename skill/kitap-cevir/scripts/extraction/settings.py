@@ -2,7 +2,7 @@
 
 Varsayılanlar 6x9 inç teknik kitap dizgisi içindir; anlamları
 references/extraction.md'dedir. Ayar üst düzeyde bir kez birleştirilir
-(project.extraction_settings) ve tarayıcılara hazır verilir.
+(Progress.extraction_settings) ve tarayıcılara hazır verilir.
 """
 DEFAULT_EXTRACTION = {
     "code_font_prefix": "Courier",

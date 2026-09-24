@@ -8,6 +8,7 @@ import fitz
 import _paths  # noqa: F401
 from page_input import PageInputBuilder, context_snippets
 from prepare_page import PagePreparer
+from progress import Progress
 from project import Project
 
 PARA = {"type": "para", "sentences": [{"en": "Text."}]}
@@ -59,9 +60,9 @@ class PagePreparationTest(unittest.TestCase):
         with _document(5) as document:
             document.save(os.path.join(self.tmp.name, "book.pdf"))
         self.project = Project(self.tmp.name)
-        self.progress = json.loads(json.dumps(PROGRESS))
+        self.progress = Progress(json.loads(json.dumps(PROGRESS)))
         with open(os.path.join(self.tmp.name, "progress.json"), "w", encoding="utf-8") as handle:
-            json.dump(self.progress, handle)
+            json.dump(self.progress.data, handle)
         extractor = _FakeExtractor({2: [PARA], 3: [IMAGE], 4: [PARA], 5: [PARA]})
         self.builder = PageInputBuilder(self.project, self.progress, extractor)
         self.preparer = PagePreparer(self.project, self.progress, self.builder)
@@ -78,11 +79,11 @@ class PagePreparationTest(unittest.TestCase):
     def test_next_pages_skip_and_mark_blank_ones(self):
         prepared = self.preparer.prepare_pages("next", None)
         self.assertEqual([entry["page"] for entry in prepared], [1, 3])
-        self.assertTrue(self.project.load_progress()["pages"]["2"]["blank"])
+        self.assertTrue(self.project.load_progress().data["pages"]["2"]["blank"])
 
     def test_requested_blank_page_is_not_marked(self):
         self.assertEqual(self.preparer.prepare_pages("2", None), [])
-        self.assertNotIn("2", self.project.load_progress()["pages"])
+        self.assertNotIn("2", self.project.load_progress().data["pages"])
 
 
 if __name__ == "__main__":

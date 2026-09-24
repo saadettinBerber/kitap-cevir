@@ -44,7 +44,7 @@ class FinalizeTest(unittest.TestCase):
         page_js = open(result["page_js"], encoding="utf-8").read()
         self.assertTrue(page_js.startswith("window.PAGE("))
         self.assertNotIn("gizli", page_js)
-        progress = self.project.load_progress()
+        progress = self.project.load_progress().data
         self.assertEqual(progress["last_translated_page"], 3)
         self.assertEqual(progress["pages"]["3"]["title_tr"], "B")
         self.assertEqual(result["terms"], 1)

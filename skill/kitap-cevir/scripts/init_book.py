@@ -23,7 +23,8 @@ import shutil
 import fitz
 
 from json_file import read_json
-from project import CARD_KINDS, DEFAULT_CODE_COMMENT_LANG, PROGRESS_FILE, Project
+from progress import CARD_KINDS, DEFAULT_CODE_COMMENT_LANG, Progress
+from project import PROGRESS_FILE, Project
 from reader_data import rebuild
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -89,7 +90,7 @@ class BookSetup:
         shutil.copytree(TEMPLATE_DIR, self.target, dirs_exist_ok=True)
         self._fill_placeholders({"TITLE": self.args.title, "AUTHOR": self.args.author})
         project = Project(self.target)
-        project.save_progress(self._progress(self._place_pdf()))
+        project.save_progress(Progress(self._progress(self._place_pdf())))
         rebuild(project)
         return project
 
@@ -142,11 +143,12 @@ class BookSetup:
 
 def report(project, progress):
     print(f"✓ Kitap projesi kuruldu: {project.root}")
-    print(f"  kitap: {progress['book']['title']} — {progress['book']['author']}")
-    print(f"  PDF: {progress['book_pdf']} ({progress['pdf_total_pages']} sayfa), "
-          f"ofset {progress['pdf_offset']}, kitap {progress['book_total_pages']} sayfa")
-    print(f"  bölüm sayısı: {len(progress['chapters'])}")
-    print(f"  kart türleri: {', '.join(progress['concepts']['kinds'])}")
+    book, data = progress.book_info(), progress.data
+    print(f"  kitap: {book['title']} — {book['author']}")
+    print(f"  PDF: {progress.book_pdf()} ({data['pdf_total_pages']} sayfa), "
+          f"ofset {data['pdf_offset']}, kitap {data['book_total_pages']} sayfa")
+    print(f"  bölüm sayısı: {len(data['chapters'])}")
+    print(f"  kart türleri: {', '.join(progress.concepts_settings()['kinds'])}")
     print(NEXT_STEPS)
 
 

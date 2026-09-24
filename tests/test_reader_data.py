@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 import _paths  # noqa: F401
+from progress import Progress
 from project import Project
 from reader_data import Glossary, TableOfContents
 
@@ -35,7 +36,7 @@ class ReaderDataTest(unittest.TestCase):
         return json.loads(raw[len(prefix):-1])
 
     def test_toc_contains_book_and_chapter_ends(self):
-        TableOfContents(self.project, PROGRESS).write()
+        TableOfContents(self.project, Progress(PROGRESS)).write()
         toc = self._js_payload(self.project.toc_js, "window.TOC = ")
         self.assertEqual(toc["book"]["slug"], "demo")
         self.assertEqual([c["end"] for c in toc["chapters"]], [10, 30])

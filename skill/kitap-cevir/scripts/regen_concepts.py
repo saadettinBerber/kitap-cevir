@@ -14,7 +14,7 @@ import sys
 from concept_check import CardChecker
 from json_file import read_json, write_json
 from page_document import PageDocument
-from project import Project, concepts_settings
+from project import Project
 
 _RANGE = re.compile(r"^(\d+)-(\d+)$")
 
@@ -29,7 +29,7 @@ class CardRegenerator:
 
     @classmethod
     def for_project(cls, project):
-        return cls(project, CardChecker(concepts_settings(project.load_progress())))
+        return cls(project, CardChecker(project.load_progress().concepts_settings()))
 
     def select_pages(self, specs):
         """'all', tek numaralar ve '5-40' aralıkları; çevrilmemiş sayfalar atlanır."""

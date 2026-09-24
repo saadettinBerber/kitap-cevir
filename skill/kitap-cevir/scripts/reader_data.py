@@ -8,7 +8,7 @@ import json
 import os
 import re
 
-from project import Project, book_info
+from project import Project
 
 GLOSSARY_HEADER_CELL = "İngilizce Terim"
 _TABLE_ROW = re.compile(r"^\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*$")
@@ -35,28 +35,29 @@ class TableOfContents:
 
     def __init__(self, project, progress):
         self.script = ReaderScript(project.toc_js, "TOC")
-        self.progress = progress
+        self.book = progress.book_info()
+        self.data = progress.data
 
     def write(self):
-        progress = self.progress
+        data = self.data
         return self.script.write({
             "book": self._book(),
-            "bookTotalPages": progress["book_total_pages"],
-            "pdfOffset": progress["pdf_offset"],
-            "lastTranslatedPage": progress["last_translated_page"],
+            "bookTotalPages": data["book_total_pages"],
+            "pdfOffset": data["pdf_offset"],
+            "lastTranslatedPage": data["last_translated_page"],
             "chapters": self._chapters(),
-            "pages": {num: self._page(info) for num, info in progress["pages"].items()},
+            "pages": {num: self._page(info) for num, info in data["pages"].items()},
         })
 
     def _book(self):
-        book = book_info(self.progress)
+        book = self.book
         return {"slug": book["slug"], "title": book["title"], "subtitle": book["subtitle"],
                 "subtitleTr": book["subtitle_tr"], "author": book["author"], "series": book["series"]}
 
     def _chapters(self):
         """Her bölüm bir sonrakinin başlangıcından bir önceki sayfada biter."""
-        chapters = self.progress["chapters"]
-        return [{**chapter, "end": following["start"] - 1 if following else self.progress["book_total_pages"]}
+        chapters = self.data["chapters"]
+        return [{**chapter, "end": following["start"] - 1 if following else self.data["book_total_pages"]}
                 for chapter, following in zip(chapters, chapters[1:] + [None])]
 
     @staticmethod

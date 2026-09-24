@@ -4,9 +4,8 @@ import tempfile
 import unittest
 
 import _paths  # noqa: F401
-from extraction.settings import DEFAULT_EXTRACTION
-from project import (CARD_KINDS, InvalidConceptSettings, Project,
-                     ProjectNotFound, book_info, concepts_settings, extraction_settings, find_root)
+from progress import Progress
+from project import Project, ProjectNotFound, find_root
 
 
 class FindRootTest(unittest.TestCase):
@@ -32,36 +31,7 @@ class FindRootTest(unittest.TestCase):
                 del os.environ["KITAP_ROOT"]
 
 
-class SettingsTest(unittest.TestCase):
-    def test_extraction_merges_over_defaults(self):
-        merged = extraction_settings({"extraction": {"code_font_prefix": "Consolas"}})
-        self.assertEqual(merged["code_font_prefix"], "Consolas")
-        self.assertEqual(merged["footnote_max_size"], DEFAULT_EXTRACTION["footnote_max_size"])
-
-    def test_book_info_has_fallback_slug(self):
-        self.assertEqual(book_info({})["slug"], "kitap")
-
-    def test_concepts_default_allows_every_kind(self):
-        self.assertEqual(concepts_settings({}), {"kinds": list(CARD_KINDS), "code_langs": ["java"],
-                                                 "code_comment_lang": "en"})
-
-    def test_code_langs_follow_book_language(self):
-        merged = concepts_settings({"extraction": {"default_code_language": "python"}})
-        self.assertEqual(merged["code_langs"], ["python"])
-
-    def test_kinds_override_default(self):
-        merged = concepts_settings({"concepts": {"kinds": ["tradeoff", "explain"]}})
-        self.assertEqual(merged["kinds"], ["tradeoff", "explain"])
-
-    def test_legacy_mode_maps_to_kinds(self):
-        self.assertEqual(concepts_settings({"concepts": {"mode": "code"}})["kinds"], ["code"])
-        self.assertNotIn("mode", concepts_settings({"concepts": {"mode": "contrast"}}))
-
-    def test_unknown_mode_or_kind_raises(self):
-        for concepts in ({"mode": "kod"}, {"kinds": ["kod"]}, {"kinds": []}):
-            with self.assertRaises(InvalidConceptSettings):
-                concepts_settings({"concepts": concepts})
-
+class PdfPathTest(unittest.TestCase):
     def test_pdf_path_absolute_is_kept(self):
         with tempfile.TemporaryDirectory() as root:
             open(os.path.join(root, "progress.json"), "w").write(json.dumps({"book_pdf": "/x/y.pdf"}))
@@ -73,8 +43,8 @@ class ProgressFileTest(unittest.TestCase):
     def test_saved_progress_reads_back_and_ends_with_a_newline(self):
         with tempfile.TemporaryDirectory() as root:
             project = Project(root)
-            project.save_progress({"book": {"title": "Kitaplık"}})
-            self.assertEqual(project.load_progress(), {"book": {"title": "Kitaplık"}})
+            project.save_progress(Progress({"book": {"title": "Kitaplık"}}))
+            self.assertEqual(project.load_progress().data, {"book": {"title": "Kitaplık"}})
             with open(project.progress_path, encoding="utf-8") as handle:
                 self.assertTrue(handle.read().endswith("}\n"))
 

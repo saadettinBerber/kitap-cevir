@@ -15,7 +15,7 @@ import sys
 from json_file import write_json
 from page_document import PageDocument
 from page_input import PageInputBuilder
-from project import Project, translator_has_vision
+from project import Project
 
 MAX_BLANK_SKIPS = 3
 NEXT_ALIASES = ("next", "sıradaki", "sonraki", "devam")
@@ -39,15 +39,15 @@ class PagePreparer:
         return write_json(self.project.work_input(document["page"]), document)
 
     def mark_blank(self, page):
-        self.progress["pages"][str(page)] = {"blank": True, "pdf_page": self.builder.pdf_page(page)}
-        self.progress["last_translated_page"] = max(self.progress["last_translated_page"], page)
+        self.progress.data["pages"][str(page)] = {"blank": True, "pdf_page": self.builder.pdf_page(page)}
+        self.progress.data["last_translated_page"] = max(self.progress.data["last_translated_page"], page)
         self.project.save_progress(self.progress)
 
     def prepare_pages(self, spec, count):
         """Hazırlanan sayfaların özetleri; boş sayfa özet üretmez."""
         if spec not in NEXT_ALIASES:
             return self._prepare_requested(int(spec))
-        wanted = count or self.progress.get("pages_per_run", 1)
+        wanted = count or self.progress.data.get("pages_per_run", 1)
         prepared = []
         for page in self._candidate_pages(wanted + MAX_BLANK_SKIPS):
             if len(prepared) < wanted:
@@ -55,8 +55,8 @@ class PagePreparer:
         return prepared
 
     def _candidate_pages(self, count):
-        start = self.progress["last_translated_page"] + 1
-        end = min(start + count - 1, self.progress["book_total_pages"])
+        start = self.progress.data["last_translated_page"] + 1
+        end = min(start + count - 1, self.progress.data["book_total_pages"])
         return list(range(start, end + 1))
 
     def _prepare_requested(self, page):
@@ -110,7 +110,7 @@ def _print_entry(entry, has_vision):
 def _report(prepared, progress):
     print(f"Hazırlanan sayfa sayısı: {len(prepared)}\n")
     for entry in prepared:
-        _print_entry(entry, translator_has_vision(progress))
+        _print_entry(entry, progress.translator_has_vision())
     print("\nSonraki adım: her girdi için bir çevirmen agent çalıştır "
           "(sözleşme: references/FORMAT.md), çıktıyı _work/out/page-N.json yaz, "
           f"sonra: python3 {SCRIPTS_DIR}/finalize_page.py _work/out/page-N.json; "

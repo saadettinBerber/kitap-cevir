@@ -8,8 +8,8 @@ import glob
 import os
 import re
 
-from extraction.settings import with_defaults
 from json_file import read_json, write_json
+from progress import Progress
 
 PROGRESS_FILE = "progress.json"
 GLOSSARY_FILE = "glossary.md"
@@ -17,20 +17,9 @@ WORK_DIR = "_work"
 ENV_ROOT = "KITAP_ROOT"
 _PAGE_FILE = re.compile(r"page-(\d+)\.js$")
 
-DEFAULT_BOOK = {"slug": "kitap", "title": "", "subtitle": "", "subtitle_tr": "",
-                "author": "", "series": ""}
-
-CARD_KINDS = ("explain", "contrast", "tradeoff", "code")
-_LEGACY_MODE_KINDS = {"code": ["code"], "contrast": ["contrast", "code"], "explain": ["explain"]}
-DEFAULT_CODE_COMMENT_LANG = "en"
-
 
 class ProjectNotFound(FileNotFoundError):
     """Çalışma dizininden yukarıda progress.json bulunamadı."""
-
-
-class InvalidConceptSettings(ValueError):
-    """progress.json -> concepts geçersiz bir kart türü ya da mod içeriyor."""
 
 
 def find_root(start=None):
@@ -70,13 +59,13 @@ class Project:
         return cls(find_root())
 
     def load_progress(self):
-        return read_json(self.progress_path)
+        return Progress(read_json(self.progress_path))
 
     def save_progress(self, progress):
-        write_json(self.progress_path, progress)
+        write_json(self.progress_path, progress.data)
 
     def pdf_path(self, progress):
-        configured = progress["book_pdf"]
+        configured = progress.book_pdf()
         if os.path.isabs(configured):
             return configured
         return os.path.join(self.root, configured)
@@ -110,40 +99,3 @@ class Project:
 def _page_path(directory, page, suffix):
     """Sayfa dosyalarının ad kuralı: page-N.js, page-N.json, page-N_images."""
     return os.path.join(directory, f"page-{page}{suffix}")
-
-
-def extraction_settings(progress):
-    return with_defaults(progress.get("extraction", {}))
-
-
-def book_info(progress):
-    return {**DEFAULT_BOOK, **progress.get("book", {})}
-
-
-def _configured_concepts(progress):
-    """progress.json -> concepts; eski tek `mode` anahtarı izinli tür listesine çevrilir."""
-    configured = dict(progress.get("concepts", {}))
-    mode = configured.pop("mode", None)
-    if mode is None or "kinds" in configured:
-        return configured
-    if mode not in _LEGACY_MODE_KINDS:
-        raise InvalidConceptSettings(f"Bilinmeyen kavram kartı modu: {mode!r}")
-    return {**configured, "kinds": _LEGACY_MODE_KINDS[mode]}
-
-
-def concepts_settings(progress):
-    """Kavram kartı ayarları: izinli kart türleri, kod örneği dilleri, kod yorum dili."""
-    merged = {"kinds": list(CARD_KINDS),
-              "code_langs": [extraction_settings(progress)["default_code_language"]],
-              "code_comment_lang": DEFAULT_CODE_COMMENT_LANG,
-              **_configured_concepts(progress)}
-    unknown = [kind for kind in merged["kinds"] if kind not in CARD_KINDS]
-    if unknown or not merged["kinds"]:
-        raise InvalidConceptSettings(f"Geçersiz kart türleri: {merged['kinds']!r}; "
-                                     f"geçerli değerler: {', '.join(CARD_KINDS)}")
-    return merged
-
-
-def translator_has_vision(progress):
-    """Çevirmen model görsel okuyabiliyor mu (denklem PNG'sinden latex üretimi)."""
-    return bool(progress.get("translator", {}).get("vision", True))

@@ -6,7 +6,6 @@ import fitz
 
 from extraction.page_extractor import PageExtractor
 from extraction.text_utils import normalize_spaces
-from project import extraction_settings
 
 CONTEXT_CHARS = 700
 UNKNOWN_CHAPTER = {"num": 0, "en": "", "tr": ""}
@@ -35,7 +34,7 @@ class PageInputBuilder:
 
     @classmethod
     def for_progress(cls, project, progress):
-        return cls(project, progress, PageExtractor.for_settings(extraction_settings(progress)))
+        return cls(project, progress, PageExtractor.for_settings(progress.extraction_settings()))
 
     def hyphen_fixes(self, pdf_page):
         return self.extractor.hyphen_fixes(self.pdf, pdf_page)
@@ -50,13 +49,13 @@ class PageInputBuilder:
                 "context": self._context(pdf_page)}
 
     def pdf_page(self, page):
-        return page + self.progress["pdf_offset"]
+        return page + self.progress.data["pdf_offset"]
 
     def image_dir(self, page):
         return self.project.work_images(page)
 
     def _chapter(self, page):
-        started = [chapter for chapter in self.progress["chapters"] if chapter["start"] <= page]
+        started = [chapter for chapter in self.progress.data["chapters"] if chapter["start"] <= page]
         if not started:
             return dict(UNKNOWN_CHAPTER)
         return {key: started[-1][key] for key in ("num", "en", "tr")}
@@ -68,7 +67,7 @@ class PageInputBuilder:
             return {"en": "", "tr": ""}
         if not header["is_chapter"] and header["text"]:
             return {"en": header["text"], "tr": ""}
-        previous = self.progress["pages"].get(str(page - 1), {})
+        previous = self.progress.data["pages"].get(str(page - 1), {})
         return {"en": previous.get("section_en", ""), "tr": previous.get("section_tr", "")}
 
     def _context(self, pdf_page):

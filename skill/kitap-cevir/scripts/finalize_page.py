@@ -15,7 +15,7 @@ import sys
 from concept_check import CardChecker
 from json_file import read_json
 from page_document import PageDocument
-from project import Project, concepts_settings
+from project import Project
 from reader_data import Glossary, TableOfContents
 
 _REQUIRED_FIELDS = ("id", "page", "pdf_page", "blocks")
@@ -47,7 +47,7 @@ class PageFinalizer:
         """Kartlar çeviriden sonra ayrı üretilir; kartsız sayfa sorun değil, bekleyen iştir."""
         if not cards:
             return []
-        return CardChecker(concepts_settings(progress)).problems(cards)
+        return CardChecker(progress.concepts_settings()).problems(cards)
 
     def _read(self, translated_path):
         page = PageDocument(read_json(translated_path))
@@ -83,7 +83,7 @@ class PageFinalizer:
     def _register(self, document):
         """Sayfayı progress.json'a kaydeder, last_translated_page'i ilerletir."""
         progress = self.project.load_progress()
-        progress["pages"][str(document["page"])] = {
+        progress.data["pages"][str(document["page"])] = {
             "pdf_page": document["pdf_page"],
             "chapter": document.get("chapter", {}).get("num"),
             "title_en": document.get("title", {}).get("en", ""),
@@ -91,7 +91,7 @@ class PageFinalizer:
             "section_en": document.get("section", {}).get("en", ""),
             "section_tr": document.get("section", {}).get("tr", ""),
         }
-        progress["last_translated_page"] = max(progress["last_translated_page"], document["page"])
+        progress.data["last_translated_page"] = max(progress.data["last_translated_page"], document["page"])
         self.project.save_progress(progress)
         return progress
 
