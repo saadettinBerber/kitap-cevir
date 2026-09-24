@@ -73,7 +73,7 @@ class PagePreparer:
             return []
         document = page_document.data
         return [{"page": page, "pdf_page": document["pdf_page"],
-                 "path": self.project.relative(self.write_input(document)),
+                 "path": self.project.relative_to_root(self.write_input(document)),
                  "blocks": page_document.block_summary(), "math": page_document.equation_count()}]
 
 

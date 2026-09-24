@@ -130,7 +130,7 @@ def rebuild(project):
 def main():
     project = Project.discover()
     for path in rebuild(project):
-        print("yazıldı:", project.relative(path))
+        print("yazıldı:", project.relative_to_root(path))
 
 
 if __name__ == "__main__":

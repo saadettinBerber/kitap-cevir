@@ -73,7 +73,7 @@ class Project:
             return configured
         return os.path.join(self.root, configured)
 
-    def relative(self, path):
+    def relative_to_root(self, path):
         return os.path.relpath(path, self.root)
 
     def page_js(self, page):

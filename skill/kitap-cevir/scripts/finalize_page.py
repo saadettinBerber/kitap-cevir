@@ -94,7 +94,7 @@ def main():
         sys.exit(1)
     project = Project.discover()
     result = PageFinalizer(project).finalize(sys.argv[1])
-    print(f"✓ Sayfa {result['page']}: {project.relative(result['page_js'])} yazıldı, "
+    print(f"✓ Sayfa {result['page']}: {project.relative_to_root(result['page_js'])} yazıldı, "
           f"{result['images']} görsel, {result['terms']} yeni terim; toc.js + glossary.js güncellendi")
     _print_notes(result)
 

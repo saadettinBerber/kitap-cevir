@@ -54,7 +54,7 @@ class CardRegenerator:
         for page in pages:
             path = self.cards_path("in", page)
             write_json(path, self.card_input(PageDocument.read(self.project.page_js(page)).data))
-        return [self.project.relative(self.cards_path("in", page)) for page in pages]
+        return [self.project.relative_to_root(self.cards_path("in", page)) for page in pages]
 
     def card_input(self, page_data):
         content = [unit for unit in (block.card_unit() for block in PageDocument(page_data).blocks()) if unit]
@@ -70,7 +70,7 @@ class CardRegenerator:
             try:
                 report[page] = self._apply_page(page)
             except FileNotFoundError:
-                report[page] = [f"çıktı yok: {self.project.relative(self.cards_path('out', page))}"]
+                report[page] = [f"çıktı yok: {self.project.relative_to_root(self.cards_path('out', page))}"]
         return report
 
     def _apply_page(self, page):
