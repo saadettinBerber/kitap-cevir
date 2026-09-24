@@ -39,9 +39,14 @@ class _Writer:
             x += fitz.get_text_length(text, font, BODY_SIZE)
 
 
-def _write_learning_pdf(path):
+def _write_pdf(path, write_page):
     document = fitz.open()
-    page = document.new_page()
+    write_page(document.new_page())
+    document.save(path)
+    document.close()
+
+
+def _write_learning_page(page):
     write = _Writer(page)
     page.insert_text((72, 80), "Learning Boundaries", fontsize=20, fontname="helvetica-bold")
     write.line(120, ("A paragraph with a ", "helv"), ("bold", "helvetica-bold"), (" word inside it.", "helv"))
@@ -54,18 +59,17 @@ def _write_learning_pdf(path):
     write.line(450, ("Multiply a * b, name snake_case in C:\\temp.", "helv"))
     write.line(520, ("Quote `pair` of backticks.", "helv"))
     page.insert_text((300, 800), FOOTER, fontsize=9, fontname="helv")
-    document.save(path)
-    document.close()
 
 
-@unittest.skipUnless(HAS_LITEPARSE, "liteparse kurulu değil")
-class LiteParseLearningTest(unittest.TestCase):
+class _ParsedPage:
+    """TEMPLATE METHOD: alt sınıfın write_page'i sayfayı yazar, LiteParse onu üretimdeki ayarlarla bir kez okur."""
+
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.images = os.path.join(cls.tmp.name, "images")
         pdf = os.path.join(cls.tmp.name, "learning.pdf")
-        _write_learning_pdf(pdf)
+        _write_pdf(pdf, cls.write_page)
         with real_page(pdf) as page:
             cls.page_height, cls.text_lines = page.height, page.text_lines()
             cls.result = LiteParseRunner().parse(page, cls.images)
@@ -77,6 +81,11 @@ class LiteParseLearningTest(unittest.TestCase):
 
     def _blocks(self, kind):
         return [block for block in self.parsed.blocks if block.kind == kind]
+
+
+@unittest.skipUnless(HAS_LITEPARSE, "liteparse kurulu değil")
+class LiteParseLearningTest(_ParsedPage, unittest.TestCase):
+    write_page = staticmethod(_write_learning_page)
 
     def _text_of(self, prefix):
         return next(block.text for block in self.parsed.blocks if (block.text or "").lstrip("*").startswith(prefix))
