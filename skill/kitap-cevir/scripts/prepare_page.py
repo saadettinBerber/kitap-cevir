@@ -42,30 +42,24 @@ class PagePreparer:
         self.progress.mark_blank(page)
         self.project.save_progress(self.progress)
 
-    def prepare_pages(self, spec, count):
-        """Hazırlanan sayfaların özetleri; boş sayfa özet üretmez."""
-        if spec not in NEXT_ALIASES:
-            return self._prepare_requested(int(spec))
+    def prepare_next(self, count):
+        """(hazırlanan sayfaların özetleri, atlanan boş sayfalar). Sıradaki akışta
+        boş sayfa (bölüm sonu) işaretlenir ki sonraki çalıştırma onu geçsin."""
         wanted = count or self.progress.pages_per_run()
-        prepared = []
+        prepared, blanks = [], []
         for page in self.progress.next_pages(wanted + MAX_BLANK_SKIPS):
-            if len(prepared) < wanted:
-                prepared += self._prepare_next(page)
-        return prepared
+            if len(prepared) == wanted:
+                break
+            entry = self._prepare(page)
+            if not entry:
+                self.mark_blank(page)
+                blanks.append(page)
+            prepared += entry
+        return prepared, blanks
 
-    def _prepare_requested(self, page):
-        prepared = self._prepare(page)
-        if not prepared:
-            print(f"  ! Sayfa {page} boş")
-        return prepared
-
-    def _prepare_next(self, page):
-        """Sıradaki akışta boş sayfa (bölüm sonu) atlanır ve işaretlenir."""
-        prepared = self._prepare(page)
-        if not prepared:
-            print(f"  ! Sayfa {page} boş — atlandı, işaretlendi")
-            self.mark_blank(page)
-        return prepared
+    def prepare_page(self, page):
+        """İstenen sayfanın özeti; boşsa boş liste, işaretlenmez."""
+        return self._prepare(page)
 
     def _prepare(self, page):
         page_document = PageDocument(self.builder.build(page))
@@ -111,11 +105,22 @@ def _report(prepared, settings):
           "kartlar en son (SKILL.md → C)")
 
 
+def _prepare(preparer, spec, count):
+    if spec not in NEXT_ALIASES:
+        prepared = preparer.prepare_page(int(spec))
+        if not prepared:
+            print(f"  ! Sayfa {spec} boş")
+        return prepared
+    prepared, blanks = preparer.prepare_next(count)
+    for page in blanks:
+        print(f"  ! Sayfa {page} boş — atlandı, işaretlendi")
+    return prepared
+
+
 def main():
     spec, count = parse_args(sys.argv)
     project = Project.discover()
-    preparer = PagePreparer.for_project(project)
-    prepared = preparer.prepare_pages(spec, count)
+    prepared = _prepare(PagePreparer.for_project(project), spec, count)
     if not prepared:
         print("Hazırlanacak sayfa yok.")
         return

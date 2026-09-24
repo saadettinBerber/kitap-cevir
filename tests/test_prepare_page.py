@@ -56,12 +56,16 @@ class PagePreparationTest(unittest.TestCase):
         self.assertEqual(document["context"], {"prev_tail": "Sayfa 1", "next_head": "Sayfa 3"})
 
     def test_next_pages_skip_and_mark_blank_ones(self):
-        prepared = self.preparer.prepare_pages("next", None)
-        self.assertEqual([entry["page"] for entry in prepared], [1, 3])
+        prepared, blanks = self.preparer.prepare_next(None)
+        self.assertEqual(([entry["page"] for entry in prepared], blanks), ([1, 3], [2]))
         self.assertTrue(self.project.load_progress().data["pages"]["2"]["blank"])
 
+    def test_next_pages_stop_at_the_asked_count(self):
+        prepared, blanks = self.preparer.prepare_next(1)
+        self.assertEqual(([entry["page"] for entry in prepared], blanks), ([1], []))
+
     def test_requested_blank_page_is_not_marked(self):
-        self.assertEqual(self.preparer.prepare_pages("2", None), [])
+        self.assertEqual(self.preparer.prepare_page(2), [])
         self.assertNotIn("2", self.project.load_progress().data["pages"])
 
 
