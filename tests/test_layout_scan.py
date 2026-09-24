@@ -19,6 +19,8 @@ BODY = "Helvetica"
 SIZE = 10.0
 LEFT = 72.0
 STEP = 0.1
+SCRIPT_SIZE = SIZE * 0.8      # dipnot işaretinden büyük, simge oranının altında
+SCRIPT_RISE = 3.0
 
 
 def _piece(text, left, top, font=BODY, size=SIZE):
@@ -179,16 +181,14 @@ class CodeBlockTest(unittest.TestCase):
 class ProseScriptTest(unittest.TestCase):
     """Düz metinde sembole yapışık küçük parça simgedir; dipnot işareti değildir."""
 
-    SCRIPT_RISE = 3.0
-
     def _script_fixes(self, host_text, script, script_size):
         host = _piece(f"In the equation, {host_text}", LEFT, 100)
-        mark = _raised(host, script, script_size, self.SCRIPT_RISE)
+        mark = _raised(host, script, script_size, SCRIPT_RISE)
         rest = _piece(" represents the ratio.", mark.box.x1, host.box.y0)
         return _scan((host, mark, rest))["script_fixes"]
 
     def test_superscript_on_a_symbol_becomes_unicode(self):
-        self.assertEqual(self._script_fixes("m", "a", SIZE * 0.8), {"ma": "mᵃ"})
+        self.assertEqual(self._script_fixes("m", "a", SCRIPT_SIZE), {"ma": "mᵃ"})
 
     def test_mark_smaller_than_the_script_ratio_is_a_footnote(self):
         self.assertEqual(self._script_fixes("m", "a", SIZE * 0.65), {})
@@ -197,23 +197,23 @@ class ProseScriptTest(unittest.TestCase):
         self.assertEqual(self._script_fixes("m", "a", SIZE * 0.85), {})
 
     def test_mark_after_a_long_word_is_a_footnote(self):
-        self.assertEqual(self._script_fixes("ratio", "a", SIZE * 0.8), {})
+        self.assertEqual(self._script_fixes("ratio", "a", SCRIPT_SIZE), {})
 
     def test_symbol_of_two_characters_takes_a_script(self):
-        self.assertEqual(self._script_fixes("UR", "2", SIZE * 0.8), {"UR2": "UR²"})
+        self.assertEqual(self._script_fixes("UR", "2", SCRIPT_SIZE), {"UR2": "UR²"})
 
     def test_mark_after_three_characters_is_a_footnote(self):
-        self.assertEqual(self._script_fixes("URL", "2", SIZE * 0.8), {})
+        self.assertEqual(self._script_fixes("URL", "2", SCRIPT_SIZE), {})
 
     def test_mark_after_punctuation_is_a_footnote(self):
-        self.assertEqual(self._script_fixes("m.", "2", SIZE * 0.8), {})
+        self.assertEqual(self._script_fixes("m.", "2", SCRIPT_SIZE), {})
 
     def test_two_scripts_in_one_sentence_stay_separate(self):
         """PyMuPDF aynı taban çizgisindeki iki simgeyi tek satırda verir: 'cᵉ and cᵃ'."""
         host = _piece("In the equation, c", LEFT, 100)
-        first = _raised(host, "e", SIZE * 0.8, self.SCRIPT_RISE)
+        first = _raised(host, "e", SCRIPT_SIZE, SCRIPT_RISE)
         middle = _piece(" and c", first.box.x1, host.box.y0)
-        second = _raised(middle, "a", SIZE * 0.8, self.SCRIPT_RISE)
+        second = _raised(middle, "a", SCRIPT_SIZE, SCRIPT_RISE)
         rest = _piece(" represent the ratios.", second.box.x1, host.box.y0)
         self.assertEqual(_scan((host, first, middle, second, rest))["script_fixes"], {"ce": "cᵉ", "ca": "cᵃ"})
 
@@ -221,17 +221,14 @@ class ProseScriptTest(unittest.TestCase):
 class ScriptGapTest(unittest.TestCase):
     """Simge sembolün hemen sağında başlar; parçaları arasındaki boşluk küçüktür."""
 
-    SCRIPT_SIZE = SIZE * 0.8
-    RISE = 3.0
-
     def _fixes(self, *marks):
         """'In the equation, m' + simge parçaları + ' represents'; marks: (metin, soldakinden boşluk).
-        Simgeler sembolün taban çizgisinden RISE kadar yukarıdadır."""
+        Simgeler sembolün taban çizgisinden SCRIPT_RISE kadar yukarıdadır."""
         host = _piece("In the equation, m", LEFT, 100)
-        top = host.baseline - self.RISE - self.SCRIPT_SIZE
+        top = host.baseline - SCRIPT_RISE - SCRIPT_SIZE
         pieces = [host]
         for text, gap in marks:
-            pieces.append(_piece(text, pieces[-1].box.x1 + gap, top, BODY, self.SCRIPT_SIZE))
+            pieces.append(_piece(text, pieces[-1].box.x1 + gap, top, BODY, SCRIPT_SIZE))
         rest = _piece(" represents the ratio.", pieces[-1].box.x1, host.box.y0)
         return _scan((*pieces, rest))["script_fixes"]
 
