@@ -2,7 +2,7 @@ import os
 import tempfile
 import unittest
 
-from pdf_fakes import span
+from pdf_fakes import element, span
 from extraction.block_builder import ChapterOpener
 from extraction.odl_elements import OdlElements
 from extraction.pdf.geometry import Box
@@ -10,10 +10,6 @@ from extraction.tables.table_grid import TableGrid
 from extraction.tables.table_cell import TableCell
 from extraction.text_layer.layout_scan import CodeImageLinkLines, CodeListing, ProseRepairs
 from page_document import PageDocument
-
-
-def _odl(content, box):
-    return {"type": "paragraph", "content": content, "bounding box": list(box)}
 
 
 class _Line:
@@ -47,13 +43,23 @@ class PageDocumentTest(unittest.TestCase):
 
 class OdlElementsTest(unittest.TestCase):
     def test_footnote_marker_joins_text_on_same_line(self):
-        items = [_odl("a", (70, 100, 75, 110)), _odl("Footnote text.", (80, 100, 400, 110))]
+        items = [element("a", (70, 100, 75, 110)), element("Footnote text.", (80, 100, 400, 110))]
         merged = OdlElements(items).merge_footnote_markers().items
-        self.assertEqual([item["content"] for item in merged], ["a Footnote text."])
+        self.assertEqual([item.text for item in merged], ["a Footnote text."])
+
+    def test_marker_on_another_line_stays_apart(self):
+        items = [element("a", (70, 100, 75, 110)), element("Next line.", (80, 110, 400, 120))]
+        self.assertEqual(OdlElements(items).merge_footnote_markers().items, items)
 
     def test_single_character_inside_another_box_is_dropped(self):
-        host, fragment = _odl("x squared", (70, 100, 300, 120)), _odl("2", (120, 110, 125, 118))
+        host, fragment = element("x squared", (70, 100, 300, 120)), element("2", (120, 110, 125, 118))
         self.assertEqual(OdlElements([host, fragment]).drop_nested_fragments().items, [host])
+
+    def test_inline_math_is_spliced_into_the_element_covering_it(self):
+        host = element("find to minimize", (70, 100, 400, 120))
+        item = {"kind": "image", "id": "eq-1", "bbox": Box(120, 104, 140, 116), "before": "find", "after": "to"}
+        [spliced] = OdlElements([host]).with_inline_math([item]).items
+        self.assertEqual(spliced.text, "find ⟦eq-1⟧ to minimize")
 
 
 class ChapterOpenerTest(unittest.TestCase):

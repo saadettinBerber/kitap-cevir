@@ -1,24 +1,31 @@
 import unittest
 
-import _paths  # noqa: F401
+from pdf_fakes import PAGE_HEIGHT, element
 from extraction.block_builder import BlockBuilder
 from extraction.odl_elements import OdlElements
 from extraction.page_regions import PageRegions, Region
+from extraction.pdf.geometry import Box
+from extraction.pdf.model import PageLayout
 from extraction.page_zones import InvalidRunningHeader, PageZones
 from project import DEFAULT_EXTRACTION
 
+# Kutular sol-üst orijinli, sayfa 800 punto. Bölge ayarları alt kenardan ölçülür:
+# alt bilgi çizgisi 800 - 52 = 748, varsayılan başlık çizgisi 800 - 610 = 190.
 FOOTER_TOP = 52
-BODY_Y = (70, 500, 430, 520)
-FOOTER_Y = (70, 38, 430, 48)
-PAGE_TOP_Y = (70, 700, 430, 720)
+BODY_Y = (70, 280, 430, 300)
+FOOTER_Y = (70, 752, 430, 762)
+PAGE_TOP_Y = (70, 80, 430, 100)
 
 
 BODY_FONT_SIZE = 10.5
 
 
 def _element(content, box, kind="paragraph"):
-    return {"type": kind, "content": content, "bounding box": list(box),
-            "font size": BODY_FONT_SIZE}
+    return element(content, box, kind, font_size=BODY_FONT_SIZE)
+
+
+def _split(zones, elements):
+    return zones.split(PageLayout(PAGE_HEIGHT, tuple(elements)))
 
 
 class PlainFixer:
@@ -49,36 +56,42 @@ class BottomRunningHeaderTest(unittest.TestCase):
     def test_section_name_is_read_from_the_footer(self):
         elements = [_element("Body text", BODY_Y),
                     _element("Preventing Data Loss | 201", FOOTER_Y)]
-        header, body = _zones(running_header="bottom").split(elements)
+        header, body = _split(_zones(running_header="bottom"), elements)
         self.assertEqual(header, {"text": "Preventing Data Loss", "is_chapter": False})
-        self.assertEqual([element["content"] for element in body], ["Body text"])
+        self.assertEqual([element.text for element in body], ["Body text"])
 
     def test_footer_split_into_separate_elements_is_joined(self):
         elements = [_element("Measuring Modularity", FOOTER_Y),
                     _element("|", FOOTER_Y), _element("41", FOOTER_Y)]
-        header, _ = _zones(running_header="bottom").split(elements)
+        header, _ = _split(_zones(running_header="bottom"), elements)
         self.assertEqual(header["text"], "Measuring Modularity")
 
     def test_chapter_footer_is_marked_as_chapter(self):
         elements = [_element("200 | Chapter 14: Event-Driven Architecture Style", FOOTER_Y)]
-        header, _ = _zones(running_header="bottom").split(elements)
+        header, _ = _split(_zones(running_header="bottom"), elements)
         self.assertTrue(header["is_chapter"])
 
     def test_page_number_alone_means_chapter_opening(self):
-        header, _ = _zones(running_header="bottom").split([_element("1", FOOTER_Y)])
+        header, _ = _split(_zones(running_header="bottom"), [_element("1", FOOTER_Y)])
         self.assertIsNone(header)
 
     def test_top_header_is_unchanged_by_default(self):
-        top = _element("Chapter 3: Modularity 41", (70, 620, 430, 640))
-        header, body = _zones().split([top, _element("Body", BODY_Y)])
+        top = _element("Chapter 3: Modularity 41", (70, 160, 430, 180))
+        header, body = _split(_zones(), [top, _element("Body", BODY_Y)])
         self.assertEqual(header["text"], "Chapter 3: Modularity")
         self.assertEqual(len(body), 1)
 
     def test_top_header_takes_only_the_first_element_in_its_zone(self):
-        top = _element("Chapter 3: Modularity 41", (70, 720, 430, 740))
+        top = _element("Chapter 3: Modularity 41", (70, 60, 430, 80))
         carried = _element("continued paragraph", PAGE_TOP_Y)
-        _, body = _zones().split([top, carried])
-        self.assertEqual([element["content"] for element in body], ["continued paragraph"])
+        _, body = _split(_zones(), [top, carried])
+        self.assertEqual([element.text for element in body], ["continued paragraph"])
+
+    def test_element_reaching_below_the_header_line_is_body(self):
+        tall = _element("Paragraph that starts high", (70, 150, 430, 200))
+        header, body = _split(_zones(), [tall])
+        self.assertIsNone(header)
+        self.assertEqual(body, [tall])
 
 
 class NoRunningHeaderTest(unittest.TestCase):
@@ -87,13 +100,18 @@ class NoRunningHeaderTest(unittest.TestCase):
 
     def test_first_element_at_page_top_stays_in_body(self):
         carried = _element("to be avoided. Such examples...", PAGE_TOP_Y)
-        header, body = _zones(running_header="none").split([carried, _element("Body", BODY_Y)])
+        header, body = _split(_zones(running_header="none"), [carried, _element("Body", BODY_Y)])
         self.assertIsNone(header)
-        self.assertEqual([element["content"] for element in body], ["to be avoided. Such examples...", "Body"])
+        self.assertEqual([element.text for element in body], ["to be avoided. Such examples...", "Body"])
 
     def test_footer_is_still_dropped(self):
-        _, body = _zones(running_header="none").split([_element("Body", BODY_Y), _element("21", FOOTER_Y)])
-        self.assertEqual([element["content"] for element in body], ["Body"])
+        _, body = _split(_zones(running_header="none"), [_element("Body", BODY_Y), _element("21", FOOTER_Y)])
+        self.assertEqual([element.text for element in body], ["Body"])
+
+    def test_element_starting_above_the_footer_line_is_body(self):
+        closing = _element("Last line", (70, 740, 430, 752))
+        _, body = _split(_zones(running_header="none"), [closing])
+        self.assertEqual(body, [closing])
 
 
 class RunningHeaderSettingTest(unittest.TestCase):
@@ -132,36 +150,34 @@ class CodeImageLinkTest(unittest.TestCase):
     vardır; kitabın içeriği değildir. ODL onu komşu satırla tek öğede birleştirebilir."""
 
     LINK = "Click here to view code image"
-    PAGE_HEIGHT = 800
-    # Üst orijinli: bağlantı satırı 60-70'te, şeridi komşu satırlara kadar 50-80;
-    # ODL'de (sol-alt orijin) bağlantı 730-740, şerit 720-750, kod satırı 710-720.
+    # Bağlantı satırı 60-70'te, şeridi komşu satırlara kadar 50-80; kod satırı 80-90.
     SLOT = {"text": LINK, "y0": 50, "y1": 80}
     CODE_LINE = {"y0": 80, "y1": 90}
 
     def _without_links(self, *elements):
-        return OdlElements(list(elements)).without_code_image_links([self.SLOT], self.PAGE_HEIGHT).items
+        return OdlElements(list(elements)).without_code_image_links([self.SLOT]).items
 
     def test_element_that_is_only_the_link_is_dropped(self):
-        self.assertEqual(self._without_links(_element(self.LINK, (70, 730, 430, 740), "heading")), [])
+        self.assertEqual(self._without_links(_element(self.LINK, (70, 60, 430, 70), "heading")), [])
 
     def test_code_glued_under_the_link_keeps_its_text_and_loses_the_slot(self):
-        [element] = self._without_links(_element(f"{self.LINK} // Two classes", (70, 710, 430, 740)))
-        self.assertEqual(element["content"], "// Two classes")
-        self.assertEqual(element["bounding box"], [70, 710, 430, 720])
+        [element] = self._without_links(_element(f"{self.LINK} // Two classes", (70, 60, 430, 90)))
+        self.assertEqual(element.text, "// Two classes")
+        self.assertEqual(element.box, Box(70, 80, 430, 90))
 
     def test_one_line_listing_glued_under_the_link_is_placed_as_code(self):
         code = {"type": "code", "lang": "java", "code": "// Two classes"}
-        regions = PageRegions([Region(self.CODE_LINE, self.PAGE_HEIGHT, code)])
-        glued = _element(f"{self.LINK} // Two classes", (70, 710, 430, 740))
+        regions = PageRegions([Region(self.CODE_LINE, code)])
+        glued = _element(f"{self.LINK} // Two classes", (70, 60, 430, 90))
         self.assertEqual(regions.place(self._without_links(glued), _builder().blocks_of), [code])
 
     def test_prose_glued_above_the_link_is_kept_above_the_slot(self):
-        [element] = self._without_links(_element(f"reduces the time to 9.2 seconds: {self.LINK}", (70, 730, 430, 780)))
-        self.assertEqual(element["content"], "reduces the time to 9.2 seconds:")
-        self.assertEqual(element["bounding box"], [70, 750, 430, 780])
+        [element] = self._without_links(_element(f"reduces the time to 9.2 seconds: {self.LINK}", (70, 20, 430, 70)))
+        self.assertEqual(element.text, "reduces the time to 9.2 seconds:")
+        self.assertEqual(element.box, Box(70, 20, 430, 50))
 
     def test_elements_away_from_the_link_are_untouched(self):
-        body, image = _element("Body text", BODY_Y), {"type": "image", "bounding box": [70, 100, 430, 300]}
+        body, image = _element("Body text", BODY_Y), element("", (70, 500, 430, 700), "image")
         self.assertEqual(self._without_links(body, image), [body, image])
 
 

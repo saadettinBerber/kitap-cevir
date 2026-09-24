@@ -1,11 +1,11 @@
-"""Sayfanın koşu başlığı ve alt bilgi bölgeleri: ODL öğelerini başlık ve gövde
+"""Sayfanın koşu başlığı ve alt bilgi bölgeleri: düzen öğelerini başlık ve gövde
 olarak ayırır. Bölge sınırları progress.json -> extraction ayarlarındadır
-(running_header, header_zone_bottom, footer_zone_top); ODL koordinatları
-sol-alt orijinlidir.
+(running_header, header_zone_bottom, footer_zone_top) ve sayfanın ALT kenarından
+ölçülür; öğe kutuları sol-üst orijinlidir, karşılaştırma sayfa yüksekliğiyle yapılır.
 """
 import re
 
-from extraction.odl_runner import bbox_of
+from extraction.pdf.model import PageLayout
 from extraction.text_utils import clean_ligatures, is_numeric_only, normalize_spaces
 
 _EDGE_PAGE_NUMBER = re.compile(r"^\d+\s+|\s+\d+$")
@@ -46,9 +46,10 @@ class TopRunningHeader(RunningHeader):
 
     def split(self, body, footer):
         """Başlık bölgesindeki ilk öğe koşu başlığıdır, kalanlar gövdedir."""
-        first = next((element for element in body if bbox_of(element)[1] > self.zone_bottom), None)
-        header = self._parsed(first.get("content", "")) if first else None
-        return header, [element for element in body if element is not first]
+        zone_line = body.height - self.zone_bottom
+        first = next((element for element in body.elements if element.box.y1 < zone_line), None)
+        header = self._parsed(first.text) if first else None
+        return header, [element for element in body.elements if element is not first]
 
 
 class BottomRunningHeader(RunningHeader):
@@ -56,15 +57,15 @@ class BottomRunningHeader(RunningHeader):
         """Alt koşu başlığı ("Kesit Adı | 201", "200 | Chapter 14: ..."): alt
         bölgedeki öğeler okuma sırasında birleştirilir. Yalnız sayfa numarası
         varsa bölüm açılış sayfasıdır, kesit yoktur."""
-        header = self._parsed(" ".join(element.get("content", "") or "" for element in footer))
-        return (header if header["text"] and not is_numeric_only(header["text"]) else None), body
+        header = self._parsed(" ".join(element.text for element in footer))
+        return (header if header["text"] and not is_numeric_only(header["text"]) else None), list(body.elements)
 
 
 class NoRunningHeader(RunningHeader):
     """E-kitap kökenli PDF'lerde koşu başlığı yoktur; sayfanın en üstü gövdedir."""
 
     def split(self, body, footer):
-        return None, body
+        return None, list(body.elements)
 
 
 class PageZones:
@@ -74,11 +75,9 @@ class PageZones:
         self.footer_zone_top = settings["footer_zone_top"]
         self.running_header = RunningHeader.of(settings)
 
-    def split(self, elements):
+    def split(self, layout):
         """(koşu başlığı ya da None, alt bilgisi atılmış gövde öğeleri)."""
-        footer = [element for element in elements if self._is_footer(element)]
-        body = [element for element in elements if not self._is_footer(element)]
-        return self.running_header.split(body, footer)
-
-    def _is_footer(self, element):
-        return bbox_of(element)[3] < self.footer_zone_top
+        footer_line = layout.height - self.footer_zone_top
+        footer = [element for element in layout.elements if element.box.y0 > footer_line]
+        body = tuple(element for element in layout.elements if element.box.y0 <= footer_line)
+        return self.running_header.split(PageLayout(layout.height, body), footer)

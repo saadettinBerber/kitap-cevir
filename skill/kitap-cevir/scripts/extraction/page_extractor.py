@@ -1,26 +1,26 @@
 """Bir PDF kitap sayfasını yapılı bloklara ayırır. İki sinyali birleştirir:
-  1. OpenDataLoader PDF -> başlık, paragraf, liste, görsel, caption, okuma sırası
-  2. PyMuPDF -> kod listeleri, satır içi kod, tire onarımı (layout_scan),
-     çizgisiz tablolar (table_scan), denklemler (math_scan)
+  1. Düzen okuyucusu (LayoutReader; varsayılanı OpenDataLoader) -> başlık,
+     paragraf, liste, görsel, caption, okuma sırası
+  2. Metin ve çizim katmanı (PdfPage; PyMuPDF) -> kod listeleri, satır içi kod,
+     tire onarımı (layout_scan), çizgisiz tablolar (table_scan), denklemler (math_scan)
 
-ODL öğe düzeltmeleri odl_elements, sayfa bölgeleri page_zones, öğe → blok
-çevirisi block_builder, PyMuPDF
-bölgelerinin okuma sırasına yerleşimi page_regions'dadır. Kitaba özgü eşikler
-progress.json -> extraction ayarlarından gelir; varsayılanlar
-project.DEFAULT_EXTRACTION içindedir. Çıktı references/FORMAT.md'deki blok
-şemasının yalnız `en` tarafıdır.
+Düzen öğesi düzeltmeleri odl_elements, sayfa bölgeleri page_zones, öğe → blok
+çevirisi block_builder, metin katmanı bölgelerinin okuma sırasına yerleşimi
+page_regions'dadır. Kitaba özgü eşikler progress.json -> extraction
+ayarlarından gelir; varsayılanlar project.DEFAULT_EXTRACTION içindedir. Çıktı
+references/FORMAT.md'deki blok şemasının yalnız `en` tarafıdır.
 """
 from extraction.block_builder import BlockBuilder, ChapterOpener
-from extraction.text_layer.layout_scan import scan_page
 from extraction.equations.math_scan import MathScanner
 from extraction.odl_elements import OdlElements
-from extraction.odl_runner import extract_odl_elements
 from extraction.page_regions import PageRegions
-from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from extraction.page_zones import PageZones
-from project import DEFAULT_EXTRACTION
+from extraction.pdf.odl_adapter import OdlLayoutReader
+from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from extraction.tables.table_scan import TableScanner
 from extraction.text_fixer import TextFixer
+from extraction.text_layer.layout_scan import scan_page
+from project import DEFAULT_EXTRACTION
 
 _INLINE_MATH_FIELDS = ("id", "src", "text", "latex")
 
@@ -30,6 +30,7 @@ class PageExtractor:
 
     def __init__(self, settings=None):
         self.settings = {**DEFAULT_EXTRACTION, **(settings or {})}
+        self.layout_reader = OdlLayoutReader()
         self.zones = PageZones(self.settings)
         self.tables = TableScanner(self.settings)
 
@@ -39,14 +40,12 @@ class PageExtractor:
             return self.extract_page(document.page(pdf_page), image_dir)
 
     def extract_page(self, page, image_dir):
-        elements = extract_odl_elements(page.pdf_path, page.number, image_dir)
+        header, body = self.zones.split(self.layout_reader.read(page, image_dir))
         layout = scan_page(page.pdf_path, page.number, self.settings)
-        header, body = self.zones.split(elements)
         math = MathScanner(self.settings, image_dir).scan(page)
         regions = PageRegions.from_layout(layout, self.tables.scan(page) + math["display"], self._code_block)
         body = (OdlElements(body).flatten_nested_lists().drop_nested_fragments().merge_footnote_markers()
-                .with_inline_math(math["inline"], layout["page_height"])
-                .without_code_image_links(layout["code_image_links"], layout["page_height"]).items)
+                .with_inline_math(math["inline"]).without_code_image_links(layout["code_image_links"]).items)
         builder = BlockBuilder(self.settings, TextFixer(layout))
         return {"blocks": ChapterOpener(regions.place(body, builder.blocks_of)).merged(),
                 "running_header": header, "math": self._inline_images(math)}

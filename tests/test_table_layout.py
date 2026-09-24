@@ -4,7 +4,7 @@ import unittest
 
 import fitz
 
-from pdf_fakes import real_page
+from pdf_fakes import element, real_page
 from extraction.odl_elements import OdlElements
 from extraction.tables.table_scan import TableScanner
 
@@ -105,22 +105,25 @@ class TableEndTest(unittest.TestCase):
 
 
 class NestedListTest(unittest.TestCase):
-    """ODL caption'ı liste sanıp sonrasını maddenin kids'ine gömebilir."""
+    """ODL caption'ı liste sanıp sonrasını maddenin altına (children) gömebilir."""
+
+    BOX = (70, 100, 430, 120)
 
     def _list_with_kids(self):
-        return {"type": "list", "numbering style": "arabic numbers", "list items": [
-            {"type": "list item", "content": "Table 4-2. Structural characteristics", "font size": 10.0,
-             "kids": [{"type": "paragraph", "content": "Term Definition Configurability", "font size": 9.0},
-                      {"type": "heading", "content": "Cross-Cutting", "font size": 15.8}]}]}
+        kids = (element("Term Definition Configurability", self.BOX, font_size=9.0),
+                element("Cross-Cutting", self.BOX, "heading", font_size=15.8))
+        item = element("Table 4-2. Structural characteristics", self.BOX, "list item", font_size=10.0, children=kids)
+        return element("", self.BOX, "list", is_ordered=True, list_items=(item,))
 
     def test_nested_content_returns_to_the_stream(self):
         flat = OdlElements([self._list_with_kids()]).flatten_nested_lists().items
-        self.assertEqual([e["type"] for e in flat], ["list item", "paragraph", "heading"])
-        self.assertEqual(flat[0]["content"], "Table 4-2. Structural characteristics")
-        self.assertTrue(all(e["nested"] for e in flat))
+        self.assertEqual([e.kind for e in flat], ["list item", "paragraph", "heading"])
+        self.assertEqual(flat[0].text, "Table 4-2. Structural characteristics")
+        self.assertTrue(all(e.is_nested for e in flat))
 
     def test_plain_list_is_untouched(self):
-        plain = {"type": "list", "list items": [{"content": "first"}, {"content": "second"}]}
+        items = (element("first", self.BOX, "list item"), element("second", self.BOX, "list item"))
+        plain = element("", self.BOX, "list", list_items=items)
         self.assertEqual(OdlElements([plain]).flatten_nested_lists().items, [plain])
 
 

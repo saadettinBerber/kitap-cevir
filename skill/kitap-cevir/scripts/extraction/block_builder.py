@@ -1,8 +1,7 @@
-"""ODL öğelerini references/FORMAT.md blok şemasına (yalnız `en` tarafı) çevirir:
+"""Düzen öğelerini (LayoutElement) references/FORMAT.md blok şemasına (yalnız `en` tarafı) çevirir:
 başlık seviyesi, bölüm açılışı, caption türleri, dipnot, paragraf üslubu, liste,
 tablo, görsel. Eşikler ve desenler progress.json -> extraction ayarlarındadır.
 """
-import os
 import re
 
 from extraction.text_utils import is_numeric_only, split_sentences, strip_list_marker
@@ -14,7 +13,7 @@ _LIST_MARKER = re.compile(r"^(\d+[.)])\s")
 
 
 class BlockBuilder:
-    """Bir sayfanın ODL öğelerini bloklara çevirir; metni sayfanın TextFixer'ı onarır."""
+    """Bir sayfanın düzen öğelerini bloklara çevirir; metni sayfanın TextFixer'ı onarır."""
 
     def __init__(self, settings, fixer):
         self.settings = settings
@@ -33,14 +32,14 @@ class BlockBuilder:
         label = self._chapter_label_blocks(element)
         if label:
             return label
-        kind = element.get("type")
+        kind = element.kind
         if kind == "paragraph" and self._is_nested_heading(element):
             kind = "heading"
         build = self._builders.get(kind)
         return build(element) if build else []
 
     def _plain(self, element):
-        return self.fixer.plain(element.get("content"))
+        return self.fixer.plain(element.text)
 
     def _chapter_label_blocks(self, element):
         """Bölüm etiketi satırı (CHAPTER 7 gibi); ODL kimi kitapta bunu paragraf
@@ -51,11 +50,10 @@ class BlockBuilder:
     def _is_nested_heading(self, element):
         """Liste maddesine gömülmüş öğelerin tipini ODL düzleştirir (hepsi
         paragraf olur); başlık puntosundaki bir öğe aslında başlıktır."""
-        return (element.get("nested")
-                and (element.get("font size") or 0) >= self.settings["subsection_min_size"])
+        return element.is_nested and element.font_size >= self.settings["subsection_min_size"]
 
     def _heading_blocks(self, element):
-        text, size = self._plain(element), element.get("font size") or 0
+        text, size = self._plain(element), element.font_size
         if not text:
             return []
         if self._looks_like_paragraph(text):
@@ -87,7 +85,7 @@ class BlockBuilder:
         if special:
             return special
         block = {"type": "para", "sentences": self._sentences(self.fixer.rich(text))}
-        style = self._paragraph_style(text, element.get("font") or "")
+        style = self._paragraph_style(text, element.font)
         if style:
             block["style"] = style
         return [block] if block["sentences"] else []
@@ -98,9 +96,9 @@ class BlockBuilder:
             return [{"type": "caption", "kind": "table", "en": self.fixer.rich(text)}]
         if self.equation_caption.match(text):
             return [{"type": "caption", "kind": "equation", "en": self.fixer.rich(text)}]
-        if (element.get("font size") or 0) <= self.settings["footnote_max_size"]:
+        if element.font_size <= self.settings["footnote_max_size"]:
             return [{"type": "footnote", "en": self.fixer.rich(text)}]
-        if self._is_bold_heading(element.get("font") or ""):
+        if self._is_bold_heading(element.font):
             return [{"type": "heading", "level": 3, "en": text}]
         return []
 
@@ -129,31 +127,26 @@ class BlockBuilder:
         return blocks
 
     def _list_blocks(self, element):
-        items = [{"en": strip_list_marker(self._rich(item.get("content")))}
-                 for item in element.get("list items", [])]
-        ordered = element.get("numbering style", "unordered") != "unordered"
-        return [{"type": "list", "ordered": ordered, "items": items}]
+        items = [{"en": strip_list_marker(self._rich(item.text))} for item in element.list_items]
+        return [{"type": "list", "ordered": element.is_ordered, "items": items}]
 
     def _table_blocks(self, element):
-        rows = [[self._cell(cell) for cell in row.get("cells", [])] for row in element.get("rows", [])]
+        rows = [[{"en": self._rich(text)} for text in row] for row in element.table_rows]
         return [{"type": "table", "rows": rows}] if rows else []
 
-    def _cell(self, cell):
-        return {"en": self._rich(" ".join(kid.get("content", "") for kid in cell.get("kids", [])))}
-
     def _caption_blocks(self, element):
-        return [{"type": "caption", "en": self._rich(element.get("content"))}]
+        return [{"type": "caption", "en": self._rich(element.text)}]
 
     @staticmethod
     def _image_blocks(element):
-        return [{"type": "image", "src": os.path.basename(element.get("source", ""))}]
+        return [{"type": "image", "src": element.image_file}]
 
     def _rich(self, text):
         return self.fixer.rich(self.fixer.plain(text))
 
 
 class ChapterOpener:
-    """Bölüm açılışı ODL'de ayrı öğeler olarak gelir: chapter_number + chapter +
+    """Bölüm açılışı düzen okuyucusunda ayrı öğeler olarak gelir: chapter_number + chapter +
     'by ...' paragrafı. Bunlar tek chapter bloğunda birleşir."""
 
     def __init__(self, blocks):
