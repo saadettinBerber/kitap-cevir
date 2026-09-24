@@ -73,7 +73,8 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │       │   ├── liteparse_adapter.py  LayoutReader ← LiteParse (Java'sız, hızlı; font/punto metin katmanından)
 │       │   └── readers.py        extraction.layout_reader: odl | liteparse
 │       ├── page_zones.py     koşu başlığı ve alt bilgi
-│       ├── block_builder.py  düzen öğesi → blok; ChapterOpener bölüm açılışını birleştirir
+│       ├── block_builder.py  düzen öğesi → blok: TypeScale (punto), SpecialParagraphs (caption, dipnot)
+│       ├── chapter_opener.py ChapterOpener: bölüm numarası + başlık + yazar tek chapter bloğu
 │       ├── page_regions.py   kod/tablo/denklem bölgelerinin okuma sırasına yerleşimi
 │       ├── odl_elements.py   OdlElements: gömülü liste, simge parçası, dipnot işareti, satır içi denklem
 │       ├── text_fixer.py / text_utils.py   metin onarımı, cümle ayırma
