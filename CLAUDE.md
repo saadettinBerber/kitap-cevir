@@ -42,6 +42,14 @@ Bu depodaki karşılıkları:
 ## Çalışma düzeni
 
 - Testler: `python3 -m unittest discover -s tests`. Sınır koşulları test edilir (G3/T5); bir hata bulununca çevresi sıkı test edilir (T6).
+- Testler F.I.R.S.T'tir (Bl.9):
+  - **Fast:** milisaniyede koşar.
+  - **Independent:** birbirine ve sıraya bağlı değildir.
+  - **Repeatable:** PDF'e, Java'ya, masaüstündeki kitaplara bağlı değildir; sahteler `tests/pdf_fakes.py`'dedir.
+  - **Self-Validating:** geçti ya da kaldı der, çıktıya bakmak gerekmez.
+  - **Timely:** kodla birlikte yazılır; testi olmayan kural yeniden düzenlenmeden önce testle sabitlenir.
+
+  Test başına tek kavram; eşiğin iki yanı ayrı testtir. Gerçek PDF açan testler yalnız kütüphanenin öğrenme testleridir (Bl.8).
 - Davranışı koruyan yeniden düzenlemede testlerin yanında gerçek kitap çıktıları da eski kodla karşılaştırılır:
   - eski kodun `git worktree`'si
   - 30 sayfalık çıkarım (blok JSON + PNG özetleri)
