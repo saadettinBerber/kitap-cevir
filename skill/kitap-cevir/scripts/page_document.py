@@ -1,13 +1,9 @@
-"""Çevrilmiş sayfa belgesi (data/pages/page-N.js → window.PAGE({...})): okunması,
-yazılması ve çevrilecek metin birimleri. Şema: references/FORMAT.md.
+"""Çevrilmiş sayfa belgesi: bloklar, çevrilecek metin birimleri, görseller ve denklemler.
+Şema: references/FORMAT.md; dosyaya okunup yazılması translated_pages'tedir.
 """
-import json
-import os
 from collections import Counter
 
 from page_blocks import Block
-
-PRIVATE_FIELDS = ("context", "concepts_spec", "glossary_new")   # agent girdisinde var, okuyucuya gitmez
 
 
 class PageDocument:
@@ -15,19 +11,6 @@ class PageDocument:
 
     def __init__(self, data):
         self.data = data
-
-    @classmethod
-    def read(cls, path):
-        with open(path, encoding="utf-8") as handle:
-            source = handle.read()
-        return cls(json.loads(source[source.index("(") + 1:source.rindex(")")]))
-
-    def write(self, path):
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        payload = {key: value for key, value in self.data.items() if key not in PRIVATE_FIELDS}
-        with open(path, "w", encoding="utf-8") as handle:
-            handle.write("window.PAGE(" + json.dumps(payload, ensure_ascii=False) + ");\n")
-        return path
 
     def blocks(self):
         return [Block.of(data) for data in self.data["blocks"]]

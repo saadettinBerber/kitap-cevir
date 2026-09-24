@@ -1,5 +1,3 @@
-import os
-import tempfile
 import unittest
 
 from pdf_fakes import span
@@ -32,12 +30,6 @@ class PageDocumentTest(unittest.TestCase):
         page = PageDocument(self.PAGE)
         self.assertEqual([unit["en"] for unit in page.text_units()], ["H", "a", "b"])
         self.assertEqual(page.missing_translations(), 1)
-
-    def test_write_drops_private_fields_and_reads_back(self):
-        with tempfile.TemporaryDirectory() as pages_dir:
-            path = PageDocument(self.PAGE).write(os.path.join(pages_dir, "page-2.js"))
-            self.assertEqual(os.path.basename(path), "page-2.js")
-            self.assertNotIn("context", PageDocument.read(path).data)
 
 
 class ChapterOpenerTest(unittest.TestCase):

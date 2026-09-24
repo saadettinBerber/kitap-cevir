@@ -30,6 +30,14 @@ class TranslatedPagesTest(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             self.pages.get(8)
 
+    def test_agent_only_fields_do_not_reach_the_reader(self):
+        self.pages.save(PageDocument({**PAGE, "context": {"prev_tail": "gizli"}}))
+        self.assertNotIn("context", self.pages.get(7).data)
+
+    def test_page_file_is_a_reader_callback(self):
+        with open(self.pages.save(PageDocument(PAGE)), encoding="utf-8") as page_js:
+            self.assertTrue(page_js.read().startswith("window.PAGE({"))
+
     def test_images_sit_next_to_the_page_file(self):
         self.assertEqual(os.path.dirname(self.pages.images_dir(7)), os.path.dirname(self.project.page_js(7)))
 
