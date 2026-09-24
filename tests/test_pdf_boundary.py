@@ -88,9 +88,13 @@ class PyMuPdfAdapterTest(unittest.TestCase):
         with PyMuPdfDocument.open(self.pdf) as document:
             self.assertEqual(document.page_count, 1)
 
+    def test_document_metadata_is_a_dict_even_when_empty(self):
+        with PyMuPdfDocument.open(self.pdf) as document:
+            self.assertIsInstance(document.metadata, dict)
+
     def test_page_knows_where_it_comes_from(self):
         with real_page(self.pdf) as page:
-            self.assertEqual((page.pdf_path, page.number, page.height), (self.pdf, 1, 842))
+            self.assertEqual((page.pdf_path, page.number, page.width, page.height), (self.pdf, 1, 595, 842))
 
     def test_fill_and_line_are_told_apart(self):
         with real_page(self.pdf) as page:

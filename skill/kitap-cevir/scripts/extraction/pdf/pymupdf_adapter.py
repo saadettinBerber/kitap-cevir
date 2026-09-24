@@ -27,6 +27,10 @@ class PyMuPdfDocument:
     def page_count(self):
         return self.document.page_count
 
+    @property
+    def metadata(self):
+        return self.document.metadata or {}
+
     def page(self, number):
         return PyMuPdfPage(self.pdf_path, number, self.document[number - 1])
 
@@ -36,6 +40,7 @@ class PyMuPdfPage:
         self.pdf_path = pdf_path
         self.number = number
         self.page = page
+        self.width = page.rect.width
         self.height = page.rect.height
 
     def text_lines(self):

@@ -12,6 +12,7 @@ from extraction.pdf.model import Drawing, LayoutElement, PageLayout, Span
 from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 
 FAKE_PNG = b"\x89PNG fake"
+PAGE_WIDTH = 600.0
 PAGE_HEIGHT = 800.0
 
 
@@ -37,6 +38,7 @@ class FakePdfPage:
     """Satırları ve çizimleri elle verilen sayfa; kırpılan görüntü sabit baytlardır."""
     lines: list = field(default_factory=list)
     shapes: list = field(default_factory=list)
+    width: float = PAGE_WIDTH
     height: float = PAGE_HEIGHT
     pdf_path: str = "fake.pdf"
     number: int = 1
@@ -62,6 +64,7 @@ class FakePdfDocument:
     """Sayfaları elle verilen belge; `with` ile açılıp kapanır gibi davranır."""
     pages: list = field(default_factory=list)
     pdf_path: str = "fake.pdf"
+    metadata: dict = field(default_factory=dict)
 
     def __enter__(self):
         return self

@@ -13,7 +13,7 @@ import argparse
 import re
 from collections import Counter
 
-import fitz
+from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 
 EDGE_LINES = 2                    # sayfa başı/sonu kaç satırda folyo aranır
 MAX_FOLIO = 9999
@@ -30,66 +30,59 @@ def _page_range(spec, total):
 
 
 def _lines(page):
-    lines = [record for block in page.get_text("dict")["blocks"]
-             for line in block.get("lines", []) for record in _line_record(line)]
-    lines.sort(key=lambda ln: (round(ln["bbox"][1]), ln["bbox"][0]))
-    return lines
+    """page: PdfPage → satırlar (Span demetleri), yukarıdan aşağı, soldan sağa."""
+    return sorted(page.text_lines(), key=lambda spans: (round(spans[0].line_y), min(s.box.x0 for s in spans)))
 
 
-def _line_record(line):
-    """[satır kaydı]; yalnız boşluktan oluşan satır kayıt üretmez."""
-    spans = [s for s in line["spans"] if s["text"].strip()]
-    if not spans:
-        return []
-    return [{"bbox": line["bbox"], "spans": spans, "text": "".join(s["text"] for s in spans).strip()}]
+def _line_text(spans):
+    return "".join(span.text for span in spans).strip()
 
 
-def _line_row(line, height):
-    span = line["spans"][0]
-    odl_y = height - line["bbox"][3]
-    return (f"y={line['bbox'][1]:6.1f}  odlY={odl_y:6.1f}  size={span['size']:5.2f}  "
-            f"{span['font'][:22]:22}  {line['text'][:TEXT_PREVIEW_CHARS]}")
+def _line_row(spans, height):
+    first, bottom = spans[0], max(span.box.y1 for span in spans)
+    return (f"y={first.line_y:6.1f}  odlY={height - bottom:6.1f}  size={first.size:5.2f}  "
+            f"{first.font[:22]:22}  {_line_text(spans)[:TEXT_PREVIEW_CHARS]}")
 
 
 def _font_usage(lines):
     """(font, boyut) -> karakter sayısı."""
     usage = Counter()
-    for span in (span for line in lines for span in line["spans"]):
-        usage[(span["font"], round(span["size"], 1))] += len(span["text"])
+    for span in (span for spans in lines for span in spans):
+        usage[(span.font, round(span.size, 1))] += len(span.text)
     return usage
 
 
 def _folio_candidates(lines):
     """Sayfanın ilk ve son satırlarındaki basılı sayfa numarası adayları."""
-    matches = (_EDGE_NUMBER.search(line["text"]) for line in lines[:EDGE_LINES] + lines[-EDGE_LINES:])
+    matches = (_EDGE_NUMBER.search(_line_text(spans)) for spans in lines[:EDGE_LINES] + lines[-EDGE_LINES:])
     numbers = [int(match.group(1) or match.group(2)) for match in matches if match]
     return [number for number in numbers if 0 < number <= MAX_FOLIO]
 
 
 class PdfInspector:
-    """Açık bir PDF üzerinde tanıma komutları: info, text, layout, offset."""
+    """Açık bir PDF (PdfDocument) üzerinde tanıma komutları: info, text, layout, offset."""
 
     def __init__(self, document):
         self.document = document
 
     def info(self):
         print(f"PDF sayfa sayısı: {self.document.page_count}")
-        first = self.document[0].rect
+        first = self.document.page(1)
         print(f"Sayfa boyutu (pt): {first.width:.1f} x {first.height:.1f}")
-        for key, value in (self.document.metadata or {}).items():
+        for key, value in self.document.metadata.items():
             if value:
                 print(f"  {key}: {value}")
 
     def text(self, pages):
         for number in _page_range(pages, self.document.page_count):
             print(f"===== PDF sayfa {number} =====")
-            print(self.document[number - 1].get_text())
+            print(self.document.page(number).text())
 
     def layout(self, number):
-        page = self.document[int(number) - 1]
+        page = self.document.page(int(number))
         lines = _lines(page)
-        for line in lines:
-            print(_line_row(line, page.rect.height))
+        for spans in lines:
+            print(_line_row(spans, page.height))
         print("\nFont / boyut / karakter sayısı:")
         for (font, size), count in _font_usage(lines).most_common():
             print(f"  {font:28} {size:5.1f}  {count}")
@@ -116,7 +109,7 @@ class PdfInspector:
     def _folios(self, first, last):
         """(PDF sayfası, basılı sayfa numarası) adayları."""
         numbers = range(first, min(last, self.document.page_count) + 1)
-        return [(number, folio) for number in numbers for folio in _folio_candidates(_lines(self.document[number - 1]))]
+        return [(number, folio) for number in numbers for folio in _folio_candidates(_lines(self.document.page(number)))]
 
 
 def parse_args():
@@ -139,7 +132,7 @@ def parse_args():
 
 def main():
     args = parse_args()
-    with fitz.open(args.pdf) as document:
+    with PyMuPdfDocument.open(args.pdf) as document:
         args.run(PdfInspector(document), args)
 
 

@@ -10,6 +10,7 @@ class PdfPage(Protocol):
     """Bir PDF sayfasının metin, çizim ve görüntü katmanı."""
     pdf_path: str
     number: int                 # 1'den başlayan PDF sayfa numarası
+    width: float
     height: float
 
     def text_lines(self) -> list[tuple[Span, ...]]:
@@ -30,6 +31,7 @@ class PdfDocument(Protocol):
     """Açık bir PDF; `with` bloğunun sonunda kapanır."""
     pdf_path: str
     page_count: int
+    metadata: dict              # başlık, yazar…; boş değerler olabilir
 
     def page(self, number: int) -> PdfPage:
         """1'den başlayan numarasıyla sayfa."""
