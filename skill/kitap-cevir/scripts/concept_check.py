@@ -117,8 +117,8 @@ class CardChecker:
     spec = BookSettings.concepts()."""
 
     def __init__(self, spec):
-        self.spec = spec
-        self.kind_rules = kind_rules(spec["code_langs"])
+        rules = kind_rules(spec["code_langs"])
+        self.allowed_rules = {kind: rules[kind] for kind in spec["kinds"]}
 
     def problems(self, cards):
         problems = []
@@ -131,9 +131,9 @@ class CardChecker:
 
     def _card_problems(self, card):
         kind = card_kind(card)
-        if kind not in self.spec["kinds"]:
-            return [f"tür {kind!r} bu kitapta izinli değil ({', '.join(self.spec['kinds'])})"]
+        if kind not in self.allowed_rules:
+            return [f"tür {kind!r} bu kitapta izinli değil ({', '.join(self.allowed_rules)})"]
         problems = [] if card.get("id") else ["id yok"]
         for field in ("title", "summary", "tip"):
             problems += _missing_pair(card.get(field), field)
-        return problems + self.kind_rules[kind].problems(card)
+        return problems + self.allowed_rules[kind].problems(card)
