@@ -1,7 +1,7 @@
 """Metin katmanı kuralları sahte sayfayla: PDF açılmaz, satırlar elle dizilir.
 
-Gerçek PyMuPDF satırlarıyla çalışan öğrenme testleri test_code_lines ve
-test_prose_scripts'tedir.
+Sahtelerin satır dizilişinin dayandığı PyMuPDF davranışı test_pdf_boundary'deki
+öğrenme testlerindedir.
 """
 import unittest
 
@@ -94,6 +94,28 @@ class CodeLineTest(unittest.TestCase):
 
     def test_leftmost_code_of_eleven_characters_is_inline_code(self):
         self.assertEqual(self._code_lines_beside_prose("items.count"), [])
+
+
+class CodeScriptTest(unittest.TestCase):
+    """PyMuPDF üst simgeyi ev sahibiyle aynı satırda, kendi taban çizgisiyle verir."""
+
+    SCRIPT_SIZE = 7.0
+    RISE = 5.0
+
+    def _exponent_line(self):
+        """'(3 x 10' + yukarıda küçük '23' + ') ='."""
+        head = _code("(3 x 10", LEFT, 100)
+        script = _piece("23", head.box.x1, head.baseline - self.RISE - self.SCRIPT_SIZE, CODE_FONT, self.SCRIPT_SIZE)
+        return head, script, _code(") =", script.box.x1, 100)
+
+    def test_superscript_joins_its_code_line_with_a_caret(self):
+        [line] = _lines(self._exponent_line())
+        self.assertEqual((line.is_code, line.text), (True, "(3 x 10^23) ="))
+
+    def test_far_fragment_joins_the_code_line_after_its_superscript(self):
+        [line] = _lines(self._exponent_line(), (_code("236 days", 200, 100),))
+        self.assertTrue(line.text.startswith("(3 x 10^23) ="))
+        self.assertTrue(line.text.endswith("236 days"))
 
 
 class InlineCodeTest(unittest.TestCase):
