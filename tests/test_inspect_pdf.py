@@ -2,8 +2,8 @@ import contextlib
 import io
 import unittest
 
-from pdf_fakes import FakePdfDocument, FakePdfPage, span
-from inspect_pdf import FolioOffsets, PdfInspector
+from pdf_fakes import PAGE_HEIGHT, FakePdfDocument, FakePdfPage, span
+from inspect_pdf import FolioOffsets, InspectionReport, PdfInspector
 
 OFFSET = 2
 BODY_PAGES = 4
@@ -30,18 +30,41 @@ def _output(command):
 
 class PdfInspectorTest(unittest.TestCase):
     def test_offset_is_voted_from_printed_page_numbers(self):
-        report = _output(lambda: PdfInspector(_book()).offset(1, 20))
-        best = report.splitlines()[1]
+        [(offset, _, example)] = PdfInspector(_book()).offsets(1, 20).most_likely(1)
+        self.assertEqual((offset, example), (OFFSET, (OFFSET + 1, 1)))
+
+    def test_lines_run_top_to_bottom_with_their_height_from_the_bottom(self):
+        [body, folio] = PdfInspector(_book()).lines(OFFSET + 1)
+        self.assertEqual((body.text, body.y, body.odl_y), ("Body text of the chapter", 62, PAGE_HEIGHT - 72))
+        self.assertEqual(folio.text, "1")
+
+    def test_font_usage_counts_characters(self):
+        self.assertEqual(PdfInspector(_book()).font_usage(OFFSET + 1), [(("Helvetica", 10.0), 25)])
+
+    def test_page_texts_follow_the_asked_range(self):
+        texts = PdfInspector(_book()).page_texts("1-2")
+        self.assertEqual([number for number, _ in texts], [1, 2])
+
+    def test_empty_metadata_fields_are_left_out(self):
+        document = FakePdfDocument([_text_page(("x", 62))], metadata={"title": "Book", "author": ""})
+        self.assertEqual(PdfInspector(document).metadata(), {"title": "Book"})
+
+
+class InspectionReportTest(unittest.TestCase):
+    def _report(self, command, document=None):
+        return _output(lambda: command(InspectionReport(PdfInspector(document or _book()))))
+
+    def test_best_offset_is_printed_first_with_an_example(self):
+        best = self._report(lambda report: report.offset(1, 20)).splitlines()[1]
         self.assertTrue(best.startswith(f"  offset={OFFSET:4}"), best)
         self.assertTrue(best.endswith(f"PDF {OFFSET + 1} = kitap 1"), best)
 
-    def test_offset_reports_when_no_page_numbers_exist(self):
+    def test_missing_page_numbers_are_reported(self):
         document = FakePdfDocument([_text_page(("No numbers here", 62))])
-        report = _output(lambda: PdfInspector(document).offset(1, 1))
-        self.assertIn("bulunamadı", report)
+        self.assertIn("bulunamadı", self._report(lambda report: report.offset(1, 1), document))
 
-    def test_layout_lists_fonts_by_character_count(self):
-        report = _output(lambda: PdfInspector(_book()).layout(OFFSET + 1))
+    def test_layout_lists_lines_then_fonts(self):
+        report = self._report(lambda report: report.layout(OFFSET + 1))
         self.assertIn("Body text of the chapter", report)
         self.assertIn("Font / boyut / karakter sayısı", report)
 
