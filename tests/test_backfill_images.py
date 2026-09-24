@@ -2,32 +2,89 @@ import os
 import tempfile
 import unittest
 
-import fitz
-
 import _paths  # noqa: F401
-from backfill_images import ImageFolder, ImagePlacement, PageImages
+from backfill_images import ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ImageFolder, ImagePlacement, PageImages
 
-LARGE_PX, TINY_PX = 120, 10
 ANCHOR = "layers separate concerns"
+FIGURE = (MIN_IMAGE_SIDE_PX, MIN_IMAGE_SIDE_PX)
+CODE = {"type": "code", "code": "x = 1"}
 
 
 def _para(text):
     return {"type": "para", "sentences": [{"en": text, "tr": text}]}
 
 
-def _save_png(folder, name, side):
-    fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, side, side), 0).save(os.path.join(folder, name))
+def _image(src):
+    return {"type": "image", "src": src}
+
+
+class FakeImageFolder:
+    """ImageFolder gibi; dosyalar {src: (genişlik, yükseklik)} olarak verilir."""
+
+    def __init__(self, sizes):
+        self.sizes = sizes
+
+    def has(self, src):
+        return src in self.sizes
+
+    def size(self, src):
+        return self.sizes[src]
+
+
+def _anchored(blocks, sizes):
+    """sizes: klasördeki dosyalar, {src: (genişlik, yükseklik)}."""
+    return PageImages(blocks, FakeImageFolder(sizes)).anchored()
 
 
 class PageImagesTest(unittest.TestCase):
-    def test_images_are_anchored_to_preceding_text_and_ornaments_skipped(self):
-        with tempfile.TemporaryDirectory() as folder:
-            _save_png(folder, "fig.png", LARGE_PX)
-            _save_png(folder, "dot.png", TINY_PX)
-            blocks = [_para("Layers separate concerns."), {"type": "image", "src": "fig.png"},
-                      {"type": "code", "code": "x = 1"}, {"type": "image", "src": "dot.png"},
-                      {"type": "image", "src": "missing.png"}]
-            self.assertEqual(PageImages(blocks, ImageFolder(folder)).anchored(), [("fig.png", "layers separate concerns")])
+    """Görsel, PDF'te önündeki metne çapalanır; süs görseller ve eksik dosyalar atlanır."""
+
+    def test_image_is_anchored_to_the_text_before_it(self):
+        self.assertEqual(_anchored([_para("Layers separate concerns."), _image("fig.png")], {"fig.png": FIGURE}),
+                         [("fig.png", ANCHOR)])
+
+    def test_block_without_text_keeps_the_previous_anchor(self):
+        blocks = [_para("Layers separate concerns."), CODE, _image("fig.png")]
+        self.assertEqual(_anchored(blocks, {"fig.png": FIGURE}), [("fig.png", ANCHOR)])
+
+    def test_image_before_any_text_has_an_empty_anchor(self):
+        self.assertEqual(_anchored([_image("fig.png")], {"fig.png": FIGURE}), [("fig.png", "")])
+
+    def test_missing_file_is_skipped(self):
+        self.assertEqual(_anchored([_para("Layers separate concerns."), _image("missing.png")], {}), [])
+
+    def test_image_whose_shorter_side_reaches_the_limit_is_kept(self):
+        self.assertEqual(len(_anchored([_image("fig.png")], {"fig.png": (400, MIN_IMAGE_SIDE_PX)})), 1)
+
+    def test_image_whose_shorter_side_is_below_the_limit_is_an_ornament(self):
+        self.assertEqual(_anchored([_image("dot.png")], {"dot.png": (400, MIN_IMAGE_SIDE_PX - 1)}), [])
+
+    def test_anchor_keeps_only_the_first_characters(self):
+        [(_, anchor)] = _anchored([_para("x" * (ANCHOR_CHARS + 1)), _image("fig.png")], {"fig.png": FIGURE})
+        self.assertEqual(anchor, "x" * ANCHOR_CHARS)
+
+
+class ImageFolderTest(unittest.TestCase):
+    """Diskteki klasör; piksel boyutunu okuyan image_size'ın öğrenme testi test_pdf_boundary'dedir."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.source = os.path.join(self.tmp.name, "work")
+        os.makedirs(self.source)
+        with open(os.path.join(self.source, "fig.png"), "wb") as png:
+            png.write(b"png")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_has_only_files_in_the_folder(self):
+        folder = ImageFolder(self.source)
+        self.assertEqual((folder.has("fig.png"), folder.has("missing.png")), (True, False))
+
+    def test_copy_creates_the_target_folder(self):
+        target = os.path.join(self.tmp.name, "pages", "page-5_images")
+        ImageFolder(self.source).copy("fig.png", target)
+        self.assertEqual(os.listdir(target), ["fig.png"])
 
 
 class ImagePlacementTest(unittest.TestCase):
@@ -38,11 +95,11 @@ class ImagePlacementTest(unittest.TestCase):
 
     def test_image_goes_below_the_matching_block(self):
         self.placement.add("fig.png", "layers separate concerns")
-        self.assertEqual(self.blocks[2], {"type": "image", "src": "fig.png"})
+        self.assertEqual(self.blocks[2], _image("fig.png"))
 
     def test_unmatched_image_goes_below_page_headings(self):
         self.placement.add("fig.png", "")
-        self.assertEqual(self.blocks[1], {"type": "image", "src": "fig.png"})
+        self.assertEqual(self.blocks[1], _image("fig.png"))
 
     def test_has_sees_only_images_already_on_the_page(self):
         self.assertFalse(self.placement.has("fig.png"))
@@ -57,7 +114,7 @@ class AnchorMatchTest(unittest.TestCase):
     def _placed_at(self, anchor, *texts):
         blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"}] + [_para(text) for text in texts]
         ImagePlacement(blocks).add("fig.png", anchor)
-        return blocks.index({"type": "image", "src": "fig.png"})
+        return blocks.index(_image("fig.png"))
 
     def test_markup_is_ignored(self):
         text = '<a href="chapter-4.html#layered-architecture">Layers</a> separate concerns'
@@ -82,7 +139,7 @@ class AnchorMatchTest(unittest.TestCase):
     def test_unmatched_image_on_a_page_of_headings_goes_last(self):
         blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"}]
         ImagePlacement(blocks).add("fig.png", "")
-        self.assertEqual(blocks[-1], {"type": "image", "src": "fig.png"})
+        self.assertEqual(blocks[-1], _image("fig.png"))
 
 if __name__ == "__main__":
     unittest.main()
