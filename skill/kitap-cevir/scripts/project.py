@@ -5,11 +5,10 @@ doğru aranır). KITAP_ROOT ortam değişkeni ayarlıysa doğrudan o kullanılı
 Betikler skill dizininde yaşar; proje dizini her kitap için ayrıdır.
 """
 import glob
-import json
 import os
 import re
 
-from json_file import read_json
+from json_file import read_json, write_json
 
 PROGRESS_FILE = "progress.json"
 GLOSSARY_FILE = "glossary.md"
@@ -92,9 +91,7 @@ class Project:
         return read_json(self.progress_path)
 
     def save_progress(self, progress):
-        with open(self.progress_path, "w", encoding="utf-8") as handle:
-            json.dump(progress, handle, ensure_ascii=False, indent=2)
-            handle.write("\n")
+        write_json(self.progress_path, progress)
 
     def pdf_path(self, progress):
         configured = progress["book_pdf"]

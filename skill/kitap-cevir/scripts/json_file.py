@@ -1,4 +1,4 @@
-"""Projenin elle de okunan JSON dosyaları: UTF-8, Türkçe karakterler kaçışsız, iki boşluk girinti."""
+"""Projenin elle de okunan JSON dosyaları: UTF-8, Türkçe karakterler kaçışsız, iki boşluk girinti, sonda satır sonu."""
 import json
 import os
 
@@ -13,4 +13,5 @@ def write_json(path, payload):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
+        handle.write("\n")
     return path

@@ -68,5 +68,15 @@ class SettingsTest(unittest.TestCase):
             self.assertEqual(project.pdf_path(project.load_progress()), "/x/y.pdf")
 
 
+class ProgressFileTest(unittest.TestCase):
+    def test_saved_progress_reads_back_and_ends_with_a_newline(self):
+        with tempfile.TemporaryDirectory() as root:
+            project = Project(root)
+            project.save_progress({"book": {"title": "Kitaplık"}})
+            self.assertEqual(project.load_progress(), {"book": {"title": "Kitaplık"}})
+            with open(project.progress_path, encoding="utf-8") as handle:
+                self.assertTrue(handle.read().endswith("}\n"))
+
+
 if __name__ == "__main__":
     unittest.main()
