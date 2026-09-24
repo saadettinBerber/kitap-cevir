@@ -52,9 +52,15 @@ class ParseArgsTest(unittest.TestCase):
             parse_args(REQUIRED + ["--card-kinds", "code,kod"])
 
 
-def _open_pdf(path):
-    """PyMuPdfDocument.open gibi; yol yalnız kopyanın yerini gösterir, sayfalar sahtedir."""
-    return FakePdfDocument(pages=[FakePdfPage() for _ in range(PAGE_COUNT)], pdf_path=path)
+class RecordingPdfOpener:
+    """PyMuPdfDocument.open gibi; açılan yolları kaydeder, sayfalar sahtedir."""
+
+    def __init__(self):
+        self.opened = []
+
+    def __call__(self, path):
+        self.opened.append(path)
+        return FakePdfDocument(pages=[FakePdfPage() for _ in range(PAGE_COUNT)], pdf_path=path)
 
 
 class BookSetupTest(unittest.TestCase):
@@ -62,6 +68,7 @@ class BookSetupTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.pdf = self._write(os.path.join(self.tmp.name, "kaynak.pdf"), "%PDF sahte")
         self.target = os.path.join(self.tmp.name, "proje")
+        self.opener = RecordingPdfOpener()
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -73,10 +80,10 @@ class BookSetupTest(unittest.TestCase):
             handle.write(text)
         return path
 
-    def _run(self, *extra):
-        argv = ["--pdf", self.pdf, "--title", "Demo Kitap", "--author", "Yazar",
+    def _run(self, *extra, pdf=None):
+        argv = ["--pdf", pdf or self.pdf, "--title", "Demo Kitap", "--author", "Yazar",
                 "--offset", "1", "--total", "2", "--target", self.target, *extra]
-        return BookSetup(parse_args(argv), _open_pdf).run()
+        return BookSetup(parse_args(argv), self.opener).run()
 
     def _progress(self):
         with open(os.path.join(self.target, "progress.json"), encoding="utf-8") as handle:
@@ -88,9 +95,16 @@ class BookSetupTest(unittest.TestCase):
                      "data/glossary.js", "js/reader.js", "css/reader.css", "book.pdf", ".gitignore"):
             self.assertTrue(os.path.exists(os.path.join(self.target, name)), name)
 
-    def test_page_count_comes_from_the_pdf(self):
+    def test_page_count_is_read_from_the_project_copy(self):
         self._run()
-        self.assertEqual(self._progress()["pdf_total_pages"], PAGE_COUNT)
+        self.assertEqual((self.opener.opened, self._progress()["pdf_total_pages"]),
+                         ([os.path.join(self.target, "book.pdf")], PAGE_COUNT))
+
+    def test_pdf_inside_the_project_is_not_copied(self):
+        inside = self._write(os.path.join(self.target, "kaynak", "kitap.pdf"), "%PDF sahte")
+        self._run(pdf=inside)
+        self.assertEqual(self._progress()["book_pdf"], os.path.join("kaynak", "kitap.pdf"))
+        self.assertFalse(os.path.exists(os.path.join(self.target, "book.pdf")))
 
     def test_slug_comes_from_the_title(self):
         self._run()
@@ -101,6 +115,10 @@ class BookSetupTest(unittest.TestCase):
                                json.dumps([{"num": 1, "en": "One", "tr": "Bir", "start": 1}]))
         self._run("--chapters", chapters)
         self.assertEqual(self._progress()["chapters"][0]["en"], "One")
+
+    def test_chapters_are_empty_without_a_table(self):
+        self._run()
+        self.assertEqual(self._progress()["chapters"], [])
 
     def test_card_kinds_default_to_all(self):
         self._run()
