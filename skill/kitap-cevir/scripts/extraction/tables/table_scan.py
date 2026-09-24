@@ -11,7 +11,6 @@ import itertools
 from extraction.tables.aligned_tables import AlignedTableFinder
 from extraction.tables.table_cell import SUPERSCRIPT_RATIO, TableCell
 from extraction.tables.table_grid import MIN_COLUMNS, PageFills, TableGrid
-from project import DEFAULT_EXTRACTION
 
 MIN_ROWS = 2
 
@@ -117,8 +116,7 @@ class TableBuilder:
 class TableScanner:
     """Sayfadaki dolgu tabanlı ve çizgisiz sütun hizalı tabloları bulur."""
 
-    def __init__(self, settings=None):
-        settings = {**DEFAULT_EXTRACTION, **(settings or {})}
+    def __init__(self, settings):
         self.footer_zone_top = settings["footer_zone_top"]
         self.row_gap_ratio = settings["table_row_gap_ratio"]
 

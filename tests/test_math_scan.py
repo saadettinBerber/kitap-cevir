@@ -4,9 +4,10 @@ import unittest
 
 from pdf_fakes import FAKE_PNG, FakePdfPage, span
 from extraction.equations.math_scan import MathScanner, placeholder
+from extraction.settings import with_defaults
 
 MATH_FONT = "Helvetica-Oblique"
-SETTINGS = {"math_font_prefix": MATH_FONT}
+SETTINGS = with_defaults({"math_font_prefix": MATH_FONT})
 
 
 def _page():
@@ -56,11 +57,11 @@ class MathScanTest(unittest.TestCase):
         self.assertEqual((item["kind"], item["text"]), ("text", "πr"))
 
     def test_page_without_math_font_yields_nothing(self):
-        result = MathScanner({"math_font_prefix": "NoSuchFont"}, self.images).scan(_page())
+        result = MathScanner(with_defaults({"math_font_prefix": "NoSuchFont"}), self.images).scan(_page())
         self.assertEqual(result, {"display": [], "inline": []})
 
     def test_empty_prefix_means_no_math_font(self):
-        result = MathScanner({"math_font_prefix": ""}, self.images).scan(_page())
+        result = MathScanner(with_defaults({"math_font_prefix": ""}), self.images).scan(_page())
         self.assertEqual(result, {"display": [], "inline": []})
 
 

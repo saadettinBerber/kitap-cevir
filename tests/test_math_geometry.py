@@ -6,6 +6,7 @@ import fitz
 
 from pdf_fakes import real_page
 from extraction.equations.math_scan import MathScanner
+from extraction.settings import with_defaults
 
 SETTINGS = {"math_geometry": True}
 COLUMN_LEFT = 72
@@ -52,7 +53,7 @@ def _scan(table_rule=None, settings=SETTINGS):
     pdf = os.path.join(tmp.name, "m.pdf")
     _make_pdf(pdf, table_rule)
     with real_page(pdf) as page:
-        return tmp, MathScanner(settings, os.path.join(tmp.name, "images")).scan(page)
+        return tmp, MathScanner(with_defaults(settings), os.path.join(tmp.name, "images")).scan(page)
 
 
 class GeometryMathTest(unittest.TestCase):

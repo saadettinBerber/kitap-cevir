@@ -7,7 +7,7 @@ import fitz
 import _paths  # noqa: F401
 from extraction.text_layer.code_lines import CodeFont, PageLineReader
 from extraction.text_layer.script_marks import ScriptFixes
-from project import DEFAULT_EXTRACTION
+from extraction.settings import DEFAULT_EXTRACTION
 from extraction.text_fixer import TextFixer
 
 BODY_SIZE = 10.5

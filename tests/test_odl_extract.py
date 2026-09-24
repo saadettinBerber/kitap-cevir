@@ -7,7 +7,7 @@ from extraction.page_regions import PageRegions, Region
 from extraction.pdf.geometry import Box
 from extraction.pdf.model import PageLayout
 from extraction.page_zones import InvalidRunningHeader, PageZones
-from project import DEFAULT_EXTRACTION
+from extraction.settings import DEFAULT_EXTRACTION, with_defaults
 
 # Kutular sol-üst orijinli, sayfa 800 punto. Bölge ayarları alt kenardan ölçülür:
 # alt bilgi çizgisi 800 - 52 = 748, varsayılan başlık çizgisi 800 - 610 = 190.
@@ -39,7 +39,7 @@ class PlainFixer:
 
 
 def _settings(**overrides):
-    return {**DEFAULT_EXTRACTION, "footer_zone_top": FOOTER_TOP, **overrides}
+    return with_defaults({"footer_zone_top": FOOTER_TOP, **overrides})
 
 
 def _zones(**overrides):

@@ -7,7 +7,7 @@
 Düzen öğesi düzeltmeleri odl_elements, sayfa bölgeleri page_zones, öğe → blok
 çevirisi block_builder, metin katmanı bölgelerinin okuma sırasına yerleşimi
 page_regions'dadır. Kitaba özgü eşikler progress.json -> extraction
-ayarlarından gelir; varsayılanlar project.DEFAULT_EXTRACTION içindedir. Çıktı
+ayarlarından gelir; varsayılanlar extraction.settings içindedir. Çıktı
 references/FORMAT.md'deki blok şemasının yalnız `en` tarafıdır.
 """
 from extraction.block_builder import BlockBuilder, ChapterOpener
@@ -20,7 +20,6 @@ from extraction.pdf.readers import layout_reader_for
 from extraction.tables.table_scan import TableScanner
 from extraction.text_fixer import TextFixer
 from extraction.text_layer.layout_scan import scan_page
-from project import DEFAULT_EXTRACTION
 
 _INLINE_MATH_FIELDS = ("id", "src", "text", "latex")
 
@@ -29,7 +28,7 @@ class PageExtractor:
     """extraction ayarlarıyla bir PDF sayfasını blok şemasına dönüştürür."""
 
     def __init__(self, settings, layout_reader):
-        self.settings = {**DEFAULT_EXTRACTION, **settings}
+        self.settings = settings
         self.layout_reader = layout_reader
         self.zones = PageZones(self.settings)
         self.tables = TableScanner(self.settings)
@@ -37,8 +36,7 @@ class PageExtractor:
     @classmethod
     def for_settings(cls, settings):
         """Düzen okuyucusu ayardan seçilir (layout_reader)."""
-        merged = {**DEFAULT_EXTRACTION, **settings}
-        return cls(merged, layout_reader_for(merged))
+        return cls(settings, layout_reader_for(settings))
 
     def extract(self, pdf_path, pdf_page, image_dir):
         """Sayfayı {blocks, running_header, math} olarak döndürür; görseller image_dir'e yazılır."""

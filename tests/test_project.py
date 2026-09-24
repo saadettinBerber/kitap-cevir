@@ -4,7 +4,8 @@ import tempfile
 import unittest
 
 import _paths  # noqa: F401
-from project import (CARD_KINDS, DEFAULT_EXTRACTION, InvalidConceptSettings, Project,
+from extraction.settings import DEFAULT_EXTRACTION
+from project import (CARD_KINDS, InvalidConceptSettings, Project,
                      ProjectNotFound, book_info, concepts_settings, extraction_settings, find_root)
 
 

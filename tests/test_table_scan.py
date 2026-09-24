@@ -1,6 +1,7 @@
 import unittest
 
 from pdf_fakes import FakePdfPage, fill, span
+from extraction.settings import with_defaults
 from extraction.tables.table_scan import TableScanner
 
 COLUMNS = [(70, 170), (170, 270), (270, 370)]
@@ -32,7 +33,7 @@ def _zebra_page():
 
 class TableScanTest(unittest.TestCase):
     def setUp(self):
-        self.tables = TableScanner().scan(_zebra_page())
+        self.tables = TableScanner(with_defaults({})).scan(_zebra_page())
 
     def test_finds_filled_cell_table_with_header(self):
         self.assertEqual(len(self.tables), 1)
@@ -46,7 +47,7 @@ class TableScanTest(unittest.TestCase):
         self.assertLess(self.tables[0]["y1"], BODY.box.y0)
 
     def test_page_without_fills_has_no_tables(self):
-        self.assertEqual(TableScanner().scan(FakePdfPage(lines=[(span("plain", (70, 90, 100, 101)),)])), [])
+        self.assertEqual(TableScanner(with_defaults({})).scan(FakePdfPage(lines=[(span("plain", (70, 90, 100, 101)),)])), [])
 
 
 if __name__ == "__main__":

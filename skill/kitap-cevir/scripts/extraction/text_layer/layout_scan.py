@@ -12,7 +12,6 @@ import fitz
 
 from extraction.text_layer.code_lines import CodeFont, PageLineReader
 from extraction.text_layer.script_marks import ScriptFixes
-from project import DEFAULT_EXTRACTION
 
 BLANK_LINE_GAP_RATIO = 1.6        # bu oranın üstündeki dikey boşluk = boş satır
 MIN_INLINE_TOKEN_LENGTH = 2
@@ -127,8 +126,7 @@ class LayoutScanner:
     """Bir sayfanın metin katmanını kod listelerine, metin onarımlarına ve
     bağlantı şeritlerine çevirir."""
 
-    def __init__(self, settings=None):
-        settings = settings or DEFAULT_EXTRACTION
+    def __init__(self, settings):
         self.code_font = CodeFont(settings)
         self.code_image_link_pattern = settings["code_image_link_pattern"]
 
@@ -147,6 +145,6 @@ class LayoutScanner:
                 "code_image_links": CodeImageLinkLines(lines, self.code_image_link_pattern).slots()}
 
 
-def scan_page(pdf_path, pdf_page, settings=None):
+def scan_page(pdf_path, pdf_page, settings):
     """{page_height, code_blocks, inline_code, hyphen_fixes, script_fixes, code_image_links}"""
     return LayoutScanner(settings).scan(pdf_path, pdf_page)

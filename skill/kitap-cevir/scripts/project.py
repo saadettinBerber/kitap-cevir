@@ -8,6 +8,7 @@ import glob
 import os
 import re
 
+from extraction.settings import with_defaults
 from json_file import read_json, write_json
 
 PROGRESS_FILE = "progress.json"
@@ -15,31 +16,6 @@ GLOSSARY_FILE = "glossary.md"
 WORK_DIR = "_work"
 ENV_ROOT = "KITAP_ROOT"
 _PAGE_FILE = re.compile(r"page-(\d+)\.js$")
-
-DEFAULT_EXTRACTION = {
-    "code_font_prefix": "Courier",
-    "code_max_font_size": 9.5,
-    "header_zone_bottom": 610,
-    "footer_zone_top": 30,
-    "running_header": "top",
-    "layout_reader": "odl",
-    "chapter_number_min_size": 40,
-    "chapter_title_min_size": 20,
-    "section_min_size": 13.5,
-    "subsection_min_size": 11,
-    "footnote_max_size": 7.5,
-    "bold_heading_font": "Arial",
-    "listing_caption_pattern": "^Listing \\d+-\\d+",
-    "table_row_gap_ratio": 1.5,
-    "table_caption_pattern": "^Table \\d+[-.]\\d+",
-    "equation_caption_pattern": "^Equation \\d+[-.]\\d+",
-    "math_font_prefix": "Type3",
-    "math_geometry": False,
-    "chapter_header_prefix": "Chapter ",
-    "chapter_label_pattern": "",
-    "code_image_link_pattern": "",
-    "default_code_language": "java",
-}
 
 DEFAULT_BOOK = {"slug": "kitap", "title": "", "subtitle": "", "subtitle_tr": "",
                 "author": "", "series": ""}
@@ -137,7 +113,7 @@ def _page_path(directory, page, suffix):
 
 
 def extraction_settings(progress):
-    return {**DEFAULT_EXTRACTION, **progress.get("extraction", {})}
+    return with_defaults(progress.get("extraction", {}))
 
 
 def book_info(progress):

@@ -6,6 +6,7 @@ import fitz
 
 from pdf_fakes import element, real_page
 from extraction.odl_elements import OdlElements
+from extraction.settings import with_defaults
 from extraction.tables.table_scan import TableScanner
 
 COLUMNS = [(72, 140), (140, 432)]
@@ -48,7 +49,7 @@ def _pdf_with(build, settings=SETTINGS):
     document.save(path)
     document.close()
     with real_page(path) as page:
-        return tmp, TableScanner(settings).scan(page)
+        return tmp, TableScanner(with_defaults(settings)).scan(page)
 
 
 class SeparateTablesTest(unittest.TestCase):

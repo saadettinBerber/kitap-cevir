@@ -2,6 +2,7 @@ import unittest
 
 from pdf_fakes import FakePdfPage, fill, span
 from extraction.tables.aligned_tables import AlignedTableFinder, TableColumns
+from extraction.settings import with_defaults
 from extraction.tables.table_scan import TableScanner
 
 BOLD, REGULAR = "Helvetica-Bold", "Helvetica"
@@ -141,7 +142,7 @@ class ScanTablesTest(unittest.TestCase):
         spans = _table_spans(body_rows)
         lines = [tuple(s for s in spans if s.line_y == y) for y in sorted({s.line_y for s in spans})]
         page = FakePdfPage(lines=lines + [(line,) for line in extra_lines], shapes=list(shapes), height=A4_HEIGHT)
-        return TableScanner().scan(page)
+        return TableScanner(with_defaults({})).scan(page)
 
     def test_unfilled_page_finds_aligned_table(self):
         self.assertEqual(len(self._scan()[0]["block"]["rows"]), 4)

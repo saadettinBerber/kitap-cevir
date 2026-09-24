@@ -13,6 +13,7 @@ from extraction.page_extractor import PageExtractor
 from extraction.pdf.geometry import Box
 from extraction.pdf.odl_adapter import OdlLayoutReader, OdlTree
 from extraction.pdf.readers import InvalidLayoutReader, layout_reader_for
+from extraction.settings import with_defaults
 
 PNG_SIGNATURE = b"\x89PNG"
 
@@ -137,7 +138,7 @@ class ReplaceableLayoutReaderTest(unittest.TestCase):
             pdf = os.path.join(tmp, "a.pdf")
             _write_pdf(pdf)
             reader = FakeLayoutReader([element("Top line.", (72, 90, 300, 104), font_size=11)])
-            settings = {"running_header": "none"}
+            settings = with_defaults({"running_header": "none"})
             extracted = PageExtractor(settings, reader).extract(pdf, 1, os.path.join(tmp, "images"))
         self.assertEqual(extracted["blocks"], [{"type": "para", "sentences": [{"en": "Top line."}]}])
         self.assertIsNone(extracted["running_header"])
@@ -151,7 +152,7 @@ class LayoutReaderChoiceTest(unittest.TestCase):
             layout_reader_for({"layout_reader": "pdfminer"})
 
     def test_odl_is_the_default(self):
-        self.assertIsInstance(PageExtractor.for_settings({}).layout_reader, OdlLayoutReader)
+        self.assertIsInstance(PageExtractor.for_settings(with_defaults({})).layout_reader, OdlLayoutReader)
 
     @unittest.skipUnless(importlib.util.find_spec("liteparse"), "liteparse kurulu değil")
     def test_liteparse_is_chosen_by_name(self):

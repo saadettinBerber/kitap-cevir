@@ -16,7 +16,6 @@ import re
 from extraction.equations.math_geometry import FractionEquationFinder
 from extraction.pdf.geometry import Box
 from extraction.text_utils import normalize_spaces
-from project import DEFAULT_EXTRACTION
 
 CROP_DPI = 220
 CROP_PADDING = 3
@@ -92,7 +91,6 @@ class MathScanner:
     """Bir sayfanın denklemlerini bulur, PNG'lerini image_dir'e yazar."""
 
     def __init__(self, settings, image_dir):
-        settings = {**DEFAULT_EXTRACTION, **(settings or {})}
         self.prefix = settings["math_font_prefix"]
         self.uses_geometry = settings["math_geometry"]
         self.caption = re.compile(settings["equation_caption_pattern"])

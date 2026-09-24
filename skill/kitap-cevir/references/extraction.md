@@ -48,7 +48,7 @@ yazılıp `PageExtractor`'a verilerek eklenir.
    key...`) kod bloğu yapmaz.
 
 Kitaba özgü eşikler `progress.json` içindeki `extraction` nesnesinden gelir.
-Verilmeyen anahtar için varsayılan (`scripts/project.py` → `DEFAULT_EXTRACTION`)
+Verilmeyen anahtar için varsayılan (`scripts/extraction/settings.py` → `DEFAULT_EXTRACTION`)
 kullanılır; varsayılanlar 6x9 inç teknik kitap dizgisi için ayarlanmıştır.
 
 | Anahtar                    | Varsayılan            | Anlamı |
