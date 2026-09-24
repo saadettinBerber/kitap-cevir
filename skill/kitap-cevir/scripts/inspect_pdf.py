@@ -47,9 +47,14 @@ def _font_usage(lines):
     return usage
 
 
+def _edge_lines(lines):
+    """Sayfanın ilk ve son satırları; kısa sayfada bir satır iki kez alınmaz."""
+    return lines[:EDGE_LINES] + lines[EDGE_LINES:][-EDGE_LINES:]
+
+
 def _folio_candidates(lines):
     """Sayfanın ilk ve son satırlarındaki basılı sayfa numarası adayları."""
-    matches = (_EDGE_NUMBER.search(_line_text(spans)) for spans in lines[:EDGE_LINES] + lines[-EDGE_LINES:])
+    matches = (_EDGE_NUMBER.search(_line_text(spans)) for spans in _edge_lines(lines))
     numbers = [int(match.group(1) or match.group(2)) for match in matches if match]
     return [number for number in numbers if 0 < number <= MAX_FOLIO]
 

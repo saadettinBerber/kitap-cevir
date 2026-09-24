@@ -33,6 +33,10 @@ class PdfInspectorTest(unittest.TestCase):
         [(offset, _, example)] = PdfInspector(_book()).offsets(1, 20).most_likely(1)
         self.assertEqual((offset, example), (OFFSET, (OFFSET + 1, 1)))
 
+    def test_short_page_counts_its_page_number_once(self):
+        [(_, votes, _)] = PdfInspector(_book()).offsets(1, 20).most_likely(1)
+        self.assertEqual(votes, BODY_PAGES)
+
     def test_lines_run_top_to_bottom_with_their_height_from_the_bottom(self):
         [body, folio] = PdfInspector(_book()).lines(OFFSET + 1)
         self.assertEqual((body.text, body.y, body.odl_y), ("Body text of the chapter", 62, PAGE_HEIGHT - 72))
