@@ -1,9 +1,16 @@
 """PDF kütüphaneleri sınırının testleri (Bl.8 · Clean Boundaries): Box'ın
-PyMuPDF Rect'iyle aynı davrandığı sınır koşulları."""
+PyMuPDF Rect'iyle aynı davrandığı sınır koşulları ve PyMuPDF adaptörünün
+öğrenme testleri."""
+import os
+import tempfile
 import unittest
 
-import _paths  # noqa: F401
+import fitz
+
+from pdf_fakes import real_page
 from extraction.pdf.geometry import Box
+
+PNG_SIGNATURE = b"\x89PNG"
 
 
 class BoxTest(unittest.TestCase):
@@ -28,6 +35,53 @@ class BoxTest(unittest.TestCase):
         self.assertEqual(Box(0, 0, 10, 10).vertical_gap(Box(0, 5, 10, 20)), 0.0)
         self.assertEqual(Box(0, 0, 10, 10).vertical_gap(Box(0, 14, 10, 20)), 4)
         self.assertEqual(Box(0, 14, 10, 20).vertical_gap(Box(0, 0, 10, 10)), 4)
+
+
+def _write_pdf(path):
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text(fitz.Point(72, 100), "Top line", fontsize=11, fontname="helvetica")
+    page.insert_text(fitz.Point(72, 700), "Bottom line", fontsize=11, fontname="helvetica")
+    page.insert_text(fitz.Point(72, 400), "   ", fontsize=11, fontname="helvetica")
+    page.draw_rect(fitz.Rect(72, 200, 300, 230), color=None, fill=(0.9, 0.9, 0.9))
+    page.draw_line(fitz.Point(72, 300), fitz.Point(300, 300), width=0.6)
+    document.save(path)
+    document.close()
+
+
+class PyMuPdfAdapterTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.pdf = os.path.join(self.tmp.name, "a.pdf")
+        _write_pdf(self.pdf)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_lines_are_top_left_and_blank_spans_do_not_cross(self):
+        with real_page(self.pdf) as page:
+            texts = [[s.text for s in line] for line in page.text_lines()]
+            top, bottom = (line[0] for line in page.text_lines())
+        self.assertEqual(texts, [["Top line"], ["Bottom line"]])
+        self.assertLess(top.box.y0, 100)
+        self.assertEqual(top.line_y, top.box.y0)
+        self.assertGreater(bottom.box.y0, 600)
+
+    def test_page_knows_where_it_comes_from(self):
+        with real_page(self.pdf) as page:
+            self.assertEqual((page.pdf_path, page.number, page.height), (self.pdf, 1, 842))
+
+    def test_fill_and_line_are_told_apart(self):
+        with real_page(self.pdf) as page:
+            drawings = page.drawings()
+        self.assertEqual([d.is_filled for d in drawings], [True, False])
+        self.assertEqual(drawings[0].box, Box(72, 200, 300, 230))
+        self.assertTrue(drawings[1].box.is_empty())
+
+    def test_clip_text_and_png(self):
+        with real_page(self.pdf) as page:
+            self.assertEqual(page.text_in(Box(60, 80, 300, 110)).strip(), "Top line")
+            self.assertTrue(page.png(Box(60, 80, 300, 110), 72).startswith(PNG_SIGNATURE))
 
 if __name__ == "__main__":
     unittest.main()
