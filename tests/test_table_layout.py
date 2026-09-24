@@ -5,7 +5,7 @@ import unittest
 import fitz
 
 from pdf_fakes import element, real_page
-from extraction.odl_elements import OdlElements
+from extraction.layout_elements import LayoutElements
 from extraction.settings import with_defaults
 from extraction.tables.table_scan import TableScanner
 
@@ -117,7 +117,7 @@ class NestedListTest(unittest.TestCase):
         return element("", self.BOX, "list", is_ordered=True, list_items=(item,))
 
     def test_nested_content_returns_to_the_stream(self):
-        flat = OdlElements([self._list_with_kids()]).flatten_nested_lists().items
+        flat = LayoutElements([self._list_with_kids()]).flatten_nested_lists().items
         self.assertEqual([e.kind for e in flat], ["list item", "paragraph", "heading"])
         self.assertEqual(flat[0].text, "Table 4-2. Structural characteristics")
         self.assertTrue(all(e.is_nested for e in flat))
@@ -125,7 +125,7 @@ class NestedListTest(unittest.TestCase):
     def test_plain_list_is_untouched(self):
         items = (element("first", self.BOX, "list item"), element("second", self.BOX, "list item"))
         plain = element("", self.BOX, "list", list_items=items)
-        self.assertEqual(OdlElements([plain]).flatten_nested_lists().items, [plain])
+        self.assertEqual(LayoutElements([plain]).flatten_nested_lists().items, [plain])
 
 
 if __name__ == "__main__":

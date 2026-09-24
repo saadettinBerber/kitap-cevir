@@ -4,7 +4,7 @@ import unittest
 
 from pdf_fakes import element, span
 from extraction.chapter_opener import ChapterOpener
-from extraction.odl_elements import OdlElements
+from extraction.layout_elements import LayoutElements
 from extraction.pdf.geometry import Box
 from extraction.tables.table_grid import TableGrid
 from extraction.tables.table_cell import TableCell
@@ -41,24 +41,24 @@ class PageDocumentTest(unittest.TestCase):
             self.assertNotIn("context", PageDocument.read(path).data)
 
 
-class OdlElementsTest(unittest.TestCase):
+class LayoutElementsTest(unittest.TestCase):
     def test_footnote_marker_joins_text_on_same_line(self):
         items = [element("a", (70, 100, 75, 110)), element("Footnote text.", (80, 100, 400, 110))]
-        merged = OdlElements(items).merge_footnote_markers().items
+        merged = LayoutElements(items).merge_footnote_markers().items
         self.assertEqual([item.text for item in merged], ["a Footnote text."])
 
     def test_marker_on_another_line_stays_apart(self):
         items = [element("a", (70, 100, 75, 110)), element("Next line.", (80, 110, 400, 120))]
-        self.assertEqual(OdlElements(items).merge_footnote_markers().items, items)
+        self.assertEqual(LayoutElements(items).merge_footnote_markers().items, items)
 
     def test_single_character_inside_another_box_is_dropped(self):
         host, fragment = element("x squared", (70, 100, 300, 120)), element("2", (120, 110, 125, 118))
-        self.assertEqual(OdlElements([host, fragment]).drop_nested_fragments().items, [host])
+        self.assertEqual(LayoutElements([host, fragment]).drop_nested_fragments().items, [host])
 
     def test_inline_math_is_spliced_into_the_element_covering_it(self):
         host = element("find to minimize", (70, 100, 400, 120))
         item = {"kind": "image", "id": "eq-1", "bbox": Box(120, 104, 140, 116), "before": "find", "after": "to"}
-        [spliced] = OdlElements([host]).with_inline_math([item]).items
+        [spliced] = LayoutElements([host]).with_inline_math([item]).items
         self.assertEqual(spliced.text, "find ⟦eq-1⟧ to minimize")
 
 

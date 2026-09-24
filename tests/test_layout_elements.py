@@ -3,7 +3,7 @@ import io
 import unittest
 
 from pdf_fakes import element
-from extraction.odl_elements import OdlElements
+from extraction.layout_elements import LayoutElements
 from extraction.pdf.geometry import Box
 
 HOST_BOX = (70, 100, 400, 120)
@@ -20,7 +20,7 @@ class InlineMathTest(unittest.TestCase):
 
     def _spliced(self, equation, text="find to minimize"):
         with contextlib.redirect_stdout(io.StringIO()) as output:
-            [host] = OdlElements([element(text, HOST_BOX)]).with_inline_math([equation]).items
+            [host] = LayoutElements([element(text, HOST_BOX)]).with_inline_math([equation]).items
         return host.text, output.getvalue()
 
     def test_placeholder_goes_between_both_neighbours(self):

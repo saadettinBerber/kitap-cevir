@@ -12,7 +12,7 @@ from extraction.pdf.geometry import Box
 _FOOTNOTE_MARKER = re.compile(r"^[a-z0-9]$")
 
 
-class OdlElements:
+class LayoutElements:
     """Bir sayfanın düzen öğeleri; düzeltmeler zincirlenir, `items` sonucu verir."""
 
     def __init__(self, items):
@@ -31,12 +31,12 @@ class OdlElements:
                 continue
             for item in list_items:
                 flat += [_nested(item), *map(_nested, item.children)]
-        return OdlElements(flat)
+        return LayoutElements(flat)
 
     def drop_nested_fragments(self):
         """ODL'nin ayrı paragraf yaptığı alt/üst simge parçalarını atar; metin
         katmanı bunları zaten ev sahibi satıra bağlar (text_layer.script_marks)."""
-        return OdlElements([element for element in self.items
+        return LayoutElements([element for element in self.items
                             if not any(self._is_fragment_of(element, host) for host in self.items)])
 
     @staticmethod
@@ -52,7 +52,7 @@ class OdlElements:
                 marker = merged.pop().text.strip()
                 element = dataclasses.replace(element, text=f"{marker} {element.text}")
             merged.append(element)
-        return OdlElements(merged)
+        return LayoutElements(merged)
 
     @staticmethod
     def _is_marker(element):
@@ -67,7 +67,7 @@ class OdlElements:
         çıkarır. Bağlantıya yapışmış kod satırı böylece gerçek yüksekliğine döner ve
         kod bölgesine düşer; yalnız bağlantıdan oluşan öğe atılır."""
         links = [CodeImageLink(slot) for slot in slots]
-        return OdlElements([kept for element in self.items for kept in self._without_links(element, links)])
+        return LayoutElements([kept for element in self.items for kept in self._without_links(element, links)])
 
     @staticmethod
     def _without_links(element, links):
@@ -87,7 +87,7 @@ class OdlElements:
                 print(f"  ! satır içi denklem için öğe bulunamadı: {equation.insert}")
                 continue
             elements[host] = equation.spliced_into(elements[host])
-        return OdlElements(elements)
+        return LayoutElements(elements)
 
 
 def _nested(element):

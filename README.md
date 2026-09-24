@@ -76,7 +76,7 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │       ├── block_builder.py  düzen öğesi → blok: TypeScale (punto), SpecialParagraphs (caption, dipnot)
 │       ├── chapter_opener.py ChapterOpener: bölüm numarası + başlık + yazar tek chapter bloğu
 │       ├── page_regions.py   kod/tablo/denklem bölgelerinin okuma sırasına yerleşimi
-│       ├── odl_elements.py   OdlElements: gömülü liste, simge parçası, dipnot işareti, satır içi denklem
+│       ├── layout_elements.py LayoutElements: gömülü liste, simge parçası, dipnot işareti, satır içi denklem
 │       ├── text_fixer.py / text_utils.py   metin onarımı, cümle ayırma
 │       ├── text_layer/       PyMuPDF metin katmanı
 │       │   ├── layout_scan.py    kod blokları, satır içi kod, tire onarımı

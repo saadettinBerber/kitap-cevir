@@ -2,7 +2,7 @@ import unittest
 
 from pdf_fakes import PAGE_HEIGHT, element
 from extraction.block_builder import BlockBuilder
-from extraction.odl_elements import OdlElements
+from extraction.layout_elements import LayoutElements
 from extraction.page_regions import PageRegions, Region
 from extraction.pdf.geometry import Box
 from extraction.pdf.model import PageLayout
@@ -178,7 +178,7 @@ class CodeImageLinkTest(unittest.TestCase):
     CODE_LINE = {"y0": 80, "y1": 90}
 
     def _without_links(self, *elements):
-        return OdlElements(list(elements)).without_code_image_links([self.SLOT]).items
+        return LayoutElements(list(elements)).without_code_image_links([self.SLOT]).items
 
     def test_element_that_is_only_the_link_is_dropped(self):
         self.assertEqual(self._without_links(_element(self.LINK, (70, 60, 430, 70), "heading")), [])
