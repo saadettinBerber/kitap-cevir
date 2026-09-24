@@ -1,10 +1,10 @@
-"""PyMuPDF satırlarını kod çıkarımı için hazırlar: geniş boşlukta bölünen
+"""Sayfanın metin satırlarını (PdfPage.text_lines) kod çıkarımı için hazırlar: geniş boşlukta bölünen
 parçaları aynı taban çizgisinde birleştirir, alt/üst simgeleri ev sahibi satıra
 bağlar (script_marks), kod ile başlayıp düz metinle süren satırı ikiye ayırır,
 düz metnin yanındaki kısa kod parçasını satır içi koda indirir.
 """
 from extraction.text_layer.script_marks import ScriptAttacher
-from extraction.text_layer.text_line import SAME_BASELINE_TOLERANCE, TextLine
+from extraction.text_layer.text_line import SAME_BASELINE_TOLERANCE, LineSpan, TextLine
 
 
 class CodeFont:
@@ -15,7 +15,7 @@ class CodeFont:
         self.max_size = settings["code_max_font_size"]
 
     def matches(self, span):
-        return span["font"].startswith(self.prefix) and span["size"] < self.max_size
+        return span.font.startswith(self.prefix) and span.size < self.max_size
 
 
 class PageLineReader:
@@ -25,6 +25,7 @@ class PageLineReader:
         self.code_font = code_font
 
     def read(self, page):
+        """page: PdfPage."""
         split = [part for line in self._raw_lines(page) for part in line.split_leading_code()]
         split.sort(key=TextLine.sort_key)
         lines = self._demote_inline_code(self._merge_code_fragments(ScriptAttacher(split).attach()))
@@ -34,16 +35,12 @@ class PageLineReader:
 
     def _raw_lines(self, page):
         lines = [TextLine.of_spans(spans)
-                 for block in page.get_text("dict")["blocks"]
-                 for line in block.get("lines", [])
+                 for line in page.text_lines()
                  for spans in self._split_by_baseline(self._marked_spans(line))]
         return sorted(lines, key=TextLine.sort_key)
 
     def _marked_spans(self, line):
-        spans = [span for span in line["spans"] if span["text"].strip()]
-        for span in spans:
-            span["is_code"] = self.code_font.matches(span)
-        return spans
+        return [LineSpan.marked(span, self.code_font.matches(span)) for span in line]
 
     @staticmethod
     def _split_by_baseline(spans):
@@ -51,12 +48,12 @@ class PageLineReader:
         parçalar ayrı satır olur ki simge bağlama tek yoldan çalışsın. Yarım
         puntoluk font farkları (italik vb.) aynı taban çizgisi sayılır."""
         groups = []
-        for span in sorted(spans, key=lambda sp: sp["origin"][1]):
-            if groups and abs(span["origin"][1] - groups[-1][0]["origin"][1]) <= SAME_BASELINE_TOLERANCE:
+        for span in sorted(spans, key=lambda span: span.baseline):
+            if groups and abs(span.baseline - groups[-1][0].baseline) <= SAME_BASELINE_TOLERANCE:
                 groups[-1].append(span)
             else:
                 groups.append([span])
-        return [sorted(group, key=lambda sp: sp["bbox"][0]) for group in groups]
+        return [sorted(group, key=lambda span: span.box.x0) for group in groups]
 
     @staticmethod
     def _merge_code_fragments(lines):

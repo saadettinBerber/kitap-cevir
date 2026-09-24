@@ -2,19 +2,18 @@ import unittest
 
 import fitz
 
-import _paths  # noqa: F401
+from pdf_fakes import span
 from extraction.equations.math_geometry import Rule, TextColumn
 from extraction.equations.math_scan import SpanRun
 from extraction.text_layer.script_marks import ScriptMark
-from extraction.text_layer.text_line import TextLine
+from extraction.text_layer.text_line import LineSpan, TextLine
 
 BASELINE = 100.0
 
 
 def _span(text, x0, is_code, size=10.0, baseline=BASELINE):
     width = len(text) * size * 0.6
-    return {"text": text, "is_code": is_code, "size": size, "origin": (x0, baseline),
-            "bbox": (x0, baseline - size, x0 + width, baseline)}
+    return LineSpan.marked(span(text, (x0, baseline - size, x0 + width, baseline), size=size), is_code)
 
 
 class TextLineTest(unittest.TestCase):

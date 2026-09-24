@@ -73,7 +73,7 @@ class ScriptAttacher:
         ayrı üst simge ('cᵉ ... cᵃ') tek parça gibi gelir."""
         runs = [[line.spans[0]]]
         for span in line.spans[1:]:
-            if span["bbox"][0] - runs[-1][-1]["bbox"][2] > SCRIPT_RUN_MAX_GAP:
+            if span.box.x0 - runs[-1][-1].box.x1 > SCRIPT_RUN_MAX_GAP:
                 runs.append([span])
             else:
                 runs[-1].append(span)
@@ -112,7 +112,7 @@ class ScriptAttacher:
         ya da cümle sonundaki küçük işaret ('Photos.²²') dipnot göndermesidir."""
         if host.is_code:
             return host.left <= part.left <= host.right + host.char_width
-        touches = any(abs(span["bbox"][2] - part.left) <= PROSE_SCRIPT_MAX_GAP for span in host.spans)
+        touches = any(abs(span.box.x1 - part.left) <= PROSE_SCRIPT_MAX_GAP for span in host.spans)
         token = host.word_before(part.left, PROSE_SCRIPT_MAX_GAP)
         return touches and 0 < len(token) <= PROSE_SCRIPT_MAX_HOST_CHARS and token.isalnum()
 

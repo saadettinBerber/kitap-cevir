@@ -5,6 +5,7 @@ import unittest
 import fitz
 
 import _paths  # noqa: F401
+from pdf_fakes import real_page
 from extraction.text_layer.code_lines import CodeFont, PageLineReader
 from extraction.text_layer.script_marks import ScriptFixes
 from extraction.settings import DEFAULT_EXTRACTION
@@ -38,12 +39,9 @@ def _fixes_for(*sentences):
             _sentence_with_script(page, BASELINE + index * 40, symbol, script)
         document.save(path)
         document.close()
-        document = fitz.open(path)
-        try:
-            lines = PageLineReader(CodeFont(DEFAULT_EXTRACTION)).read(document[0])
-            return ScriptFixes(lines).for_prose()
-        finally:
-            document.close()
+        with real_page(path) as page:
+            lines = PageLineReader(CodeFont(DEFAULT_EXTRACTION)).read(page)
+        return ScriptFixes(lines).for_prose()
 
 
 class ProseScriptFixTest(unittest.TestCase):

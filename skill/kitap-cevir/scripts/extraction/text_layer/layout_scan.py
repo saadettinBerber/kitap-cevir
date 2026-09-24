@@ -1,4 +1,4 @@
-"""PyMuPDF ile sayfa düzenini tarar: kod listeleri (girintili), satır içi kod
+"""Sayfanın metin katmanından (PdfPage) düzeni tarar: kod listeleri (girintili), satır içi kod
 parçaları, tire ile bölünmüş özel isimler, alt/üst simge düzeltmeleri ve
 e-kitabın kod görseli bağlantıları. Satır hazırlığı code_lines'tadır.
 
@@ -8,8 +8,7 @@ Kod fontu ve boyut eşiği progress.json -> extraction ayarlarından gelir.
 """
 import re
 
-import fitz
-
+from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from extraction.text_layer.code_lines import CodeFont, PageLineReader
 from extraction.text_layer.script_marks import ScriptFixes
 
@@ -72,7 +71,7 @@ class ProseRepairs:
             if line.uses_script_layout():
                 tokens.append(line.text.strip())
                 continue
-            tokens += [token for token in map(_clean_token, (s["text"] for s in line.spans if s["is_code"]))
+            tokens += [token for token in map(_clean_token, (span.text for span in line.spans if span.is_code))
                        if self._is_markable(token)]
         return list(dict.fromkeys(tokens))
 
@@ -131,13 +130,13 @@ class LayoutScanner:
         self.code_image_link_pattern = settings["code_image_link_pattern"]
 
     def scan(self, pdf_path, pdf_page):
-        with fitz.open(pdf_path) as document:
-            return self._scan_page(document[pdf_page - 1])
+        with PyMuPdfDocument.open(pdf_path) as document:
+            return self._scan_page(document.page(pdf_page))
 
     def _scan_page(self, page):
         lines = PageLineReader(self.code_font).read(page)
         repairs, scripts = ProseRepairs(lines), ScriptFixes(lines)
-        return {"page_height": page.rect.height,
+        return {"page_height": page.height,
                 "code_blocks": [listing.region() for listing in CodeListing.group(lines)],
                 "inline_code": repairs.inline_code_tokens(),
                 "hyphen_fixes": {**repairs.hyphenated_names(), **scripts.for_code()},
