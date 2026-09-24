@@ -32,15 +32,13 @@ def _expand(spec):
     return range(int(match.group(1)), int(match.group(2)) + 1) if match else [int(spec)]
 
 
-class CardRegenerator:
-    """Bir projenin çevrilmiş sayfaları için kart agent'ı girdisini hazırlar ve
-    agent çıktısını denetleyip sayfalara yazar."""
+class CardInputs:
+    """Çevrilmiş sayfalardan kart agent'ının girdisini (_work/cards/in) hazırlar."""
 
     def __init__(self, project, spec):
-        """spec = BookSettings.concepts(); agent'a gider, kartlar ona göre denetlenir."""
+        """spec = BookSettings.concepts(); agent'a gider, kart türlerini buna göre seçer."""
         self.project = project
         self.spec = spec
-        self.checker = CardChecker(spec)
 
     @classmethod
     def for_project(cls, project):
@@ -58,6 +56,18 @@ class CardRegenerator:
                 "chapter": page_data.get("chapter", {}), "section": page_data.get("section", {}),
                 "title": page_data.get("title", {}), "content": content,
                 "concepts_spec": self.spec, "concepts": []}
+
+
+class CardRegenerator:
+    """Kart agent'ının çıktısını (_work/cards/out) denetler; geçerli kartları sayfaya yazar."""
+
+    def __init__(self, project, checker):
+        self.project = project
+        self.checker = checker
+
+    @classmethod
+    def for_project(cls, project):
+        return cls(project, CardChecker(project.load_settings().concepts()))
 
     def apply(self, pages):
         """{sayfa: sorunlar}; sorunsuz sayfaların kartları yazılmıştır."""
@@ -78,8 +88,8 @@ class CardRegenerator:
         return problems
 
 
-def _run_prepare(regenerator, pages):
-    paths = regenerator.prepare(pages)
+def _run_prepare(project, pages):
+    paths = CardInputs.for_project(project).prepare(pages)
     print(f"Hazırlanan kart girdisi: {len(paths)}")
     for path in paths:
         print(f"  {path}")
@@ -87,8 +97,8 @@ def _run_prepare(regenerator, pages):
           "çıktı _work/cards/out/page-N.json, sonra: regen_concepts.py apply ...")
 
 
-def _run_apply(regenerator, pages):
-    report = regenerator.apply(pages)
+def _run_apply(project, pages):
+    report = CardRegenerator.for_project(project).apply(pages)
     for page, problems in report.items():
         print(f"  {'!' if problems else '✓'} Sayfa {page}")
         for problem in problems:
@@ -105,11 +115,10 @@ def main():
         print(__doc__)
         sys.exit(1)
     project = Project.discover()
-    regenerator = CardRegenerator.for_project(project)
     pages, skipped = select_pages(sys.argv[2:], project.translated_pages())
     if skipped:
         print(f"  ! çevrilmemiş sayfalar atlandı: {', '.join(map(str, skipped))}")
-    ACTIONS[sys.argv[1]](regenerator, pages)
+    ACTIONS[sys.argv[1]](project, pages)
 
 
 if __name__ == "__main__":

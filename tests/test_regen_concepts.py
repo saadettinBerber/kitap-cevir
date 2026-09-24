@@ -6,7 +6,7 @@ import unittest
 import _paths  # noqa: F401
 from page_document import PageDocument
 from project import Project
-from regen_concepts import CardRegenerator, select_pages
+from regen_concepts import CardInputs, CardRegenerator, select_pages
 
 PROGRESS = {"book": {"slug": "demo"}, "book_pdf": "book.pdf", "pdf_offset": 0,
             "extraction": {"default_code_language": "python"},
@@ -41,6 +41,7 @@ class RegenConceptsTest(unittest.TestCase):
             json.dump(PROGRESS, handle)
         self.project = Project(self.tmp.name)
         PageDocument(PAGE).write(self.project.page_js(PAGE["page"]))
+        self.inputs = CardInputs.for_project(self.project)
         self.regenerator = CardRegenerator.for_project(self.project)
 
     def tearDown(self):
@@ -53,14 +54,14 @@ class RegenConceptsTest(unittest.TestCase):
             json.dump({"concepts": cards}, handle)
 
     def test_card_input_flattens_text_blocks(self):
-        document = self.regenerator.card_input(PAGE)
+        document = self.inputs.card_input(PAGE)
         self.assertEqual(document["content"], [
             {"type": "heading", "en": "Styles", "tr": "Tarzlar"},
             {"type": "para", "en": "A. B.", "tr": "A. B."}])
         self.assertEqual(document["concepts"], [])
 
     def test_prepare_writes_input_with_spec(self):
-        self.regenerator.prepare([4])
+        self.inputs.prepare([4])
         with open(self.project.work_cards_file("in", 4), encoding="utf-8") as handle:
             spec = json.load(handle)["concepts_spec"]
         self.assertEqual((spec["kinds"], spec["code_langs"]), (["explain", "tradeoff"], ["python"]))
