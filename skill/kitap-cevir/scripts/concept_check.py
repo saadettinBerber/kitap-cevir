@@ -46,6 +46,39 @@ def _duplicate_ids(cards):
     return duplicates
 
 
+class ExplainRules:
+    """explain kartı yalnız ortak alanları taşır; örnek ya da seçenek taşımaz."""
+
+    def problems(self, card):
+        return [f"explain kartında `{field}` olmamalı" for field in SIDES + ("options",) if card.get(field)]
+
+
+class TradeoffRules:
+    """tradeoff kartı 2-3 seçenek taşır; her seçeneğin adı, kazancı ve bedeli vardır."""
+
+    def problems(self, card):
+        options = card.get("options") or []
+        problems = []
+        if not MIN_OPTIONS <= len(options) <= MAX_OPTIONS:
+            problems.append(f"options sayısı {len(options)} ({MIN_OPTIONS}-{MAX_OPTIONS} olmalı)")
+        for index, option in enumerate(options, 1):
+            for field in ("name", "gains", "costs"):
+                problems += _missing_pair(option.get(field), f"options[{index}].{field}")
+        return problems
+
+
+class ContrastRules:
+    """contrast kartının iki tarafı da iki dilli metin ve `why` taşır."""
+
+    def problems(self, card):
+        problems = []
+        for side in SIDES:
+            sample = card.get(side) or {}
+            body = [] if sample.get("code") else _missing_pair(sample.get("text"), f"{side}.text")
+            problems += body + _missing_pair(sample.get("why"), f"{side}.why")
+        return problems
+
+
 class CodeRules:
     """code kartının iki tarafı da kitabın izin verdiği dilde kod ve iki dilli `why` taşır."""
 
@@ -68,14 +101,19 @@ class CodeRules:
         return []
 
 
+def kind_rules(code_langs):
+    """Kart türünden kurallarına; yeni kart türü buraya bir kural sınıfıyla eklenir."""
+    return {"explain": ExplainRules(), "contrast": ContrastRules(),
+            "tradeoff": TradeoffRules(), "code": CodeRules(code_langs)}
+
+
 class CardChecker:
     """Bir sayfanın kartlarını kitabın kart ayarlarına göre denetler;
     spec = BookSettings.concepts()."""
 
     def __init__(self, spec):
         self.spec = spec
-        self.kind_checks = {"explain": self._explain_problems, "contrast": self._contrast_problems,
-                            "tradeoff": self._tradeoff_problems, "code": CodeRules(spec["code_langs"]).problems}
+        self.kind_rules = kind_rules(spec["code_langs"])
 
     def problems(self, cards):
         problems = []
@@ -93,28 +131,4 @@ class CardChecker:
         problems = [] if card.get("id") else ["id yok"]
         for field in ("title", "summary", "tip"):
             problems += _missing_pair(card.get(field), field)
-        return problems + self.kind_checks[kind](card)
-
-    @staticmethod
-    def _contrast_problems(card):
-        problems = []
-        for side in SIDES:
-            sample = card.get(side) or {}
-            body = [] if sample.get("code") else _missing_pair(sample.get("text"), f"{side}.text")
-            problems += body + _missing_pair(sample.get("why"), f"{side}.why")
-        return problems
-
-    @staticmethod
-    def _tradeoff_problems(card):
-        options = card.get("options") or []
-        problems = []
-        if not MIN_OPTIONS <= len(options) <= MAX_OPTIONS:
-            problems.append(f"options sayısı {len(options)} ({MIN_OPTIONS}-{MAX_OPTIONS} olmalı)")
-        for index, option in enumerate(options, 1):
-            for field in ("name", "gains", "costs"):
-                problems += _missing_pair(option.get(field), f"options[{index}].{field}")
-        return problems
-
-    @staticmethod
-    def _explain_problems(card):
-        return [f"explain kartında `{field}` olmamalı" for field in SIDES + ("options",) if card.get(field)]
+        return problems + self.kind_rules[kind].problems(card)
