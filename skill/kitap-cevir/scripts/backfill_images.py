@@ -112,20 +112,30 @@ class ImagePlacement:
         return max(scored, default=(0, -1))
 
 
+class ExtractedImages:
+    """Sayfayı PDF'ten yeniden çıkarır; blokları ve görsel klasörünü PageImages olarak verir."""
+
+    def __init__(self, builder):
+        self.builder = builder
+
+    def of(self, page):
+        return PageImages(self.builder.build(page)["blocks"], ImageFolder(self.builder.image_dir(page)))
+
+
 class ImageBackfiller:
     """Çevrilmiş sayfalara PDF'teki görselleri ekler; metin bloklarına dokunmaz."""
 
-    def __init__(self, project, builder):
+    def __init__(self, project, extracted):
         self.project = project
-        self.builder = builder
+        self.extracted = extracted
 
     @classmethod
     def for_project(cls, project):
-        return cls(project, PageInputBuilder.for_progress(project, project.load_progress()))
+        return cls(project, ExtractedImages(PageInputBuilder.for_progress(project, project.load_progress())))
 
     def backfill_page(self, page):
         """Eklenen görsel sayısı; sayfa yalnız görsel eklendiyse yeniden yazılır."""
-        images = PageImages(self.builder.build(page)["blocks"], ImageFolder(self.builder.image_dir(page)))
+        images = self.extracted.of(page)
         page_document = PageDocument.read(self.project.page_js(page))
         added = self._place(images, ImagePlacement(page_document.data["blocks"]), page)
         if added:
