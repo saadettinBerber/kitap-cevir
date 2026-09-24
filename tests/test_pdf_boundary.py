@@ -115,6 +115,41 @@ class PyMuPdfAdapterTest(unittest.TestCase):
         self.assertEqual(image_size(path), (144, 72))
 
 
+def _write_code_line_pdf(path):
+    """Kod satırı: '10' üstünde küçük '23', aynı taban çizgisinde uzakta '236 days'."""
+    document = fitz.open()
+    page = document.new_page()
+    page.insert_text(fitz.Point(72, 100), "(3 x 10", fontsize=11, fontname="courier")
+    page.insert_text(fitz.Point(120, 95), "23", fontsize=7, fontname="courier")
+    page.insert_text(fitz.Point(132, 100), ") =", fontsize=11, fontname="courier")
+    page.insert_text(fitz.Point(200, 100), "236 days", fontsize=11, fontname="courier")
+    document.save(path)
+    document.close()
+
+
+class PyMuPdfLineGroupingTest(unittest.TestCase):
+    """Sahte sayfaların satır dizilişi bu davranışa dayanır (test_layout_scan)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.pdf = os.path.join(self.tmp.name, "code.pdf")
+        _write_code_line_pdf(self.pdf)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _lines(self):
+        with real_page(self.pdf) as page:
+            return page.text_lines()
+
+    def test_raised_script_shares_the_line_with_its_own_baseline(self):
+        first = self._lines()[0]
+        self.assertEqual([(s.text, s.baseline) for s in first], [("(3 x 10", 100), ("23", 95), (") =", 100)])
+
+    def test_far_piece_on_the_same_baseline_is_a_line_of_its_own(self):
+        self.assertEqual([[s.text for s in line] for line in self._lines()], [["(3 x 10", "23", ") ="], ["236 days"]])
+
+
 class OdlTreeTest(unittest.TestCase):
     """ODL'nin sol-alt orijinli ağacı, Java çalıştırmadan çevrilir."""
 
