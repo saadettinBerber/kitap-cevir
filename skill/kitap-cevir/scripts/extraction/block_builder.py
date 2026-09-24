@@ -12,12 +12,44 @@ _BIBLIOGRAPHY_ENTRY = re.compile(r"^\[[A-Za-z0-9]+\]:")
 _LIST_MARKER = re.compile(r"^(\d+[.)])\s")
 
 
+class TypeScale:
+    """Başlığı puntosu ele verir: bölüm numarası, bölüm başlığı, kesit ve alt kesit
+    eşikleri (progress.json -> extraction)."""
+
+    def __init__(self, settings):
+        self.chapter_number = settings["chapter_number_min_size"]
+        self.chapter_title = settings["chapter_title_min_size"]
+        self.section = settings["section_min_size"]
+        self.subsection = settings["subsection_min_size"]
+
+    def reads_as_heading(self, element):
+        """Okuyucunun türü değil punto karar verir. Liste maddesine gömülmüş
+        öğelerin tipini ODL düzleştirir (hepsi paragraf olur): alt başlık puntosu
+        yeter. Okuyucu bölüm başlığını paragraf sanabilir (LiteParse): bölüm başlığı
+        puntosu yeter. Uzun ya da noktalamayla biten metin yine paragraf kalır."""
+        if element.is_nested:
+            return element.font_size >= self.subsection
+        return element.font_size >= self.chapter_title
+
+    def is_chapter_number(self, size):
+        return size >= self.chapter_number
+
+    def is_chapter_title(self, size):
+        return size >= self.chapter_title
+
+    def heading_level(self, size):
+        if size >= self.section:
+            return 1
+        return 2 if size >= self.subsection else 3
+
+
 class BlockBuilder:
     """Bir sayfanın düzen öğelerini bloklara çevirir; metni sayfanın TextFixer'ı onarır."""
 
     def __init__(self, settings, fixer):
         self.settings = settings
         self.fixer = fixer
+        self.scale = TypeScale(settings)
         self.listing_caption = re.compile(settings["listing_caption_pattern"])
         self.table_caption = re.compile(settings["table_caption_pattern"])
         self.equation_caption = re.compile(settings["equation_caption_pattern"])
@@ -33,7 +65,7 @@ class BlockBuilder:
         if label:
             return label
         kind = element.kind
-        if kind == "paragraph" and self._reads_as_heading(element):
+        if kind == "paragraph" and self.scale.reads_as_heading(element):
             kind = "heading"
         build = self._builders.get(kind)
         return build(element) if build else []
@@ -47,40 +79,25 @@ class BlockBuilder:
         match = self.chapter_label.match(self._plain(element)) if self.chapter_label else None
         return [{"type": "chapter_number", "num": int(match.group(1))}] if match else []
 
-    def _reads_as_heading(self, element):
-        """Başlığı puntosu ele verir, okuyucunun türü değil. Liste maddesine gömülmüş
-        öğelerin tipini ODL düzleştirir (hepsi paragraf olur): alt başlık puntosu
-        yeter. Okuyucu bölüm başlığını paragraf sanabilir (LiteParse): bölüm başlığı
-        puntosu yeter. Uzun ya da noktalamayla biten metin yine paragraf kalır."""
-        size = element.font_size
-        if element.is_nested:
-            return size >= self.settings["subsection_min_size"]
-        return size >= self.settings["chapter_title_min_size"]
-
     def _heading_blocks(self, element):
         text, size = self._plain(element), element.font_size
         if not text:
             return []
         if self._looks_like_paragraph(text):
             return self._paragraph_blocks(element)
-        if size >= self.settings["chapter_number_min_size"] and text.isdigit():
+        if self.scale.is_chapter_number(size) and text.isdigit():
             return [{"type": "chapter_number", "num": int(text)}]
-        if size >= self.settings["chapter_title_min_size"]:
+        if self.scale.is_chapter_title(size):
             return [{"type": "chapter", "en": text}]
         if self.listing_caption.match(text):
             return [{"type": "caption", "kind": "listing", "en": text}]
-        return [{"type": "heading", "level": self._heading_level(size), "en": text}]
+        return [{"type": "heading", "level": self.scale.heading_level(size), "en": text}]
 
     @staticmethod
     def _looks_like_paragraph(text):
         """ODL karışık fontlu (satır içi kod/denklem) gövde satırını başlık sanabilir;
         uzun ya da noktalamayla biten 'başlık' gövde metnidir."""
         return len(text) > MAX_HEADING_CHARS or text.endswith((".", ":", ";", ","))
-
-    def _heading_level(self, size):
-        if size >= self.settings["section_min_size"]:
-            return 1
-        return 2 if size >= self.settings["subsection_min_size"] else 3
 
     def _paragraph_blocks(self, element):
         text = self._plain(element)
