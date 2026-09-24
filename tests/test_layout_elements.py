@@ -35,6 +35,11 @@ class InlineMathTest(unittest.TestCase):
     def test_equation_without_neighbours_is_appended(self):
         self.assertEqual(self._spliced(_equation())[0], "find to minimize ⟦eq-1⟧")
 
+    def test_equation_whose_neighbours_are_missing_is_reported_and_left_out(self):
+        text, output = self._spliced(_equation("seek", "into"))
+        self.assertEqual(text, "find to minimize")
+        self.assertIn("atlandı", output)
+
     def test_simple_symbol_is_inserted_as_text(self):
         self.assertEqual(self._spliced(_equation("find", "to", kind="text", text="πr"))[0], "find πr to minimize")
 

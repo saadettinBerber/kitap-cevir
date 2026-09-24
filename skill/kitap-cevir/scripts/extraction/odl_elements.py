@@ -99,7 +99,7 @@ class OdlElements:
     def _with_equation(cls, host, item, insert):
         text, count = cls._splice(host.text, item, insert)
         if not count:
-            print(f"  ! satır içi denklem yerleştirilemedi, sona eklendi: {insert}")
+            print(f"  ! satır içi denklem yerleştirilemedi, atlandı: {insert}")
         return dataclasses.replace(host, text=text)
 
     @staticmethod
