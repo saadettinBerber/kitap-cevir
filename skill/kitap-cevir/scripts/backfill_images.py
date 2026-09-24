@@ -137,13 +137,14 @@ class ImageBackfiller:
         """Eklenen görsel sayısı; sayfa yalnız görsel eklendiyse yeniden yazılır."""
         images = self.extracted.of(page)
         page_document = PageDocument.read(self.project.page_js(page))
-        added = self._place(images, ImagePlacement(page_document.data["blocks"]), page)
+        added = self._place(images, ImagePlacement(page_document.data["blocks"]), self.project.page_images(page))
         if added:
             page_document.write(self.project.page_js(page))
         return added
 
-    def _place(self, images, placement, page):
-        target_dir = self.project.page_images(page)
+    @staticmethod
+    def _place(images, placement, target_dir):
+        """Sayfada henüz olmayan görselleri yerleştirip target_dir'e kopyalar; eklenen sayısı."""
         added = 0
         for src, anchor in images.anchored():
             if not placement.has(src):
