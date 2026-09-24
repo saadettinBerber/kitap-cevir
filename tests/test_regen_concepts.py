@@ -83,14 +83,14 @@ class CardOutputsTest(_BookTestCase):
     def test_apply_replaces_only_concepts(self):
         self._write_output([_explain("a"), _explain("b")])
         self.assertEqual(self.outputs.apply([4]), {4: []})
-        page = PageDocument.read(self.project.page_js(4)).data
+        page = self.pages.get(4).data
         self.assertEqual([card["id"] for card in page["concepts"]], ["a", "b"])
         self.assertEqual(page["blocks"], PAGE["blocks"])
 
     def test_apply_keeps_page_when_cards_are_invalid(self):
         self._write_output([_explain("a")])
         self.assertEqual(self.outputs.apply([4]), {4: ["kart sayısı 1 (2-4 olmalı)"]})
-        self.assertEqual(PageDocument.read(self.project.page_js(4)).data["concepts"], PAGE["concepts"])
+        self.assertEqual(self.pages.get(4).data["concepts"], PAGE["concepts"])
 
     def test_apply_reports_missing_output(self):
         self.assertIn("çıktı yok", self.outputs.apply([4])[4][0])

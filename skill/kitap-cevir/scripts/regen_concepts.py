@@ -69,6 +69,7 @@ class CardOutputs:
 
     def __init__(self, project, checker):
         self.project = project
+        self.pages = TranslatedPages(project)
         self.checker = checker
 
     @classmethod
@@ -94,8 +95,7 @@ class CardOutputs:
         return problems
 
     def _replace_cards(self, page, cards):
-        path = self.project.page_js(page)
-        PageDocument({**PageDocument.read(path).data, "concepts": cards}).write(path)
+        self.pages.save(PageDocument({**self.pages.get(page).data, "concepts": cards}))
 
 
 def _run_prepare(project, pages):
