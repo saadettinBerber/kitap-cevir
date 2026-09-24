@@ -119,7 +119,7 @@ def _report(prepared, progress):
 
 def main():
     spec, count = parse_args(sys.argv)
-    preparer = PagePreparer.for_project(Project())
+    preparer = PagePreparer.for_project(Project.discover())
     prepared = preparer.prepare_pages(spec, count)
     if not prepared:
         print("Hazırlanacak sayfa yok.")

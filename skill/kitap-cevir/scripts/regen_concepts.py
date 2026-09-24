@@ -108,7 +108,7 @@ def main():
     if len(sys.argv) < 3 or sys.argv[1] not in ACTIONS:
         print(__doc__)
         sys.exit(1)
-    regenerator = CardRegenerator.for_project(Project())
+    regenerator = CardRegenerator.for_project(Project.discover())
     ACTIONS[sys.argv[1]](regenerator, regenerator.select_pages(sys.argv[2:]))
 
 

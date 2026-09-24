@@ -127,7 +127,7 @@ def rebuild(project):
 
 
 def main():
-    project = Project()
+    project = Project.discover()
     for path in rebuild(project):
         print("yazıldı:", project.relative(path))
 

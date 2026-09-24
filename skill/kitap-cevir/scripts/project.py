@@ -75,8 +75,8 @@ def find_root(start=None):
 class Project:
     """Bir kitap projesinin dosya yolları ve progress.json erişimi."""
 
-    def __init__(self, root=None):
-        self.root = root or find_root()
+    def __init__(self, root):
+        self.root = root
         self.progress_path = os.path.join(self.root, PROGRESS_FILE)
         self.glossary_md = os.path.join(self.root, GLOSSARY_FILE)
         self.data_dir = os.path.join(self.root, "data")
@@ -87,6 +87,11 @@ class Project:
         self.work_out = os.path.join(self.root, WORK_DIR, "out")
         self.work_cards = os.path.join(self.root, WORK_DIR, "cards")
         self.work_migrate = os.path.join(self.root, WORK_DIR, "migrate")
+
+    @classmethod
+    def discover(cls):
+        """Betiklerin giriş noktası: kök çalışma dizininden ya da KITAP_ROOT'tan bulunur."""
+        return cls(find_root())
 
     def load_progress(self):
         return read_json(self.progress_path)

@@ -129,7 +129,7 @@ class ImageBackfiller:
 
 
 def main():
-    project = Project()
+    project = Project.discover()
     backfiller = ImageBackfiller.for_project(project)
     pages = [int(a) for a in sys.argv[1:]] or project.translated_pages()
     total = 0

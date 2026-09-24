@@ -100,7 +100,7 @@ def main():
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)
-    project = Project()
+    project = Project.discover()
     result = PageFinalizer(project).finalize(sys.argv[1])
     print(f"✓ Sayfa {result['page']}: {project.relative(result['page_js'])} yazıldı, "
           f"{result['images']} görsel, {result['terms']} yeni terim; toc.js + glossary.js güncellendi")

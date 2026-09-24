@@ -132,7 +132,7 @@ def _status(result):
 
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    migrator = Migrator.for_project(Project())
+    migrator = Migrator.for_project(Project.discover())
     if args[:1] == ["apply"]:
         _apply_done(migrator, args[1:])
         return
