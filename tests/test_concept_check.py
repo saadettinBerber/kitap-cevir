@@ -75,6 +75,10 @@ class CardProblemsTest(unittest.TestCase):
         card = _card("fazla", "explain", bad={"text": _pair()})
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["fazla: explain kartında `bad` olmamalı"])
 
+    def test_contrast_side_needs_text_and_why(self):
+        card = _card("yarim", "contrast", bad={}, good={"text": _pair(), "why": _pair()})
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["yarim: bad.text yok", "yarim: bad.why yok"])
+
     def test_duplicate_ids_are_reported(self):
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, EXPLAIN]), ["tanim: id tekrar ediyor"])
 
