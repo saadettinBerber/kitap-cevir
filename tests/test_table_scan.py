@@ -85,7 +85,9 @@ class SeparateTablesTest(unittest.TestCase):
         first_lines, first_shapes, _ = _header_only_table(TABLE_TOP, [("Configurability", "Change aspects.")])
         second_lines, second_shapes, _ = _header_only_table(SECOND_TABLE_TOP, [("Accessibility", "Access for all users.")])
         tables = _tables(first_lines + second_lines, first_shapes + second_shapes)
-        self.assertEqual([table["block"]["rows"][1][0]["en"] for table in tables], ["Configurability", "Accessibility"])
+        self.assertEqual([[[cell["en"] for cell in row] for row in table["block"]["rows"]] for table in tables],
+                         [[["Term", "Definition"], ["Configurability", "Change aspects."]],
+                          [["Term", "Definition"], ["Accessibility", "Access for all users."]]])
 
 
 class RowGapTest(unittest.TestCase):
@@ -104,16 +106,20 @@ class RowGapTest(unittest.TestCase):
 
 
 class TableEndTest(unittest.TestCase):
-    """Tablo alt kenar çizgisinde biter; altındaki caption ve gövde metni tabloya girmemeli."""
+    """Tablo alt kenar çizgisinde biter; altındaki caption ve gövde metni tabloya girmemeli.
+    Gövde satırı italik sözcükte parçalanıp iki sütuna düşer; sondaki tek sütunlu
+    satırı atan kural caption'ı dışarıda tutamaz, yalnız çizgi tutar."""
 
     def test_text_below_the_rule_is_outside(self):
         lines, shapes, bottom = _header_only_table(TABLE_TOP, [("Availability", "How long the system is available")])
         caption = span("Table 4-1. Operational characteristics", (72, bottom + 20, 222, bottom + 32), size=9)
-        body = span("Body text that follows the table.", (72, bottom + 48, 217, bottom + 63), size=10.5)
-        [table] = _tables(lines + [(caption,), (body,)], shapes)
-        cells = [cell["en"] for row in table["block"]["rows"] for cell in row]
-        self.assertEqual(len(table["block"]["rows"]), 2)
-        self.assertNotIn(caption.text, cells)
+        body_top, body_bottom = bottom + 48, bottom + 63
+        body = (span("See ", (72, body_top, 92, body_bottom), size=10.5),
+                span("Chapter 5", (92, body_top, 138, body_bottom), "Helvetica-Oblique", 10.5),
+                span(" for details.", (138, body_top, 200, body_bottom), size=10.5))
+        [table] = _tables(lines + [(caption,), body], shapes)
+        self.assertEqual([[cell["en"] for cell in row] for row in table["block"]["rows"]],
+                         [["Term", "Definition"], ["Availability", "How long the system is available"]])
 
 if __name__ == "__main__":
     unittest.main()
