@@ -3,7 +3,9 @@ import tempfile
 import unittest
 
 import _paths  # noqa: F401
-from backfill_images import ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ImageFolder, ImagePlacement, PageImages
+from backfill_images import ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ImageBackfiller, ImageFolder, ImagePlacement, PageImages
+from page_document import PageDocument
+from project import Project
 
 ANCHOR = "layers separate concerns"
 FIGURE = (MIN_IMAGE_SIDE_PX, MIN_IMAGE_SIDE_PX)
@@ -23,12 +25,16 @@ class FakeImageFolder:
 
     def __init__(self, sizes):
         self.sizes = sizes
+        self.copied = []
 
     def has(self, src):
         return src in self.sizes
 
     def size(self, src):
         return self.sizes[src]
+
+    def copy(self, src, target_dir):
+        self.copied.append((src, target_dir))
 
 
 def _anchored(blocks, sizes):
@@ -140,6 +146,63 @@ class AnchorMatchTest(unittest.TestCase):
         blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"}]
         ImagePlacement(blocks).add("fig.png", "")
         self.assertEqual(blocks[-1], _image("fig.png"))
+
+
+class FakeExtractedImages:
+    """ExtractedImages gibi; sayfayı PDF'ten çıkarmak yerine hazır blokları verir."""
+
+    def __init__(self, blocks, folder):
+        self.blocks = blocks
+        self.folder = folder
+
+    def of(self, page):
+        return PageImages(self.blocks, self.folder)
+
+
+class ImageBackfillerTest(unittest.TestCase):
+    """PDF'ten çıkan görseller çevrilmiş sayfaya eklenir; tekrar çalıştırmak güvenlidir."""
+
+    PAGE = 5
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.project = Project(self.tmp.name)
+        self.folder = FakeImageFolder({"fig.png": FIGURE})
+        extracted = FakeExtractedImages([_para("Layers separate concerns."), _image("fig.png")], self.folder)
+        self.backfiller = ImageBackfiller(self.project, extracted)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _write_page(self, blocks):
+        PageDocument({"page": self.PAGE, "blocks": blocks}).write(self.project.page_js(self.PAGE))
+
+    def _page_blocks(self):
+        return PageDocument.read(self.project.page_js(self.PAGE)).data["blocks"]
+
+    def test_missing_image_goes_below_its_text(self):
+        self._write_page([_para("Layers separate concerns."), _para("Microservices are small.")])
+        self.assertEqual(self.backfiller.backfill_page(self.PAGE), 1)
+        self.assertEqual(self._page_blocks()[1], _image("fig.png"))
+
+    def test_added_image_is_copied_next_to_the_page(self):
+        self._write_page([_para("Layers separate concerns.")])
+        self.backfiller.backfill_page(self.PAGE)
+        self.assertEqual(self.folder.copied, [("fig.png", self.project.page_images(self.PAGE))])
+
+    def test_second_run_adds_nothing(self):
+        self._write_page([_para("Layers separate concerns.")])
+        self.backfiller.backfill_page(self.PAGE)
+        self.assertEqual((self.backfiller.backfill_page(self.PAGE), len(self._page_blocks())), (0, 2))
+
+    def test_page_without_new_images_is_not_rewritten(self):
+        path = self.project.page_js(self.PAGE)
+        self._write_page([_para("Layers separate concerns."), _image("fig.png")])
+        with open(path, "a", encoding="utf-8") as page_js:
+            page_js.write("// elle eklenmiş satır\n")
+        self.backfiller.backfill_page(self.PAGE)
+        with open(path, encoding="utf-8") as page_js:
+            self.assertTrue(page_js.read().endswith("// elle eklenmiş satır\n"))
 
 if __name__ == "__main__":
     unittest.main()
