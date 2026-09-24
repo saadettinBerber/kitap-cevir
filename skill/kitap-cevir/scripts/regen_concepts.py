@@ -58,7 +58,7 @@ class CardInputs:
                 "concepts_spec": self.spec, "concepts": []}
 
 
-class CardRegenerator:
+class CardOutputs:
     """Kart agent'ının çıktısını (_work/cards/out) denetler; geçerli kartları sayfaya yazar."""
 
     def __init__(self, project, checker):
@@ -98,7 +98,7 @@ def _run_prepare(project, pages):
 
 
 def _run_apply(project, pages):
-    report = CardRegenerator.for_project(project).apply(pages)
+    report = CardOutputs.for_project(project).apply(pages)
     for page, problems in report.items():
         print(f"  {'!' if problems else '✓'} Sayfa {page}")
         for problem in problems:

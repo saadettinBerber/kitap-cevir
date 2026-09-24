@@ -6,7 +6,7 @@ import unittest
 import _paths  # noqa: F401
 from page_document import PageDocument
 from project import Project
-from regen_concepts import CardInputs, CardRegenerator, select_pages
+from regen_concepts import CardInputs, CardOutputs, select_pages
 
 PROGRESS = {"book": {"slug": "demo"}, "book_pdf": "book.pdf", "pdf_offset": 0,
             "extraction": {"default_code_language": "python"},
@@ -42,7 +42,7 @@ class RegenConceptsTest(unittest.TestCase):
         self.project = Project(self.tmp.name)
         PageDocument(PAGE).write(self.project.page_js(PAGE["page"]))
         self.inputs = CardInputs.for_project(self.project)
-        self.regenerator = CardRegenerator.for_project(self.project)
+        self.regenerator = CardOutputs.for_project(self.project)
 
     def tearDown(self):
         self.tmp.cleanup()
