@@ -3,7 +3,7 @@ Exist). Adaptörler bunlara uyar; testler kendi sahte nesnelerini verir."""
 from typing import Protocol
 
 from extraction.pdf.geometry import Box
-from extraction.pdf.model import Drawing, Span
+from extraction.pdf.model import Drawing, PageLayout, Span
 
 
 class PdfPage(Protocol):
@@ -21,3 +21,10 @@ class PdfPage(Protocol):
 
     def png(self, box: Box, dpi: int) -> bytes:
         """Kutunun görüntüsü, PNG baytları."""
+
+
+class LayoutReader(Protocol):
+    """Sayfanın düzenini (başlık, paragraf, liste, tablo, görsel) okuyan motor."""
+
+    def read(self, page: PdfPage, image_dir: str) -> PageLayout:
+        """Görseller image_dir'e yazılır; öğe `image_file` ile dosyayı adlandırır."""

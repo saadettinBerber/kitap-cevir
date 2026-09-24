@@ -1,4 +1,4 @@
-"""PDF'siz testler için `PdfPage` sahtesi ve düz veri kurucuları.
+"""PDF'siz testler için `PdfPage` / `LayoutReader` sahteleri ve düz veri kurucuları.
 
 Kutular sol-üst orijinli (x0, y0, x1, y1) demetleriyle verilir. Gerçek PDF
 gereken sınır testleri `real_page` ile PyMuPDF adaptörünü kullanır.
@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 import _paths  # noqa: F401
 from extraction.pdf.geometry import Box
-from extraction.pdf.model import Drawing, Span
+from extraction.pdf.model import Drawing, LayoutElement, PageLayout, Span
 from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 
 FAKE_PNG = b"\x89PNG fake"
@@ -26,6 +26,10 @@ def fill(*box):
 
 def stroke(*box):
     return Drawing(Box(*box), is_filled=False)
+
+
+def element(text, box, kind="paragraph", **fields):
+    return LayoutElement(kind, Box(*box), text, **fields)
 
 
 @dataclass
@@ -48,6 +52,15 @@ class FakePdfPage:
 
     def png(self, box, dpi):
         return FAKE_PNG
+
+
+@dataclass
+class FakeLayoutReader:
+    """Önceden verilen öğeleri sayfanın düzeni olarak döndürür."""
+    elements: tuple = ()
+
+    def read(self, page, image_dir):
+        return PageLayout(page.height, tuple(self.elements))
 
 
 @contextlib.contextmanager

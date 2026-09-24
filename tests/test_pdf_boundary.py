@@ -1,6 +1,6 @@
 """PDF kütüphaneleri sınırının testleri (Bl.8 · Clean Boundaries): Box'ın
-PyMuPDF Rect'iyle aynı davrandığı sınır koşulları ve PyMuPDF adaptörünün
-öğrenme testleri."""
+PyMuPDF Rect'iyle aynı davrandığı sınır koşulları, PyMuPDF adaptörünün
+öğrenme testleri ve ODL ağacının `LayoutElement`e çevrilmesi."""
 import os
 import tempfile
 import unittest
@@ -9,6 +9,7 @@ import fitz
 
 from pdf_fakes import real_page
 from extraction.pdf.geometry import Box
+from extraction.pdf.odl_adapter import OdlTree
 
 PNG_SIGNATURE = b"\x89PNG"
 
@@ -82,6 +83,49 @@ class PyMuPdfAdapterTest(unittest.TestCase):
         with real_page(self.pdf) as page:
             self.assertEqual(page.text_in(Box(60, 80, 300, 110)).strip(), "Top line")
             self.assertTrue(page.png(Box(60, 80, 300, 110), 72).startswith(PNG_SIGNATURE))
+
+
+class OdlTreeTest(unittest.TestCase):
+    """ODL'nin sol-alt orijinli ağacı, Java çalıştırmadan çevrilir."""
+
+    HEIGHT = 800
+
+    def _layout(self, *kids):
+        return OdlTree({"kids": list(kids)}, self.HEIGHT).layout()
+
+    def test_box_is_flipped_to_top_left(self):
+        [paragraph] = self._layout({"type": "paragraph", "content": "x", "bounding box": [70, 500, 430, 520]}).elements
+        self.assertEqual(paragraph.box, Box(70, 280, 430, 300))
+
+    def test_missing_box_sits_on_the_page_bottom(self):
+        [paragraph] = self._layout({"type": "paragraph", "content": "x"}).elements
+        self.assertEqual((paragraph.box.y0, paragraph.box.y1), (self.HEIGHT, self.HEIGHT))
+
+    def test_nested_kids_are_flattened_in_reading_order(self):
+        tree = {"type": "section", "kids": [{"type": "heading", "content": "H", "font size": 18},
+                                            {"type": "paragraph", "content": None}]}
+        heading, paragraph = self._layout(tree).elements
+        self.assertEqual((heading.kind, heading.font_size), ("heading", 18))
+        self.assertEqual((paragraph.kind, paragraph.text, paragraph.font_size), ("paragraph", "", 0))
+
+    def test_list_items_keep_their_children(self):
+        kid = {"type": "paragraph", "content": "buried"}
+        odl_list = {"type": "list", "numbering style": "arabic numbers",
+                    "list items": [{"type": "list item", "content": "one", "kids": [kid]}]}
+        [layout_list] = self._layout(odl_list).elements
+        self.assertTrue(layout_list.is_ordered)
+        self.assertEqual(layout_list.list_items[0].children[0].text, "buried")
+
+    def test_table_cells_join_their_texts(self):
+        cell = {"kids": [{"content": "Alpha"}, {"content": "beta"}]}
+        [table] = self._layout({"type": "table", "rows": [{"cells": [cell, {"kids": []}]}]}).elements
+        self.assertEqual(table.table_rows, (("Alpha beta", ""),))
+
+    def test_image_keeps_only_the_file_name(self):
+        [image] = self._layout({"type": "image", "source": "/tmp/work/page-3_images/imageFile1.png"}).elements
+        self.assertEqual(image.image_file, "imageFile1.png")
+
+
 
 if __name__ == "__main__":
     unittest.main()
