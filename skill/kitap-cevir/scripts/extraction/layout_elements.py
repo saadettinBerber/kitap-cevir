@@ -5,6 +5,7 @@ her düzeltme yeni bir liste kurar. Koordinatlar üst orijinlidir.
 """
 import dataclasses
 import re
+import unicodedata
 
 from extraction.equations.math_scan import placeholder
 from extraction.pdf.geometry import Box
@@ -100,6 +101,7 @@ class InlineEquation:
     def __init__(self, item):
         self.box = item["bbox"]
         self.before, self.after = item["before"], item["after"]
+        self.text = item["text"]
         self.insert = item["text"] if item["kind"] == "text" else placeholder(item["id"])
 
     def is_hosted_by(self, element):
@@ -116,12 +118,29 @@ class InlineEquation:
         """insert'i metinde before/after komşu kelimelerinin arasına koyar."""
         before, after = re.escape(self.before), re.escape(self.after)
         if self.before and self.after:
-            return re.subn(before + r"\s*" + after, f"{self.before} {self.insert} {self.after}", text, count=1)
+            return self._between_neighbours(text)
         if self.after:
             return re.subn(after, f"{self.insert} {self.after}", text, count=1)
         if self.before:
             return re.subn(before, f"{self.before} {self.insert}", text, count=1)
         return f"{text} {self.insert}", 1
+
+    def _between_neighbours(self, text):
+        """Önce bitişik komşular: ODL denklem glifini metinden düşürür. Yoksa araları en çok
+        denklemin kendi metni kadar olan komşular: LiteParse glifi düzleşmiş metin olarak bırakır."""
+        spliced, count = self._replace_between(text, 0)
+        return (spliced, count) if count else self._replace_between(text, len(self.text))
+
+    def _replace_between(self, text, gap):
+        """Aralarında en çok gap harf bulunan ilk komşu çifti; aradaki metnin yerini insert alır.
+        Boşluk olabildiğince uzun tutulur: sonraki kelime (',') denklemin içinde de geçebilir."""
+        pattern = rf"(?P<before>{_spellings(self.before)})\s*.{{0,{gap}}}\s*(?P<after>{_spellings(self.after)})"
+        return re.subn(pattern, lambda match: f"{match['before']} {self.insert} {match['after']}", text, count=1)
+
+
+def _spellings(word):
+    """Kelimenin metindeki yazılışları: olduğu gibi ya da bağlı harfsiz (LiteParse ﬁ'yi fi yazar)."""
+    return "|".join(re.escape(form) for form in sorted({word, unicodedata.normalize("NFKC", word)}))
 
 
 class CodeImageLink:

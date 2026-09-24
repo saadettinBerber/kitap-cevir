@@ -119,5 +119,47 @@ class InlineMathTest(unittest.TestCase):
         self.assertIn("öğe bulunamadı", output)
 
 
+
+class FlattenedInlineMathTest(unittest.TestCase):
+    """LiteParse denklem glifini metinden düşürmez, düzleşmiş metin olarak bırakır ve bağlı
+    harfleri ayırır; ODL düşürür. Denklemin düz metni komşuların arasındaysa yerini
+    denklem alır."""
+
+    def _spliced(self, equation, text):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            [host] = LayoutElements([element(text, HOST_BOX)]).with_inline_math([equation]).items
+        return host.text, output.getvalue()
+
+    def test_flattened_text_between_neighbours_gives_way_to_the_placeholder(self):
+        equation = _equation("sequence", "given", text="x1, . . . , xn")
+        self.assertEqual(self._spliced(equation, "the sequence x 1, , xn given"), ("the sequence ⟦eq-1⟧ given", ""))
+
+    def test_simple_symbol_already_in_the_text_is_not_repeated(self):
+        equation = _equation("want", "to", kind="text", text="α")
+        self.assertEqual(self._spliced(equation, "you might want α to be larger"), ("you might want α to be larger", ""))
+
+    def test_gap_as_long_as_the_equation_text_is_taken(self):
+        equation = _equation("the", "grows", text="abc")
+        self.assertEqual(self._spliced(equation, "the xyz grows"), ("the ⟦eq-1⟧ grows", ""))
+
+    def test_gap_longer_than_the_equation_text_is_left_alone(self):
+        text, output = self._spliced(_equation("the", "grows", text="abc"), "the wxyz grows")
+        self.assertEqual(text, "the wxyz grows")
+        self.assertIn("atlandı", output)
+
+    def test_following_word_inside_the_equation_does_not_cut_it(self):
+        equation = _equation("sample", ",", text="(x, yw, yl)")
+        self.assertEqual(self._spliced(equation, "each sample (x, yw, yl), the loss"), ("each sample ⟦eq-1⟧ , the loss", ""))
+
+    def test_ligature_in_a_neighbour_matches_its_letters(self):
+        equation = _equation("\ufb01nd", "to", text="θ")
+        self.assertEqual(self._spliced(equation, "find θ to minimize"), ("find ⟦eq-1⟧ to minimize", ""))
+
+    def test_adjacent_neighbours_come_before_a_gap(self):
+        """ODL metninde denklem yoktur; bitişik komşular bulunursa öncelik onlarındır."""
+        equation = _equation("find", "to", kind="text", text="θ")
+        self.assertEqual(self._spliced(equation, "find α to go, then find to stop")[0],
+                         "find α to go, then find θ to stop")
+
 if __name__ == "__main__":
     unittest.main()
