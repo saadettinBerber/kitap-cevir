@@ -1,7 +1,8 @@
 import unittest
 
 import _paths  # noqa: F401
-from concept_check import CardChecker, card_kind
+from book_settings import CARD_KINDS
+from concept_check import CardChecker, card_kind, kind_rules
 
 SPEC = {"kinds": ["explain", "contrast", "tradeoff", "code"], "code_langs": ["python"],
         "code_comment_lang": "en"}
@@ -81,6 +82,11 @@ class CardProblemsTest(unittest.TestCase):
 
     def test_duplicate_ids_are_reported(self):
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, EXPLAIN]), ["tanim: id tekrar ediyor"])
+
+
+class KindRulesTest(unittest.TestCase):
+    def test_every_card_kind_has_rules(self):
+        self.assertEqual(set(kind_rules(["python"])), set(CARD_KINDS))
 
 
 if __name__ == "__main__":
