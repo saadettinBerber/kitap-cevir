@@ -7,7 +7,8 @@ import unittest
 
 import fitz
 
-from pdf_fakes import real_page
+from pdf_fakes import FakeLayoutReader, element, real_page
+from extraction.page_extractor import PageExtractor
 from extraction.pdf.geometry import Box
 from extraction.pdf.odl_adapter import OdlTree
 
@@ -125,6 +126,19 @@ class OdlTreeTest(unittest.TestCase):
         [image] = self._layout({"type": "image", "source": "/tmp/work/page-3_images/imageFile1.png"}).elements
         self.assertEqual(image.image_file, "imageFile1.png")
 
+
+class ReplaceableLayoutReaderTest(unittest.TestCase):
+    """Düzen okuyucusu yapıcıdan verilir; test ODL (Java) yerine sahtesini kullanır."""
+
+    def test_extraction_runs_on_a_fake_layout(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf = os.path.join(tmp, "a.pdf")
+            _write_pdf(pdf)
+            reader = FakeLayoutReader([element("Top line.", (72, 90, 300, 104), font_size=11)])
+            settings = {"running_header": "none"}
+            extracted = PageExtractor(settings, reader).extract(pdf, 1, os.path.join(tmp, "images"))
+        self.assertEqual(extracted["blocks"], [{"type": "para", "sentences": [{"en": "Top line."}]}])
+        self.assertIsNone(extracted["running_header"])
 
 
 if __name__ == "__main__":

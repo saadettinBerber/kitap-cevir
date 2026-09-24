@@ -28,11 +28,15 @@ _INLINE_MATH_FIELDS = ("id", "src", "text", "latex")
 class PageExtractor:
     """extraction ayarlarıyla bir PDF sayfasını blok şemasına dönüştürür."""
 
-    def __init__(self, settings=None):
-        self.settings = {**DEFAULT_EXTRACTION, **(settings or {})}
-        self.layout_reader = OdlLayoutReader()
+    def __init__(self, settings, layout_reader):
+        self.settings = {**DEFAULT_EXTRACTION, **settings}
+        self.layout_reader = layout_reader
         self.zones = PageZones(self.settings)
         self.tables = TableScanner(self.settings)
+
+    @classmethod
+    def with_odl(cls, settings):
+        return cls(settings, OdlLayoutReader())
 
     def extract(self, pdf_path, pdf_page, image_dir):
         """Sayfayı {blocks, running_header, math} olarak döndürür; görseller image_dir'e yazılır."""
