@@ -16,6 +16,7 @@ from extraction.equations.math_scan import MathScanner
 from extraction.odl_elements import OdlElements
 from extraction.odl_runner import extract_odl_elements
 from extraction.page_regions import PageRegions
+from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from extraction.page_zones import PageZones
 from project import DEFAULT_EXTRACTION
 from extraction.tables.table_scan import scan_tables
@@ -33,12 +34,16 @@ class PageExtractor:
 
     def extract(self, pdf_path, pdf_page, image_dir):
         """Sayfayı {blocks, running_header, math} olarak döndürür; görseller image_dir'e yazılır."""
-        elements = extract_odl_elements(pdf_path, pdf_page, image_dir)
-        layout = scan_page(pdf_path, pdf_page, self.settings)
+        with PyMuPdfDocument.open(pdf_path) as document:
+            return self.extract_page(document.page(pdf_page), image_dir)
+
+    def extract_page(self, page, image_dir):
+        elements = extract_odl_elements(page.pdf_path, page.number, image_dir)
+        layout = scan_page(page.pdf_path, page.number, self.settings)
         header, body = self.zones.split(elements)
-        math = MathScanner(self.settings, image_dir).scan(pdf_path, pdf_page)
+        math = MathScanner(self.settings, image_dir).scan(page.pdf_path, page.number)
         regions = PageRegions.from_layout(
-            layout, scan_tables(pdf_path, pdf_page, self.settings) + math["display"], self._code_block)
+            layout, scan_tables(page.pdf_path, page.number, self.settings) + math["display"], self._code_block)
         body = (OdlElements(body).flatten_nested_lists().drop_nested_fragments().merge_footnote_markers()
                 .with_inline_math(math["inline"], layout["page_height"])
                 .without_code_image_links(layout["code_image_links"], layout["page_height"]).items)
