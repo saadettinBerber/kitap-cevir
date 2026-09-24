@@ -7,7 +7,6 @@ import re
 from extraction.text_utils import is_numeric_only, split_sentences, strip_list_marker
 
 MAX_HEADING_CHARS = 100
-_CHAPTER_AUTHOR = re.compile(r"^(?:by|with) [A-Z]")
 _BIBLIOGRAPHY_ENTRY = re.compile(r"^\[[A-Za-z0-9]+\]:")
 _LIST_MARKER = re.compile(r"^(\d+[.)])\s")
 
@@ -174,32 +173,3 @@ class BlockBuilder:
 
     def _rich(self, text):
         return self.fixer.rich(self.fixer.plain(text))
-
-
-class ChapterOpener:
-    """Bölüm açılışı düzen okuyucusunda ayrı öğeler olarak gelir: chapter_number + chapter +
-    'by ...' paragrafı. Bunlar tek chapter bloğunda birleşir."""
-
-    def __init__(self, blocks):
-        self.blocks = blocks
-
-    def merged(self):
-        merged, pending_number = [], None
-        for block in self.blocks:
-            if block["type"] == "chapter_number":
-                pending_number = block["num"]
-            elif block["type"] == "chapter":
-                block["num"] = pending_number
-                merged.append(block)
-            elif merged and merged[-1]["type"] == "chapter" and self._author_line(block):
-                merged[-1]["author"] = self._author_line(block)
-            else:
-                merged.append(block)
-        return merged
-
-    @staticmethod
-    def _author_line(block):
-        if block.get("type") != "para" or len(block["sentences"]) != 1:
-            return ""
-        text = block["sentences"][0]["en"]
-        return text if _CHAPTER_AUTHOR.match(text) else ""

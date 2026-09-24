@@ -3,7 +3,7 @@ import tempfile
 import unittest
 
 from pdf_fakes import element, span
-from extraction.block_builder import ChapterOpener
+from extraction.chapter_opener import ChapterOpener
 from extraction.odl_elements import OdlElements
 from extraction.pdf.geometry import Box
 from extraction.tables.table_grid import TableGrid

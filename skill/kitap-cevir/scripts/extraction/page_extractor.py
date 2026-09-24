@@ -5,12 +5,14 @@
      tire onarımı (layout_scan), çizgisiz tablolar (table_scan), denklemler (math_scan)
 
 Düzen öğesi düzeltmeleri odl_elements, sayfa bölgeleri page_zones, öğe → blok
-çevirisi block_builder, metin katmanı bölgelerinin okuma sırasına yerleşimi
-page_regions'dadır. Kitaba özgü eşikler progress.json -> extraction
-ayarlarından gelir; varsayılanlar extraction.settings içindedir. Çıktı
-references/FORMAT.md'deki blok şemasının yalnız `en` tarafıdır.
+çevirisi block_builder, bölüm açılışının birleşmesi chapter_opener, metin
+katmanı bölgelerinin okuma sırasına yerleşimi page_regions'dadır. Kitaba özgü
+eşikler progress.json -> extraction ayarlarından gelir; varsayılanlar
+extraction.settings içindedir. Çıktı references/FORMAT.md'deki blok şemasının
+yalnız `en` tarafıdır.
 """
-from extraction.block_builder import BlockBuilder, ChapterOpener
+from extraction.block_builder import BlockBuilder
+from extraction.chapter_opener import ChapterOpener
 from extraction.equations.math_scan import MathScanner
 from extraction.odl_elements import OdlElements
 from extraction.page_regions import PageRegions
