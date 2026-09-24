@@ -26,6 +26,10 @@ class Progress:
         entry = self.data["pages"].get(str(page), {})
         return {"en": entry.get("section_en", ""), "tr": entry.get("section_tr", "")}
 
+    def translated_pages(self):
+        """Kaydedilmiş, boş olmayan sayfalar, sırayla."""
+        return sorted(int(page) for page, entry in self.data["pages"].items() if not entry.get("blank"))
+
     def pages_per_run(self):
         return self.data.get("pages_per_run", 1)
 

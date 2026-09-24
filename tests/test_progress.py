@@ -62,5 +62,20 @@ class PageRecordTest(unittest.TestCase):
         self.assertEqual(self.progress.pages_per_run(), 1)
 
 
+class TranslatedPagesTest(unittest.TestCase):
+    """Çevrilmiş sayfaların tek kaynağı progress.json'daki kayıttır."""
+
+    def test_recorded_pages_are_listed_in_order(self):
+        progress = Progress({"pages": {"12": {"pdf_page": 31}, "3": {"pdf_page": 22}}})
+        self.assertEqual(progress.translated_pages(), [3, 12])
+
+    def test_blank_page_is_not_translated(self):
+        progress = Progress({"pages": {"3": {"pdf_page": 22}, "4": {"blank": True, "pdf_page": 23}}})
+        self.assertEqual(progress.translated_pages(), [3])
+
+    def test_no_record_means_no_translated_pages(self):
+        self.assertEqual(Progress({"pages": {}}).translated_pages(), [])
+
+
 if __name__ == "__main__":
     unittest.main()
