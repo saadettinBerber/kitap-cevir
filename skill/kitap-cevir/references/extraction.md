@@ -3,8 +3,15 @@
 `prepare_page.py`, sayfayı iki kaynaktan okur ve birleştirir (kod:
 `scripts/extraction/`, giriş noktası `page_extractor.PageExtractor`):
 
-1. **OpenDataLoader PDF** (Java): başlık, paragraf, liste, tablo, görsel,
-   caption ve okuma sırası. Koordinatları sol-alt orijinlidir.
+PDF kütüphanelerine yalnız `extraction/pdf/` altındaki adaptörler dokunur;
+akışlar düz veri nesnelerini (`Span`, `Drawing`, `LayoutElement`) ve iki arayüzü
+(`PdfPage`, `LayoutReader`) görür. Çıkarım kodunun tamamı sol-üst orijinle
+çalışır. Başka bir düzen okuyucusu (ör. LiteParse) `LayoutReader`'a bir adaptör
+yazılıp `PageExtractor`'a verilerek eklenir.
+
+1. **OpenDataLoader PDF** (Java; `LayoutReader` adaptörü `pdf/odl_adapter.py`):
+   başlık, paragraf, liste, tablo, görsel, caption ve okuma sırası. ODL
+   koordinatları sol-alt orijinlidir; adaptör sınırda sol-üst orijine çevirir.
 2. **PyMuPDF metin katmanı** (`extraction/text_layer/`): tek aralıklı (monospace) fontla dizilmiş
    satırları girintili kod listelerine çevirir, satır içi kod parçalarını ters
    tırnakla işaretler, ODL'nin sildiği tireleri onarır.
