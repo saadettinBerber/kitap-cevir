@@ -3,10 +3,9 @@ import os
 import tempfile
 import unittest
 
-import fitz
-
 from pdf_fakes import FakePdfDocument, FakePdfPage, span
-from page_input import CONTEXT_CHARS, PageInputBuilder, context_snippets
+from book_pdf import BookPdf
+from page_input import PageInputBuilder
 from prepare_page import PagePreparer
 from progress import Progress
 from project import Project
@@ -18,37 +17,10 @@ PROGRESS = {"book_pdf": "book.pdf", "pdf_offset": 1, "book_total_pages": 4, "las
             "pages": {}, "pages_per_run": 2}
 
 
-def _document(page_count):
-    document = fitz.open()
-    for number in range(1, page_count + 1):
-        document.new_page().insert_text((72, 72), f"Sayfa {number}")
-    return document
-
-
 def _fake_document(page_count):
     pages = [FakePdfPage(lines=[(span(f"Sayfa {number}", (72, 60, 120, 72)),)], number=number)
              for number in range(1, page_count + 1)]
     return FakePdfDocument(pages)
-
-
-class ContextSnippetsTest(unittest.TestCase):
-    def test_middle_page_sees_both_neighbours(self):
-        self.assertEqual(context_snippets(_fake_document(3), 2), {"prev_tail": "Sayfa 1", "next_head": "Sayfa 3"})
-
-    def test_first_page_has_no_previous_text(self):
-        self.assertEqual(context_snippets(_fake_document(3), 1)["prev_tail"], "")
-
-    def test_last_page_has_no_following_text(self):
-        self.assertEqual(context_snippets(_fake_document(3), 3)["next_head"], "")
-
-    def test_single_page_document_has_no_context(self):
-        self.assertEqual(context_snippets(_fake_document(1), 1), {"prev_tail": "", "next_head": ""})
-
-    def test_neighbour_text_is_cut_to_the_context_size(self):
-        long_page = FakePdfPage(lines=[(span("x" * (CONTEXT_CHARS + 5), (72, 60, 500, 72)),)])
-        document = FakePdfDocument([long_page, FakePdfPage(), long_page])
-        self.assertEqual({key: len(text) for key, text in context_snippets(document, 2).items()},
-                         {"prev_tail": CONTEXT_CHARS, "next_head": CONTEXT_CHARS})
 
 
 class _FakeExtractor:
@@ -57,22 +29,21 @@ class _FakeExtractor:
     def __init__(self, blocks_by_pdf_page):
         self.blocks_by_pdf_page = blocks_by_pdf_page
 
-    def extract(self, pdf_path, pdf_page, image_dir):
-        return {"blocks": self.blocks_by_pdf_page[pdf_page], "math": [],
+    def extract_page(self, page, image_dir):
+        return {"blocks": self.blocks_by_pdf_page[page.number], "math": [],
                 "running_header": {"is_chapter": False, "text": "Styles"}}
 
 
 class PagePreparationTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        with _document(5) as document:
-            document.save(os.path.join(self.tmp.name, "book.pdf"))
         self.project = Project(self.tmp.name)
         self.progress = Progress(json.loads(json.dumps(PROGRESS)))
         with open(os.path.join(self.tmp.name, "progress.json"), "w", encoding="utf-8") as handle:
             json.dump(self.progress.data, handle)
         extractor = _FakeExtractor({2: [PARA], 3: [IMAGE], 4: [PARA], 5: [PARA]})
-        self.builder = PageInputBuilder(self.project, self.progress, extractor)
+        book_pdf = BookPdf(lambda: _fake_document(5), extractor)
+        self.builder = PageInputBuilder(self.project, self.progress, book_pdf)
         self.preparer = PagePreparer(self.project, self.progress, self.builder)
 
     def tearDown(self):

@@ -55,10 +55,9 @@ class PageExtractor:
         return {"blocks": ChapterOpener(regions.place(body, builder.blocks_of)).merged(),
                 "running_header": header, "math": self._inline_images(math)}
 
-    def hyphen_fixes(self, pdf_path, pdf_page):
+    def hyphen_fixes(self, page):
         """Satır sonunda bölünmüş sözcüklerin onarımı ('McGraw-' + 'Hill')."""
-        with PyMuPdfDocument.open(pdf_path) as document:
-            return self.text_layer.scan(document.page(pdf_page))["hyphen_fixes"]
+        return self.text_layer.scan(page)["hyphen_fixes"]
 
     def _code_block(self, region):
         return {"type": "code", "lang": self.settings["default_code_language"], "code": region["code"]}
