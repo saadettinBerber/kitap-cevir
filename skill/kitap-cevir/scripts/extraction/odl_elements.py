@@ -81,42 +81,47 @@ class OdlElements:
         """Satır içi denklemleri ev sahibi öğenin metnine yerleştirir: basit sembol
         düz metin, karmaşık denklem ⟦eq-N⟧ yer tutucusu."""
         elements = list(self.items)
-        for item in items:
-            insert = item["text"] if item["kind"] == "text" else placeholder(item["id"])
-            host = next((index for index, element in enumerate(elements) if self._hosts(element, item)), None)
+        for equation in map(InlineEquation, items):
+            host = next((index for index, element in enumerate(elements) if equation.is_hosted_by(element)), None)
             if host is None:
-                print(f"  ! satır içi denklem için öğe bulunamadı: {insert}")
+                print(f"  ! satır içi denklem için öğe bulunamadı: {equation.insert}")
                 continue
-            elements[host] = self._with_equation(elements[host], item, insert)
+            elements[host] = equation.spliced_into(elements[host])
         return OdlElements(elements)
-
-    @staticmethod
-    def _hosts(element, item):
-        """Öğe, denklem kutusunu dikeyde kapsıyorsa ev sahibidir."""
-        return element.box.y0 <= item["bbox"].center_y <= element.box.y1
-
-    @classmethod
-    def _with_equation(cls, host, item, insert):
-        text, count = cls._splice(host.text, item, insert)
-        if not count:
-            print(f"  ! satır içi denklem yerleştirilemedi, atlandı: {insert}")
-        return dataclasses.replace(host, text=text)
-
-    @staticmethod
-    def _splice(text, item, insert):
-        """insert'i ODL metninde before/after komşu kelimelerinin arasına koyar."""
-        before, after = re.escape(item["before"]), re.escape(item["after"])
-        if item["before"] and item["after"]:
-            return re.subn(before + r"\s*" + after, f"{item['before']} {insert} {item['after']}", text, count=1)
-        if item["after"]:
-            return re.subn(after, f"{insert} {item['after']}", text, count=1)
-        if item["before"]:
-            return re.subn(before, f"{item['before']} {insert}", text, count=1)
-        return f"{text} {insert}", 1
 
 
 def _nested(element):
     return dataclasses.replace(element, is_nested=True)
+
+
+class InlineEquation:
+    """Metin katmanının bulduğu bir satır içi denklem; öğe metnine komşu kelimeleri arasında girer."""
+
+    def __init__(self, item):
+        self.box = item["bbox"]
+        self.before, self.after = item["before"], item["after"]
+        self.insert = item["text"] if item["kind"] == "text" else placeholder(item["id"])
+
+    def is_hosted_by(self, element):
+        """Öğe, denklem kutusunu dikeyde kapsıyorsa ev sahibidir."""
+        return element.box.y0 <= self.box.center_y <= element.box.y1
+
+    def spliced_into(self, host):
+        text, count = self._splice(host.text)
+        if not count:
+            print(f"  ! satır içi denklem yerleştirilemedi, atlandı: {self.insert}")
+        return dataclasses.replace(host, text=text)
+
+    def _splice(self, text):
+        """insert'i metinde before/after komşu kelimelerinin arasına koyar."""
+        before, after = re.escape(self.before), re.escape(self.after)
+        if self.before and self.after:
+            return re.subn(before + r"\s*" + after, f"{self.before} {self.insert} {self.after}", text, count=1)
+        if self.after:
+            return re.subn(after, f"{self.insert} {self.after}", text, count=1)
+        if self.before:
+            return re.subn(before, f"{self.before} {self.insert}", text, count=1)
+        return f"{text} {self.insert}", 1
 
 
 class CodeImageLink:
