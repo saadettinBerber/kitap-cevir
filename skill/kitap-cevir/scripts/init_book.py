@@ -22,8 +22,9 @@ import shutil
 
 import fitz
 
+from book_settings import CARD_KINDS, DEFAULT_CODE_COMMENT_LANG
 from json_file import read_json
-from progress import CARD_KINDS, DEFAULT_CODE_COMMENT_LANG, Progress
+from progress import Progress
 from project import PROGRESS_FILE, Project
 from reader_data import rebuild
 
@@ -143,12 +144,13 @@ class BookSetup:
 
 def report(project, progress):
     print(f"✓ Kitap projesi kuruldu: {project.root}")
-    book, data = progress.book_info(), progress.data
+    settings, data = project.load_settings(), progress.data
+    book = settings.book()
     print(f"  kitap: {book['title']} — {book['author']}")
-    print(f"  PDF: {progress.book_pdf()} ({data['pdf_total_pages']} sayfa), "
+    print(f"  PDF: {settings.book_pdf()} ({data['pdf_total_pages']} sayfa), "
           f"ofset {data['pdf_offset']}, kitap {data['book_total_pages']} sayfa")
     print(f"  bölüm sayısı: {len(data['chapters'])}")
-    print(f"  kart türleri: {', '.join(progress.concepts_settings()['kinds'])}")
+    print(f"  kart türleri: {', '.join(settings.concepts()['kinds'])}")
     print(NEXT_STEPS)
 
 

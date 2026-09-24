@@ -29,7 +29,7 @@ class CardRegenerator:
 
     @classmethod
     def for_project(cls, project):
-        return cls(project, CardChecker(project.load_progress().concepts_settings()))
+        return cls(project, CardChecker(project.load_settings().concepts()))
 
     def select_pages(self, specs):
         """'all', tek numaralar ve '5-40' aralıkları; çevrilmemiş sayfalar atlanır."""

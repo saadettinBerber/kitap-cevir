@@ -36,7 +36,7 @@ class PdfPathTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             open(os.path.join(root, "progress.json"), "w").write(json.dumps({"book_pdf": "/x/y.pdf"}))
             project = Project(root)
-            self.assertEqual(project.pdf_path(project.load_progress()), "/x/y.pdf")
+            self.assertEqual(project.pdf_path(), "/x/y.pdf")
 
 
 class ProgressFileTest(unittest.TestCase):

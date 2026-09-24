@@ -48,7 +48,7 @@ def _duplicate_ids(cards):
 
 class CardChecker:
     """Bir sayfanın kartlarını kitabın kart ayarlarına göre denetler;
-    spec = Progress.concepts_settings()."""
+    spec = BookSettings.concepts()."""
 
     def __init__(self, spec):
         self.spec = spec

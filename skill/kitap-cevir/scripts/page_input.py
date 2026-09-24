@@ -29,11 +29,11 @@ class PageInputBuilder:
         self.project = project
         self.progress = progress
         self.extractor = extractor
-        self.pdf = project.pdf_path(progress)
+        self.pdf = project.pdf_path()
 
     @classmethod
     def for_progress(cls, project, progress):
-        return cls(project, progress, PageExtractor.for_settings(progress.extraction_settings()))
+        return cls(project, progress, PageExtractor.for_settings(project.load_settings().extraction()))
 
     def hyphen_fixes(self, pdf_page):
         return self.extractor.hyphen_fixes(self.pdf, pdf_page)

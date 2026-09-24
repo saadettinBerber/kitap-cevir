@@ -101,10 +101,10 @@ def _print_entry(entry, has_vision):
         print(f"    denklem: {entry['math']} PNG — {_math_note(has_vision)}")
 
 
-def _report(prepared, progress):
+def _report(prepared, settings):
     print(f"Hazırlanan sayfa sayısı: {len(prepared)}\n")
     for entry in prepared:
-        _print_entry(entry, progress.translator_has_vision())
+        _print_entry(entry, settings.translator_has_vision())
     print("\nSonraki adım: her girdi için bir çevirmen agent çalıştır "
           "(sözleşme: references/FORMAT.md), çıktıyı _work/out/page-N.json yaz, "
           f"sonra: python3 {SCRIPTS_DIR}/finalize_page.py _work/out/page-N.json; "
@@ -113,12 +113,13 @@ def _report(prepared, progress):
 
 def main():
     spec, count = parse_args(sys.argv)
-    preparer = PagePreparer.for_project(Project.discover())
+    project = Project.discover()
+    preparer = PagePreparer.for_project(project)
     prepared = preparer.prepare_pages(spec, count)
     if not prepared:
         print("Hazırlanacak sayfa yok.")
         return
-    _report(prepared, preparer.progress)
+    _report(prepared, project.load_settings())
 
 
 if __name__ == "__main__":

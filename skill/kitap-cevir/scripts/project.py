@@ -8,6 +8,7 @@ import glob
 import os
 import re
 
+from book_settings import BookSettings
 from json_file import read_json, write_json
 from progress import Progress
 
@@ -64,11 +65,14 @@ class Project:
     def load_progress(self):
         return Progress(read_json(self.progress_path))
 
+    def load_settings(self):
+        return BookSettings(read_json(self.progress_path))
+
     def save_progress(self, progress):
         write_json(self.progress_path, progress.data)
 
-    def pdf_path(self, progress):
-        configured = progress.book_pdf()
+    def pdf_path(self):
+        configured = self.load_settings().book_pdf()
         if os.path.isabs(configured):
             return configured
         return os.path.join(self.root, configured)

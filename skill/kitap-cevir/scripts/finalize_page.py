@@ -40,14 +40,13 @@ class PageFinalizer:
         cards = page.data.get("concepts", [])
         return {"page_js": page_js, "images": images, "terms": self._rebuild_reader_data(page, progress),
                 "untranslated": page.missing_translations(), "page": page.data["page"],
-                "cards_pending": not cards, "card_problems": self._card_problems(cards, progress)}
+                "cards_pending": not cards, "card_problems": self._card_problems(cards)}
 
-    @staticmethod
-    def _card_problems(cards, progress):
+    def _card_problems(self, cards):
         """Kartlar çeviriden sonra ayrı üretilir; kartsız sayfa sorun değil, bekleyen iştir."""
         if not cards:
             return []
-        return CardChecker(progress.concepts_settings()).problems(cards)
+        return CardChecker(self.project.load_settings().concepts()).problems(cards)
 
     def _read(self, translated_path):
         page = PageDocument(read_json(translated_path))
