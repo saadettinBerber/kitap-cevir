@@ -73,7 +73,6 @@ class BlockBuilder:
     """Bir sayfanın düzen öğelerini bloklara çevirir; metni sayfanın TextFixer'ı onarır."""
 
     def __init__(self, settings, fixer):
-        self.settings = settings
         self.fixer = fixer
         self.scale = TypeScale(settings)
         self.special = SpecialParagraphs(settings, fixer)
