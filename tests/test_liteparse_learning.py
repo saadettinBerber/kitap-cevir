@@ -5,9 +5,9 @@ LiteParse yükseltildiğinde bir varsayım bozulursa hata kitap çıktısında d
 burada görünür. Sayfa, üretimdeki ayarlarla (LiteParseRunner) bir kez okunur.
 
 Blok yapısı da sabitlenir: satır içi denklem, komşu kelimelerini aynı blokta
-arar. LiteParse bir liste maddesine ardından gelen paragrafı katınca komşu
-başka bloğa düşer ve denklem atlanır (ai-engineering 236). Bu davranış
-değişirse buradan duyulur.
+arar. LiteParse bir liste maddesine ardından gelen paragrafı katınca ya da
+hizalı bir bölgeyi tek tabloya çevirince komşu başka bloğa düşer ve denklem
+atlanır (ai-engineering 236 ve 31). Bu davranış değişirse buradan duyulur.
 
 Testle sabitlenemeyen bir bulgu: LiteParse'ın puntosu kimi PDF'te metin
 katmanından farklıdır (Effective Java'da 20, PyMuPDF ve ODL'de 14.4). Bu yüzden
@@ -33,6 +33,12 @@ LINE_STEP = 14
 LAST_ITEM_BASELINE = 156
 FOLDED_PARAGRAPH = "Entropy and cross entropy share one notation."
 SEPARATE_PARAGRAPH = "Cross entropy is not symmetric."
+TABLE_ROWS = (("Human a", ("Interpreters and translators", "Survey researchers", "Poets and writers"),
+               ("76.5", "75.0", "68.8")),
+              ("Human b", ("Survey researchers", "Writers and authors", "Animal scientists"),
+               ("84.4", "82.5", "82.4")))
+TABLE_ROW_GAP = 14
+TABLE_HEADER_BASELINE = 120
 
 
 class _Writer:
@@ -79,6 +85,22 @@ def _write_list_page(page):
     write.line(LAST_ITEM_BASELINE, ("diverges from the true one", "helv"), x=100)
     write.line(LAST_ITEM_BASELINE + LINE_STEP + 4, (FOLDED_PARAGRAPH, "helv"), x=100)
     write.line(LAST_ITEM_BASELINE + 5 * LINE_STEP, (SEPARATE_PARAGRAPH, "helv"))
+
+
+def _write_table_page(page):
+    """Başlık satırı kalın üç sütun; meslek ve değer hücreleri üçer satırdır (iki satırlıkta tablo çıkmaz)."""
+    write = _Writer(page)
+    write.line(80, ("Table 1-2. Occupations with the highest exposure to AI.", "helv"))
+    for x, header in ((78, "Group"), (180, "Occupations"), (420, "% Exposure")):
+        write.line(TABLE_HEADER_BASELINE, (header, "helvetica-bold"), x=x)
+    y = TABLE_HEADER_BASELINE + 2 * LINE_STEP
+    for group, occupations, values in TABLE_ROWS:
+        write.line(y, (group, "helv"), x=78)
+        for occupation, value in zip(occupations, values):
+            write.line(y, (occupation, "helv"), x=180)
+            write.line(y, (value, "helv"), x=420)
+            y += LINE_STEP
+        y += TABLE_ROW_GAP
 
 
 class _ParsedPage:
@@ -161,6 +183,22 @@ class ListContinuationTest(_ParsedPage, unittest.TestCase):
 
     def test_paragraph_after_a_clear_gap_stays_apart(self):
         self.assertEqual([block.text for block in self._blocks("paragraph")][-1], SEPARATE_PARAGRAPH)
+
+
+@unittest.skipUnless(HAS_LITEPARSE, "liteparse kurulu değil")
+class AlignedColumnsTest(_ParsedPage, unittest.TestCase):
+    write_page = staticmethod(_write_table_page)
+
+    def test_aligned_columns_come_back_as_one_table(self):
+        self.assertEqual(len(self._blocks("table")), 1)
+
+    def test_table_starts_at_the_header(self):
+        header = self.text_lines[1][0].box
+        self.assertLess(self._blocks("table")[0].bbox.y, header.y1)
+
+    def test_table_reaches_the_last_row(self):
+        box, last_row = self._blocks("table")[0].bbox, self.text_lines[-1][0].box
+        self.assertGreater(box.y + box.height, last_row.y0)
 
 
 if __name__ == "__main__":
