@@ -55,6 +55,7 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │   ├── page_document.py      PageDocument: page-N.js okuma/yazma, çevrilecek metin birimleri
 │   ├── page_blocks.py        Block.of: blok türüne göre davranış (birimler, kart girdisi, çapa)
 │   ├── page_input.py         PageInputBuilder: sayfanın çevirmen girdisi (bloklar, bölüm, bağlam)
+│   ├── book_pdf.py           BookPdf: kitap PDF'i tek açılışta; sayfa çıkarımı + komşu sayfa bağlamı
 │   ├── json_file.py          JSON okuma/yazma (UTF-8, kaçışsız, girintili)
 │   ├── reader_data.py        TableOfContents (data/toc.js), Glossary (glossary.md + data/glossary.js)
 │   ├── concept_check.py      kart denetimi: tür, zorunlu alanlar, kod dili
@@ -64,8 +65,8 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │       ├── pdf/              PDF kütüphaneleri sınırı: akışlar yalnız bunları görür
 │       │   ├── model.py          Span, Drawing, LayoutElement, PageLayout (düz veri)
 │       │   ├── geometry.py       Box: sol-üst orijinli kutu
-│       │   ├── ports.py          PdfPage, LayoutReader arayüzleri
-│       │   ├── pymupdf_adapter.py  PdfPage ← PyMuPDF
+│       │   ├── ports.py          PdfDocument, PdfPage, LayoutReader arayüzleri
+│       │   ├── pymupdf_adapter.py  PdfDocument, PdfPage ← PyMuPDF; görsel boyutu
 │       │   ├── odl_adapter.py    LayoutReader ← OpenDataLoader (koordinatı sınırda çevirir)
 │       │   ├── liteparse_adapter.py  LayoutReader ← LiteParse (Java'sız, hızlı; font/punto metin katmanından)
 │       │   └── readers.py        extraction.layout_reader: odl | liteparse
