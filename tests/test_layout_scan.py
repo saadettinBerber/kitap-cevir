@@ -197,6 +197,21 @@ class ProseScriptTest(unittest.TestCase):
     def test_mark_after_a_long_word_is_a_footnote(self):
         self.assertEqual(self._script_fixes("ratio", "a", SIZE * 0.8), {})
 
+    def test_symbol_of_two_characters_takes_a_script(self):
+        self.assertEqual(self._script_fixes("UR", "2", SIZE * 0.8), {"UR2": "UR²"})
+
+    def test_mark_after_punctuation_is_a_footnote(self):
+        self.assertEqual(self._script_fixes("m.", "2", SIZE * 0.8), {})
+
+    def test_two_scripts_in_one_sentence_stay_separate(self):
+        """PyMuPDF aynı taban çizgisindeki iki simgeyi tek satırda verir: 'cᵉ and cᵃ'."""
+        host = _piece("In the equation, c", LEFT, 100)
+        first = _raised(host, "e", SIZE * 0.8, self.SCRIPT_RISE)
+        middle = _piece(" and c", first.box.x1, host.box.y0)
+        second = _raised(middle, "a", SIZE * 0.8, self.SCRIPT_RISE)
+        rest = _piece(" represent the ratios.", second.box.x1, host.box.y0)
+        self.assertEqual(_scan((host, first, middle, second, rest))["script_fixes"], {"ce": "cᵉ", "ca": "cᵃ"})
+
 
 class LayoutScannerTest(unittest.TestCase):
     def test_empty_page_has_nothing_to_repair(self):
