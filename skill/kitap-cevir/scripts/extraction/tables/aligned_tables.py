@@ -125,10 +125,14 @@ class TableColumns:
 
 
 class AlignedTableFinder:
-    """Sayfanın metin parçalarını satırlara dizer ve hizalı tabloları arar."""
+    """Sayfanın satırları arasında hizalı tabloları arar."""
 
-    def __init__(self, spans):
-        self.rows = SpanRow.lines_of(spans)
+    def __init__(self, rows):
+        self.rows = rows
+
+    @classmethod
+    def of_spans(cls, spans):
+        return cls(SpanRow.lines_of(spans))
 
     def tables(self):
         """[{y0, y1, block}]; bir tablonun satırları başka tablonun başlığı olamaz."""

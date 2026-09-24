@@ -131,7 +131,7 @@ class TableScanner:
         fills = PageFills(page.drawings(), body_bottom)
         spans = self._page_spans(page)
         if not fills.rects:
-            return AlignedTableFinder([span for span in spans if span.box.y1 <= body_bottom]).tables()
+            return AlignedTableFinder.of_spans([span for span in spans if span.box.y1 <= body_bottom]).tables()
         builder = TableBuilder(spans, fills, self.row_gap_ratio)
         return [table for cells in fills.table_groups() for table in builder.tables_in(cells)]
 

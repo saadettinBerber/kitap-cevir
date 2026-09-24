@@ -67,7 +67,7 @@ class TableColumnsTest(unittest.TestCase):
 
 class AlignedTableFinderTest(unittest.TestCase):
     def test_header_with_three_body_rows_is_a_table(self):
-        tables = AlignedTableFinder(_table_spans(3)).tables()
+        tables = AlignedTableFinder.of_spans(_table_spans(3)).tables()
         self.assertEqual(len(tables), 1)
         block = tables[0]["block"]
         self.assertEqual(block["header_rows"], 1)
@@ -76,11 +76,11 @@ class AlignedTableFinderTest(unittest.TestCase):
 
     def test_header_with_two_body_rows_followed_by_text_is_not_a_table(self):
         after = _row(("tail",), FIRST_ROW_Y + ROW_GAP * 3)
-        self.assertEqual(AlignedTableFinder(_table_spans(2) + after).tables(), [])
+        self.assertEqual(AlignedTableFinder.of_spans(_table_spans(2) + after).tables(), [])
 
     def test_table_ends_at_first_row_that_does_not_fit(self):
         after = _row(("tail",), FIRST_ROW_Y + ROW_GAP * 5)
-        rows = AlignedTableFinder(_table_spans(3) + after).tables()[0]["block"]["rows"]
+        rows = AlignedTableFinder.of_spans(_table_spans(3) + after).tables()[0]["block"]["rows"]
         self.assertEqual(len(rows), 4)
 
 
@@ -89,15 +89,15 @@ class SplitTableTest(unittest.TestCase):
     tablo sonraki sayfada sürer."""
 
     def test_header_with_one_row_at_page_end_is_a_table(self):
-        rows = AlignedTableFinder(_table_spans(1)).tables()[0]["block"]["rows"]
+        rows = AlignedTableFinder.of_spans(_table_spans(1)).tables()[0]["block"]["rows"]
         self.assertEqual(rows, [[{"en": "Method"}, {"en": "Purpose"}], [{"en": "m0"}, {"en": "does 0"}]])
 
     def test_header_with_one_row_followed_by_text_is_not_a_table(self):
         after = _row(("tail",), FIRST_ROW_Y + ROW_GAP * 2)
-        self.assertEqual(AlignedTableFinder(_table_spans(1) + after).tables(), [])
+        self.assertEqual(AlignedTableFinder.of_spans(_table_spans(1) + after).tables(), [])
 
     def test_bold_header_alone_at_page_end_is_not_a_table(self):
-        self.assertEqual(AlignedTableFinder(_table_spans(0)).tables(), [])
+        self.assertEqual(AlignedTableFinder.of_spans(_table_spans(0)).tables(), [])
 
 
 def _continued_rows(count, first_y=FIRST_ROW_Y):
@@ -110,37 +110,37 @@ class ContinuedTableTest(unittest.TestCase):
     sayfanın ilk satırından başlar."""
 
     def test_aligned_rows_opening_the_page_are_a_table_without_header(self):
-        block = AlignedTableFinder(_continued_rows(3)).tables()[0]["block"]
+        block = AlignedTableFinder.of_spans(_continued_rows(3)).tables()[0]["block"]
         self.assertEqual(block["header_rows"], 0)
         self.assertEqual(block["rows"][2], [{"en": "JDK 1.2"}, {"en": "Java 1.2"}])
 
     def test_continued_table_ends_at_body_text(self):
         after = _row(("The examples are reasonably complete",), FIRST_ROW_Y + ROW_GAP * 3)
-        self.assertEqual(len(AlignedTableFinder(_continued_rows(3) + after).tables()[0]["block"]["rows"]), 3)
+        self.assertEqual(len(AlignedTableFinder.of_spans(_continued_rows(3) + after).tables()[0]["block"]["rows"]), 3)
 
     def test_styled_span_inside_a_cell_does_not_open_a_column(self):
         italic_x = [_span("JDK 1.9.", 72, FIRST_ROW_Y), _span("x", 120, FIRST_ROW_Y, "Helvetica-Oblique"),
                     _span("Java 1.9", 200, FIRST_ROW_Y)]
-        rows = AlignedTableFinder(italic_x + _continued_rows(2, FIRST_ROW_Y + ROW_GAP)).tables()[0]["block"]["rows"]
+        rows = AlignedTableFinder.of_spans(italic_x + _continued_rows(2, FIRST_ROW_Y + ROW_GAP)).tables()[0]["block"]["rows"]
         self.assertEqual(rows[0], [{"en": "JDK 1.9. x"}, {"en": "Java 1.9"}])
 
     def test_running_header_line_above_does_not_hide_the_continuation(self):
         running_header = [_span("Chapter 1 Introduction", 72, FIRST_ROW_Y - ROW_GAP)]
-        self.assertEqual(len(AlignedTableFinder(running_header + _continued_rows(3)).tables()), 1)
+        self.assertEqual(len(AlignedTableFinder.of_spans(running_header + _continued_rows(3)).tables()), 1)
 
     def test_table_with_its_own_header_below_running_header_keeps_the_header(self):
         running_header = [_span("Chapter 1 Introduction", 72, FIRST_ROW_Y - ROW_GAP)]
-        block = AlignedTableFinder(running_header + _table_spans(3)).tables()[0]["block"]
+        block = AlignedTableFinder.of_spans(running_header + _table_spans(3)).tables()[0]["block"]
         self.assertEqual((block["header_rows"], block["rows"][0][0]), (1, {"en": "Method"}))
 
     def test_aligned_rows_after_body_text_are_not_a_continuation(self):
         prose = [_row((f"line {index} of a paragraph",), FIRST_ROW_Y + ROW_GAP * index)[0] for index in range(2)]
         rows = _continued_rows(3, FIRST_ROW_Y + ROW_GAP * 2)
-        self.assertEqual(AlignedTableFinder(prose + rows).tables(), [])
+        self.assertEqual(AlignedTableFinder.of_spans(prose + rows).tables(), [])
 
     def test_single_aligned_row_opening_the_page_is_not_a_table(self):
         after = _row(("The examples are reasonably complete",), FIRST_ROW_Y + ROW_GAP)
-        self.assertEqual(AlignedTableFinder(_continued_rows(1) + after).tables(), [])
+        self.assertEqual(AlignedTableFinder.of_spans(_continued_rows(1) + after).tables(), [])
 
 
 class ScanTablesTest(unittest.TestCase):
