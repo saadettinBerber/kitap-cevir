@@ -1,5 +1,5 @@
-"""PyMuPDF adaptörü: `PdfPage` arayüzünü bir PyMuPDF sayfasıyla karşılar.
-PyMuPDF'in koordinatları zaten sol-üst orijinlidir."""
+"""PyMuPDF adaptörü: `PdfDocument` / `PdfPage` arayüzlerini PyMuPDF ile karşılar;
+diskteki görselin boyutunu da okur. PyMuPDF'in koordinatları zaten sol-üst orijinlidir."""
 import fitz
 
 from extraction.pdf.geometry import Box
@@ -58,6 +58,12 @@ class PyMuPdfPage:
 
     def png(self, box, dpi):
         return self.page.get_pixmap(dpi=dpi, clip=_rect(box)).tobytes("png")
+
+
+def image_size(path):
+    """Diskteki görselin piksel boyutu: (genişlik, yükseklik)."""
+    pixmap = fitz.Pixmap(path)
+    return pixmap.width, pixmap.height
 
 
 def _box(rect):

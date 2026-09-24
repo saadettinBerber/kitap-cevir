@@ -12,7 +12,7 @@ from pdf_fakes import FakeLayoutReader, FakePdfPage, element, real_page, span
 from extraction.page_extractor import PageExtractor
 from extraction.pdf.geometry import Box
 from extraction.pdf.odl_adapter import OdlLayoutReader, OdlTree
-from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
+from extraction.pdf.pymupdf_adapter import PyMuPdfDocument, image_size
 from extraction.pdf.readers import InvalidLayoutReader, layout_reader_for
 from extraction.settings import with_defaults
 
@@ -103,6 +103,12 @@ class PyMuPdfAdapterTest(unittest.TestCase):
         with real_page(self.pdf) as page:
             self.assertEqual(page.text_in(Box(60, 80, 300, 110)).strip(), "Top line")
             self.assertTrue(page.png(Box(60, 80, 300, 110), 72).startswith(PNG_SIGNATURE))
+
+    def test_image_size_is_read_in_pixels(self):
+        path = os.path.join(self.tmp.name, "clip.png")
+        with real_page(self.pdf) as page, open(path, "wb") as png:
+            png.write(page.png(Box(0, 0, 144, 72), 72))
+        self.assertEqual(image_size(path), (144, 72))
 
 
 class OdlTreeTest(unittest.TestCase):

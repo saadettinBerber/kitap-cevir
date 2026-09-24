@@ -14,8 +14,7 @@ import re
 import shutil
 import sys
 
-import fitz
-
+from extraction.pdf.pymupdf_adapter import image_size
 from page_blocks import Block
 from page_document import PageDocument
 from page_input import PageInputBuilder
@@ -57,8 +56,7 @@ class PageImages:
         path = os.path.join(self.image_dir, src)
         if not os.path.isfile(path):
             return False
-        pixmap = fitz.Pixmap(path)
-        return min(pixmap.width, pixmap.height) >= MIN_IMAGE_SIDE_PX
+        return min(image_size(path)) >= MIN_IMAGE_SIDE_PX
 
     def copy(self, src, target_dir):
         os.makedirs(target_dir, exist_ok=True)
