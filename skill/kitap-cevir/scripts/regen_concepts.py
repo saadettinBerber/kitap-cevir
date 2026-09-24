@@ -46,14 +46,11 @@ class CardRegenerator:
     def for_project(cls, project):
         return cls(project, project.load_settings().concepts())
 
-    def cards_path(self, stage, page):
-        return self.project.work_cards_file(stage, page)
-
     def prepare(self, pages):
         for page in pages:
-            path = self.cards_path("in", page)
+            path = self.project.work_cards_file("in", page)
             write_json(path, self.card_input(PageDocument.read(self.project.page_js(page)).data))
-        return [self.project.relative_to_root(self.cards_path("in", page)) for page in pages]
+        return [self.project.relative_to_root(self.project.work_cards_file("in", page)) for page in pages]
 
     def card_input(self, page_data):
         content = [unit for unit in (block.card_unit() for block in PageDocument(page_data).blocks()) if unit]
@@ -69,11 +66,11 @@ class CardRegenerator:
             try:
                 report[page] = self._apply_page(page)
             except FileNotFoundError:
-                report[page] = [f"çıktı yok: {self.project.relative_to_root(self.cards_path('out', page))}"]
+                report[page] = [f"çıktı yok: {self.project.relative_to_root(self.project.work_cards_file('out', page))}"]
         return report
 
     def _apply_page(self, page):
-        cards = read_json(self.cards_path("out", page)).get("concepts", [])
+        cards = read_json(self.project.work_cards_file("out", page)).get("concepts", [])
         problems = self.checker.problems(cards)
         if not problems:
             document = PageDocument.read(self.project.page_js(page))

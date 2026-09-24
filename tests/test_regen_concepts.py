@@ -47,7 +47,7 @@ class RegenConceptsTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def _write_output(self, cards):
-        path = self.regenerator.cards_path("out", 4)
+        path = self.project.work_cards_file("out", 4)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as handle:
             json.dump({"concepts": cards}, handle)
@@ -61,7 +61,7 @@ class RegenConceptsTest(unittest.TestCase):
 
     def test_prepare_writes_input_with_spec(self):
         self.regenerator.prepare([4])
-        with open(self.regenerator.cards_path("in", 4), encoding="utf-8") as handle:
+        with open(self.project.work_cards_file("in", 4), encoding="utf-8") as handle:
             spec = json.load(handle)["concepts_spec"]
         self.assertEqual((spec["kinds"], spec["code_langs"]), (["explain", "tradeoff"], ["python"]))
 
