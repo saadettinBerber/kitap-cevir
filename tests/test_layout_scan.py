@@ -8,6 +8,7 @@ import unittest
 from pdf_fakes import FakePdfPage, span
 from extraction.settings import with_defaults
 from extraction.text_layer.code_lines import CodeFont, PageLineReader
+from extraction.text_layer.script_marks import PROSE_SCRIPT_MAX_GAP, SCRIPT_RUN_MAX_GAP
 from extraction.text_layer.layout_scan import LayoutScanner
 from extraction.text_layer.text_line import MONO_CHAR_WIDTH_RATIO
 
@@ -17,6 +18,7 @@ SETTINGS = with_defaults({"code_font_prefix": CODE_FONT, "code_max_font_size": C
 BODY = "Helvetica"
 SIZE = 10.0
 LEFT = 72.0
+STEP = 0.1
 
 
 def _piece(text, left, top, font=BODY, size=SIZE):
@@ -200,6 +202,9 @@ class ProseScriptTest(unittest.TestCase):
     def test_symbol_of_two_characters_takes_a_script(self):
         self.assertEqual(self._script_fixes("UR", "2", SIZE * 0.8), {"UR2": "UR²"})
 
+    def test_mark_after_three_characters_is_a_footnote(self):
+        self.assertEqual(self._script_fixes("URL", "2", SIZE * 0.8), {})
+
     def test_mark_after_punctuation_is_a_footnote(self):
         self.assertEqual(self._script_fixes("m.", "2", SIZE * 0.8), {})
 
@@ -211,6 +216,36 @@ class ProseScriptTest(unittest.TestCase):
         second = _raised(middle, "a", SIZE * 0.8, self.SCRIPT_RISE)
         rest = _piece(" represent the ratios.", second.box.x1, host.box.y0)
         self.assertEqual(_scan((host, first, middle, second, rest))["script_fixes"], {"ce": "cᵉ", "ca": "cᵃ"})
+
+
+class ScriptGapTest(unittest.TestCase):
+    """Simge sembolün hemen sağında başlar; parçaları arasındaki boşluk küçüktür."""
+
+    SCRIPT_SIZE = SIZE * 0.8
+    RISE = 3.0
+
+    def _fixes(self, *marks):
+        """'In the equation, m' + simge parçaları + ' represents'; marks: (metin, soldakinden boşluk).
+        Simgeler sembolün taban çizgisinden RISE kadar yukarıdadır."""
+        host = _piece("In the equation, m", LEFT, 100)
+        top = host.baseline - self.RISE - self.SCRIPT_SIZE
+        pieces = [host]
+        for text, gap in marks:
+            pieces.append(_piece(text, pieces[-1].box.x1 + gap, top, BODY, self.SCRIPT_SIZE))
+        rest = _piece(" represents the ratio.", pieces[-1].box.x1, host.box.y0)
+        return _scan((*pieces, rest))["script_fixes"]
+
+    def test_mark_at_the_gap_from_its_symbol_is_a_script(self):
+        self.assertEqual(self._fixes(("a", PROSE_SCRIPT_MAX_GAP)), {"ma": "mᵃ"})
+
+    def test_mark_further_from_its_symbol_is_a_footnote(self):
+        self.assertEqual(self._fixes(("a", PROSE_SCRIPT_MAX_GAP + STEP)), {})
+
+    def test_pieces_at_the_run_gap_are_one_script(self):
+        self.assertEqual(self._fixes(("a", 0), ("b", SCRIPT_RUN_MAX_GAP)), {"mab": "mᵃᵇ"})
+
+    def test_pieces_further_apart_are_separate_marks(self):
+        self.assertEqual(self._fixes(("a", 0), ("b", SCRIPT_RUN_MAX_GAP + STEP)), {"ma": "mᵃ"})
 
 
 class LayoutScannerTest(unittest.TestCase):
