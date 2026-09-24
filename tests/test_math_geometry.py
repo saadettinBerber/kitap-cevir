@@ -5,7 +5,7 @@ import unittest
 import fitz
 
 from pdf_fakes import real_page, stroke
-from extraction.equations.math_geometry import Rule, TextColumn
+from extraction.equations.math_geometry import BAR_GROUP_MAX_SPAN_RATIO, COLUMN_EDGE_TOLERANCE, Rule, TextColumn
 from extraction.equations.math_scan import MathScanner
 from extraction.pdf.geometry import Box
 from extraction.settings import with_defaults
@@ -99,19 +99,40 @@ class GeometryMathTest(unittest.TestCase):
             self.assertEqual(result["display"], [])
 
 
+COLUMN_WIDTH = 300
+FRACTION_LEFT = 180
+EDGE = COLUMN_LEFT + COLUMN_EDGE_TOLERANCE
+WIDEST_FRACTION = COLUMN_WIDTH * BAR_GROUP_MAX_SPAN_RATIO
+STEP = 0.1
+
+
 class TextColumnTest(unittest.TestCase):
     def setUp(self):
-        self.column = TextColumn([Box(72, 100, 372, 110), Box(72, 120, 360, 130)])
+        self.column = TextColumn([Box(COLUMN_LEFT, 100, COLUMN_LEFT + COLUMN_WIDTH, 110),
+                                  Box(COLUMN_LEFT, 120, 360, 130)])
 
     def _rule(self, *bars):
         [rule] = Rule.from_drawings([stroke(*bar) for bar in bars])
         return rule
 
     def test_short_indented_bar_is_a_fraction(self):
-        self.assertTrue(self.column.holds_fraction(self._rule((180, 150, 240, 151))))
+        self.assertTrue(self.column.holds_fraction(self._rule((FRACTION_LEFT, 150, 240, 151))))
 
     def test_bar_from_column_edge_is_not_a_fraction(self):
-        self.assertFalse(self.column.holds_fraction(self._rule((72, 150, 120, 151))))
+        self.assertFalse(self.column.holds_fraction(self._rule((COLUMN_LEFT, 150, 120, 151))))
+
+    def test_bar_starting_at_the_edge_tolerance_is_not_a_fraction(self):
+        self.assertFalse(self.column.holds_fraction(self._rule((EDGE, 150, EDGE + 20, 151))))
+
+    def test_bar_starting_just_past_the_edge_tolerance_is_a_fraction(self):
+        self.assertTrue(self.column.holds_fraction(self._rule((EDGE + STEP, 150, EDGE + 20, 151))))
+
+    def test_bar_as_wide_as_the_widest_fraction_is_a_fraction(self):
+        self.assertTrue(self.column.holds_fraction(self._rule((FRACTION_LEFT, 150, FRACTION_LEFT + WIDEST_FRACTION, 151))))
+
+    def test_bar_just_wider_than_the_widest_fraction_is_not_a_fraction(self):
+        right = FRACTION_LEFT + WIDEST_FRACTION + STEP
+        self.assertFalse(self.column.holds_fraction(self._rule((FRACTION_LEFT, 150, right, 151))))
 
     def test_segmented_full_width_rule_is_not_a_fraction(self):
         rule = self._rule((150, 150, 200, 151), (200, 150, 300, 151))
