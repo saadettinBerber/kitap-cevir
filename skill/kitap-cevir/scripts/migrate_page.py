@@ -18,6 +18,7 @@ from migrate_match import TranslationFiller, Translations
 from page_document import PageDocument
 from page_input import PageInputBuilder
 from project import Project
+from translated_pages import TranslatedPages
 
 _COPY_FIELDS = ("title", "section", "concepts")
 _PATH_STEP = re.compile(r"(\w+)|\[(\d+)\]")
@@ -65,6 +66,7 @@ class Migrator:
 
     def __init__(self, project, builder, finalizer):
         self.project = project
+        self.pages = TranslatedPages(project)
         self.builder = builder
         self.finalizer = finalizer
         self.migrate_dir = project.work_migrate
@@ -75,7 +77,7 @@ class Migrator:
 
     def run(self, page):
         """Sayfayı yeniden çıkarıp eski çevirileri taşır; sonlandırmaz."""
-        old = PageDocument.read(self.project.page_js(page)).data
+        old = self.pages.get(page).data
         document = self.builder.build(page)
         pending, latex_items = PageMigration(document, old).run(self.builder.hyphen_fixes(document["pdf_page"]))
         write_json(self._out_path(page), document)
