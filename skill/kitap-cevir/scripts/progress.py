@@ -83,10 +83,7 @@ class Progress:
                   "code_langs": [self.extraction_settings()["default_code_language"]],
                   "code_comment_lang": DEFAULT_CODE_COMMENT_LANG,
                   **self._configured_concepts()}
-        unknown = [kind for kind in merged["kinds"] if kind not in CARD_KINDS]
-        if unknown or not merged["kinds"]:
-            raise InvalidConceptSettings(f"Geçersiz kart türleri: {merged['kinds']!r}; "
-                                         f"geçerli değerler: {', '.join(CARD_KINDS)}")
+        _check_card_kinds(merged["kinds"])
         return merged
 
     def _configured_concepts(self):
@@ -98,3 +95,9 @@ class Progress:
         if mode not in _LEGACY_MODE_KINDS:
             raise InvalidConceptSettings(f"Bilinmeyen kavram kartı modu: {mode!r}")
         return {**configured, "kinds": _LEGACY_MODE_KINDS[mode]}
+
+
+def _check_card_kinds(kinds):
+    """En az bir kart türü olmalı ve hepsi CARD_KINDS'ten olmalı."""
+    if not kinds or any(kind not in CARD_KINDS for kind in kinds):
+        raise InvalidConceptSettings(f"Geçersiz kart türleri: {kinds!r}; geçerli değerler: {', '.join(CARD_KINDS)}")
