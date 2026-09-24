@@ -59,10 +59,15 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │   ├── concept_check.py      kart denetimi: tür, zorunlu alanlar, kod dili
 │   ├── migrate_match.py      eski en→tr eşleşmelerini yeni birimlere bulur
 │   └── extraction/           PDF sayfası → blok şeması
-│       ├── page_extractor.py PageExtractor: ODL + PyMuPDF orkestrasyonu
-│       ├── odl_runner.py     OpenDataLoader çağrısı, öğe kutusu
+│       ├── page_extractor.py PageExtractor: düzen okuyucusu + metin katmanı orkestrasyonu
+│       ├── pdf/              PDF kütüphaneleri sınırı: akışlar yalnız bunları görür
+│       │   ├── model.py          Span, Drawing, LayoutElement, PageLayout (düz veri)
+│       │   ├── geometry.py       Box: sol-üst orijinli kutu
+│       │   ├── ports.py          PdfPage, LayoutReader arayüzleri
+│       │   ├── pymupdf_adapter.py  PdfPage ← PyMuPDF
+│       │   └── odl_adapter.py    LayoutReader ← OpenDataLoader (koordinatı sınırda çevirir)
 │       ├── page_zones.py     koşu başlığı ve alt bilgi
-│       ├── block_builder.py  ODL öğesi → blok; ChapterOpener bölüm açılışını birleştirir
+│       ├── block_builder.py  düzen öğesi → blok; ChapterOpener bölüm açılışını birleştirir
 │       ├── page_regions.py   kod/tablo/denklem bölgelerinin okuma sırasına yerleşimi
 │       ├── odl_elements.py   OdlElements: gömülü liste, simge parçası, dipnot işareti, satır içi denklem
 │       ├── text_fixer.py / text_utils.py   metin onarımı, cümle ayırma
@@ -80,7 +85,7 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 └── templates/project/        init ile kopyalanan okuyucu iskeleti
     ├── index.html, css/, js/, data/pages/
     ├── CLAUDE.md, glossary.md, .gitignore, .claude/launch.json
-tests/                        birim testleri (PDF gerektirmez)
+tests/                        birim testleri; pdf_fakes.py sahte sayfa/düzen okuyucusu (PDF ve Java gerektirmez)
 ```
 
 ## Yeni bir kitap için akış
