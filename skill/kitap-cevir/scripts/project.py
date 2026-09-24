@@ -44,13 +44,13 @@ class Project:
         self.root = root
         self.progress_path = os.path.join(self.root, PROGRESS_FILE)
         self.glossary_md = os.path.join(self.root, GLOSSARY_FILE)
-        self.data_dir = os.path.join(self.root, "data")
-        self.pages_dir = os.path.join(self.data_dir, "pages")
-        self.toc_js = os.path.join(self.data_dir, "toc.js")
-        self.glossary_js = os.path.join(self.data_dir, "glossary.js")
-        self.work_in = os.path.join(self.root, WORK_DIR, "in")
-        self.work_out = os.path.join(self.root, WORK_DIR, "out")
-        self.work_cards = os.path.join(self.root, WORK_DIR, "cards")
+        self._data_dir = os.path.join(self.root, "data")
+        self._pages_dir = os.path.join(self._data_dir, "pages")
+        self.toc_js = os.path.join(self._data_dir, "toc.js")
+        self.glossary_js = os.path.join(self._data_dir, "glossary.js")
+        self._work_in = os.path.join(self.root, WORK_DIR, "in")
+        self._work_out = os.path.join(self.root, WORK_DIR, "out")
+        self._work_cards = os.path.join(self.root, WORK_DIR, "cards")
         self.work_migrate = os.path.join(self.root, WORK_DIR, "migrate")
 
     @classmethod
@@ -74,25 +74,25 @@ class Project:
         return os.path.relpath(path, self.root)
 
     def page_js(self, page):
-        return _page_path(self.pages_dir, page, ".js")
+        return _page_path(self._pages_dir, page, ".js")
 
     def page_images(self, page):
-        return _page_path(self.pages_dir, page, "_images")
+        return _page_path(self._pages_dir, page, "_images")
 
     def work_input(self, page):
-        return _page_path(self.work_in, page, ".json")
+        return _page_path(self._work_in, page, ".json")
 
     def work_images(self, page):
-        return _page_path(self.work_in, page, "_images")
+        return _page_path(self._work_in, page, "_images")
 
     def work_output(self, page):
-        return _page_path(self.work_out, page, ".json")
+        return _page_path(self._work_out, page, ".json")
 
     def work_cards_file(self, stage, page):
-        return _page_path(os.path.join(self.work_cards, stage), page, ".json")
+        return _page_path(os.path.join(self._work_cards, stage), page, ".json")
 
     def translated_pages(self):
-        matches = (_PAGE_FILE.search(path) for path in glob.glob(os.path.join(self.pages_dir, "page-*.js")))
+        matches = (_PAGE_FILE.search(path) for path in glob.glob(os.path.join(self._pages_dir, "page-*.js")))
         return sorted(int(match.group(1)) for match in matches if match)
 
 
