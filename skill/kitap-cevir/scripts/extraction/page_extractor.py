@@ -19,7 +19,7 @@ from extraction.page_regions import PageRegions
 from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from extraction.page_zones import PageZones
 from project import DEFAULT_EXTRACTION
-from extraction.tables.table_scan import scan_tables
+from extraction.tables.table_scan import TableScanner
 from extraction.text_fixer import TextFixer
 
 _INLINE_MATH_FIELDS = ("id", "src", "text", "latex")
@@ -31,6 +31,7 @@ class PageExtractor:
     def __init__(self, settings=None):
         self.settings = {**DEFAULT_EXTRACTION, **(settings or {})}
         self.zones = PageZones(self.settings)
+        self.tables = TableScanner(self.settings)
 
     def extract(self, pdf_path, pdf_page, image_dir):
         """Sayfayı {blocks, running_header, math} olarak döndürür; görseller image_dir'e yazılır."""
@@ -42,8 +43,7 @@ class PageExtractor:
         layout = scan_page(page.pdf_path, page.number, self.settings)
         header, body = self.zones.split(elements)
         math = MathScanner(self.settings, image_dir).scan(page.pdf_path, page.number)
-        regions = PageRegions.from_layout(
-            layout, scan_tables(page.pdf_path, page.number, self.settings) + math["display"], self._code_block)
+        regions = PageRegions.from_layout(layout, self.tables.scan(page) + math["display"], self._code_block)
         body = (OdlElements(body).flatten_nested_lists().drop_nested_fragments().merge_footnote_markers()
                 .with_inline_math(math["inline"], layout["page_height"])
                 .without_code_image_links(layout["code_image_links"], layout["page_height"]).items)

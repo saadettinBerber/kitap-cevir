@@ -1,7 +1,7 @@
 """Dolgu dikdörtgenlerinden tablo ızgarasını çıkarır: hücre kümeleri (tablolar),
 sütunlar, satır bantları ve tablo kapsamı. Koordinatlar üst orijinlidir.
 """
-import fitz
+from extraction.pdf.geometry import Box
 
 MIN_CELL_WIDTH = 15
 MIN_CELL_HEIGHT = 8
@@ -15,8 +15,7 @@ MIN_COLUMNS = 2
 class PageFills:
     """Sayfanın dolgu dikdörtgenleri (hücreler, arka planlar) ve dolgusuz yatay çizgileri."""
 
-    def __init__(self, page, text_bottom):
-        drawings = page.get_drawings()
+    def __init__(self, drawings, text_bottom):
         self.rects = self._filled_rects(drawings)
         self.rules = self._horizontal_rules(drawings)
         self.backgrounds = [rect for rect in self.rects if self._is_background(rect)]
@@ -25,13 +24,13 @@ class PageFills:
 
     @staticmethod
     def _filled_rects(drawings):
-        rects = [fitz.Rect(d["rect"]) for d in drawings if d.get("fill")]
+        rects = [drawing.box for drawing in drawings if drawing.is_filled]
         return [r for r in rects if r.width >= MIN_CELL_WIDTH and r.height >= MIN_CELL_HEIGHT]
 
     @staticmethod
     def _horizontal_rules(drawings):
         """Dolgusuz yatay çizgiler: tablonun alt kenarı, alt bilgi kuralı."""
-        rects = [fitz.Rect(d["rect"]) for d in drawings if not d.get("fill")]
+        rects = [drawing.box for drawing in drawings if not drawing.is_filled]
         return [r for r in rects if r.height <= RULE_MAX_HEIGHT and r.width >= MIN_CELL_WIDTH]
 
     def _is_background(self, rect):
@@ -66,20 +65,17 @@ class PageFills:
         uzun bir tablo yine tek grup kalır."""
         shares_column = any(abs(a - b) <= EDGE_TOLERANCE
                             for a in (first.x0, first.x1) for b in (second.x0, second.x1))
-        gap = max(0.0, first.y0 - second.y1, second.y0 - first.y1)
-        return shares_column and gap <= max(first.height, second.height) * MAX_BAND_GAP_RATIO
+        return shares_column and first.vertical_gap(second) <= max(first.height, second.height) * MAX_BAND_GAP_RATIO
 
     def extent(self, cells):
         """Arka plan varsa tablo odur. Yoksa zebra dolguda ilk satır beyaz
         kalabilir (bir hücre yukarı); alt sınır altındaki ilk yatay çizgidir."""
-        union = fitz.Rect(cells[0])
-        for rect in cells[1:]:
-            union |= rect
+        union = Box.enclosing(cells)
         for background in self.backgrounds:
             if background.contains(union):
                 return background
         row_height = sorted(r.height for r in cells)[len(cells) // 2]
-        return fitz.Rect(union.x0, union.y0 - row_height, union.x1, self._bottom_below(union))
+        return Box(union.x0, union.y0 - row_height, union.x1, self._bottom_below(union))
 
     def _bottom_below(self, union):
         """Tablo, altındaki ilk yatay çizgide biter; çizgi yoksa metin alanının
@@ -149,16 +145,16 @@ class TableGrid:
                 and any(abs(rect.x1 - right) <= EDGE_TOLERANCE for _, right in columns))
 
     def column_of(self, span):
-        center = (span["bbox"].x0 + span["bbox"].x1) / 2
+        center = span.box.center_x
         return next((i for i, (left, right) in enumerate(self.columns) if left <= center <= right), None)
 
     def band_of(self, span):
-        center = (span["bbox"].y0 + span["bbox"].y1) / 2
+        center = span.box.center_y
         return next((i for i, (top, bottom) in enumerate(self.bands) if top <= center <= bottom), None)
 
     def is_table_row(self, row):
         widest = max(right - left for left, right in self.columns) * WIDE_SPAN_RATIO
-        return all(s["bbox"].width <= widest and self.column_of(s) is not None for s in row)
+        return all(s.box.width <= widest and self.column_of(s) is not None for s in row)
 
     def filled_columns(self, row):
         return len({self.column_of(span) for span in row})

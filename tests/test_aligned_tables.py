@@ -1,12 +1,8 @@
-import os
-import tempfile
 import unittest
 
-import fitz
-
-import _paths  # noqa: F401
+from pdf_fakes import FakePdfPage, fill, span
 from extraction.tables.aligned_tables import AlignedTableFinder, TableColumns
-from extraction.tables.table_scan import scan_tables
+from extraction.tables.table_scan import TableScanner
 
 BOLD, REGULAR = "Helvetica-Bold", "Helvetica"
 COLUMN_X = (72, 200)
@@ -14,9 +10,11 @@ ROW_GAP = 14
 FIRST_ROW_Y = 100
 
 
+A4_HEIGHT = 842
+
+
 def _span(text, x, y, font=REGULAR):
-    return {"bbox": fitz.Rect(x, y, x + 6 * len(text), y + 10), "font": font, "size": 10.0,
-            "text": text, "line_y": y}
+    return span(text, (x, y, x + 6 * len(text), y + 10), font)
 
 
 def _row(texts, y, font=REGULAR):
@@ -29,12 +27,8 @@ def _table_spans(body_rows):
     return header + [span for row in body for span in row]
 
 
-def _write_page_number(page):
-    page.insert_text(fitz.Point(300, page.rect.height - 20), "21", fontsize=10, fontname="helvetica")
-
-
-def _draw_fill(page):
-    page.draw_rect(fitz.Rect(300, 600, 400, 620), color=None, fill=(0.9, 0.9, 0.9))
+PAGE_NUMBER = _span("21", 300, A4_HEIGHT - 27)
+FILL = fill(300, 600, 400, 620)
 
 
 class TableColumnsTest(unittest.TestCase):
@@ -142,36 +136,21 @@ class ContinuedTableTest(unittest.TestCase):
 
 
 class ScanTablesTest(unittest.TestCase):
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.pdf = os.path.join(self.tmp.name, "aligned.pdf")
-
-    def tearDown(self):
-        self.tmp.cleanup()
-
-    def _write_pdf(self, *drawings, body_rows=3):
-        document = fitz.open()
-        page = document.new_page()
-        rows = [(("Method", "Purpose"), "helvetica-bold")] + [((f"m{i}", f"does {i}"), "helvetica") for i in range(body_rows)]
-        for index, (texts, font) in enumerate(rows):
-            for text, x in zip(texts, COLUMN_X):
-                page.insert_text(fitz.Point(x, FIRST_ROW_Y + ROW_GAP * index), text, fontsize=10, fontname=font)
-        for draw in drawings:
-            draw(page)
-        document.save(self.pdf)
-        document.close()
+    @staticmethod
+    def _scan(extra_lines=(), shapes=(), body_rows=3):
+        spans = _table_spans(body_rows)
+        lines = [tuple(s for s in spans if s.line_y == y) for y in sorted({s.line_y for s in spans})]
+        page = FakePdfPage(lines=lines + [(line,) for line in extra_lines], shapes=list(shapes), height=A4_HEIGHT)
+        return TableScanner().scan(page)
 
     def test_unfilled_page_finds_aligned_table(self):
-        self._write_pdf()
-        self.assertEqual(len(scan_tables(self.pdf, 1)[0]["block"]["rows"]), 4)
+        self.assertEqual(len(self._scan()[0]["block"]["rows"]), 4)
 
     def test_page_number_in_footer_does_not_hide_the_page_end(self):
-        self._write_pdf(_write_page_number, body_rows=1)
-        self.assertEqual(len(scan_tables(self.pdf, 1)[0]["block"]["rows"]), 2)
+        self.assertEqual(len(self._scan([PAGE_NUMBER], body_rows=1)[0]["block"]["rows"]), 2)
 
     def test_page_with_fills_skips_aligned_scan(self):
-        self._write_pdf(_draw_fill)
-        self.assertEqual(scan_tables(self.pdf, 1), [])
+        self.assertEqual(self._scan(shapes=[FILL]), [])
 
 
 if __name__ == "__main__":

@@ -16,17 +16,17 @@ class TableCell:
     def _lines_and_marks(self, main_size):
         lines, marks = {}, []
         for span in self.spans:
-            if span["size"] < main_size * SUPERSCRIPT_RATIO:
-                marks.append(span["text"])
+            if span.size < main_size * SUPERSCRIPT_RATIO:
+                marks.append(span.text)
             else:
-                line = lines.setdefault(span["line_y"], {"words": [], "x1": 0})
-                line["words"].append(span["text"])
-                line["x1"] = max(line["x1"], span["bbox"].x1)
+                line = lines.setdefault(span.line_y, {"words": [], "x1": 0})
+                line["words"].append(span.text)
+                line["x1"] = max(line["x1"], span.box.x1)
         ordered = [lines[key] for key in sorted(lines)]
         return [{"text": " ".join(ln["words"]), "x1": ln["x1"]} for ln in ordered], marks
 
     def is_multiline(self):
-        return len({span["line_y"] for span in self.spans}) > 1
+        return len({span.line_y for span in self.spans}) > 1
 
     def is_wrapped_prose(self):
         """Son satır hariç satırlar sütunu dolduruyorsa bu sarılmış düz metindir;

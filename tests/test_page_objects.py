@@ -2,11 +2,10 @@ import os
 import tempfile
 import unittest
 
-import fitz
-
-import _paths  # noqa: F401
+from pdf_fakes import span
 from extraction.block_builder import ChapterOpener
 from extraction.odl_elements import OdlElements
+from extraction.pdf.geometry import Box
 from extraction.tables.table_grid import TableGrid
 from extraction.tables.table_cell import TableCell
 from extraction.text_layer.layout_scan import CodeImageLinkLines, CodeListing, ProseRepairs
@@ -66,8 +65,8 @@ class ChapterOpenerTest(unittest.TestCase):
 
 
 class TableGridTest(unittest.TestCase):
-    CELLS = [fitz.Rect(70, 100, 170, 120), fitz.Rect(170, 100, 400, 120),
-             fitz.Rect(70, 140, 170, 160), fitz.Rect(170, 140, 400, 160)]
+    CELLS = [Box(70, 100, 170, 120), Box(170, 100, 400, 120),
+             Box(70, 140, 170, 160), Box(170, 140, 400, 160)]
 
     def test_columns_are_tiled_from_cell_edges(self):
         grid = TableGrid.from_cells(self.CELLS, self.CELLS)
@@ -76,13 +75,13 @@ class TableGridTest(unittest.TestCase):
 
     def test_span_is_placed_by_its_center(self):
         grid = TableGrid([(70, 170), (170, 400)], [])
-        self.assertEqual(grid.column_of({"bbox": fitz.Rect(180, 100, 220, 110)}), 1)
+        self.assertEqual(grid.column_of(span("x", (180, 100, 220, 110))), 1)
 
 
 class TableCellTest(unittest.TestCase):
     @staticmethod
     def _span(text, line_y, size=10.0, x1=160.0):
-        return {"text": text, "line_y": line_y, "size": size, "bbox": fitz.Rect(72, line_y, x1, line_y + size)}
+        return span(text, (72, line_y, x1, line_y + size), size=size)
 
     def test_small_trailing_span_becomes_superscript(self):
         cell = TableCell([self._span("Latency", 100), self._span("a", 100, size=6)], (70, 170), 10.0)

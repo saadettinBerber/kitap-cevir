@@ -1,13 +1,12 @@
-"""PyMuPDF çizim katmanından çizgisiz (dolgulu hücreli) tabloları bulur.
+"""Sayfanın çizim katmanından çizgisiz (dolgulu hücreli) tabloları bulur.
 
 OpenDataLoader tabloları yalnız kenarlık çizgilerinden tanır; e-kitap kökenli
 PDF'lerde hücreler zebra dolgu dikdörtgenleriyle çizilir ve tablo paragraf
 yığınına dönüşür. Izgara (sütunlar, bantlar) table_grid'den gelir; burada
 metin parçaları satırlara ve hücrelere dağıtılır. Koordinatlar üst orijinlidir.
 """
+import dataclasses
 import itertools
-
-import fitz
 
 from extraction.tables.aligned_tables import AlignedTableFinder
 from extraction.tables.table_cell import SUPERSCRIPT_RATIO, TableCell
@@ -23,11 +22,11 @@ class TableRow:
     def __init__(self, spans, grid):
         self.spans = spans
         self.grid = grid
-        self.main_size = max(span["size"] for span in spans)
+        self.main_size = max(span.size for span in spans)
 
     def is_bold(self):
-        body = [s for s in self.spans if s["size"] >= self.main_size * SUPERSCRIPT_RATIO]
-        return all("bold" in s["font"].lower() for s in body)
+        body = [s for s in self.spans if s.size >= self.main_size * SUPERSCRIPT_RATIO]
+        return all("bold" in s.font.lower() for s in body)
 
     def cells(self, is_header):
         buckets = [[] for _ in self.grid.columns]
@@ -63,11 +62,11 @@ class TableBuilder:
         header_rows = self._header_count(rows)
         block = {"type": "table", "header_rows": header_rows,
                  "rows": [row.cells(index < header_rows) for index, row in enumerate(rows)]}
-        return [{"y0": min(s["bbox"].y0 for row in rows for s in row.spans),
-                 "y1": max(s["bbox"].y1 for row in rows for s in row.spans), "block": block}]
+        return [{"y0": min(s.box.y0 for row in rows for s in row.spans),
+                 "y1": max(s.box.y1 for row in rows for s in row.spans), "block": block}]
 
     def _spans_within(self, area):
-        return [s for s in self.page_spans if area.contains(fitz.Point(s["bbox"].x0 + 1, s["bbox"].y0 + 1))]
+        return [s for s in self.page_spans if area.contains_point(s.box.x0 + 1, s.box.y0 + 1)]
 
     def _group_rows(self, spans, grid):
         rows, previous = [], None
@@ -87,7 +86,7 @@ class TableBuilder:
         band, previous_band = grid.band_of(span), grid.band_of(previous)
         if band is not None or previous_band is not None:
             return band != previous_band
-        return span["bbox"].y0 - previous["bbox"].y0 > previous["bbox"].height * self.row_gap_ratio
+        return span.box.y0 - previous.box.y0 > previous.box.height * self.row_gap_ratio
 
     @staticmethod
     def _table_rows(rows, grid):
@@ -123,32 +122,24 @@ class TableScanner:
         self.footer_zone_top = settings["footer_zone_top"]
         self.row_gap_ratio = settings["table_row_gap_ratio"]
 
-    def scan(self, pdf_path, pdf_page):
+    def scan(self, page):
         """[{y0, y1, block}], sayfada yukarıdan aşağıya."""
-        with fitz.open(pdf_path) as document:
-            return sorted(self._tables_on(document[pdf_page - 1]), key=lambda table: table["y0"])
+        return sorted(self._tables_on(page), key=lambda table: table["y0"])
 
     def _tables_on(self, page):
         """Dolgulu hücre varsa tabloyu onlar belirler; hizalı tarama yalnız dolgusuz
         sayfada çalışır ki aynı tablo iki kez yakalanmasın."""
-        body_bottom = page.rect.height - self.footer_zone_top
-        fills = PageFills(page, body_bottom)
+        body_bottom = page.height - self.footer_zone_top
+        fills = PageFills(page.drawings(), body_bottom)
         spans = self._page_spans(page)
         if not fills.rects:
-            return AlignedTableFinder([span for span in spans if span["bbox"].y1 <= body_bottom]).tables()
+            return AlignedTableFinder([span for span in spans if span.box.y1 <= body_bottom]).tables()
         builder = TableBuilder(spans, fills, self.row_gap_ratio)
         return [table for cells in fills.table_groups() for table in builder.tables_in(cells)]
 
     @staticmethod
     def _page_spans(page):
-        spans = [{"bbox": fitz.Rect(span["bbox"]), "font": span["font"], "size": span["size"],
-                  "text": span["text"].strip(), "line_y": round(line["bbox"][1])}
-                 for block in page.get_text("dict")["blocks"]
-                 for line in block.get("lines", [])
-                 for span in line["spans"] if span["text"].strip()]
-        return sorted(spans, key=lambda s: (s["line_y"], s["bbox"].x0))
-
-
-def scan_tables(pdf_path, pdf_page, settings=None):
-    """Sayfadaki dolgu tabanlı ve hizalı tabloları [{y0, y1, block}] olarak döndürür."""
-    return TableScanner(settings).scan(pdf_path, pdf_page)
+        """Satır anahtarı tam sayıya yuvarlanır: aynı satırın parçaları küsuratta ayrışabilir."""
+        spans = [dataclasses.replace(span, text=span.text.strip(), line_y=round(span.line_y))
+                 for line in page.text_lines() for span in line]
+        return sorted(spans, key=lambda s: (s.line_y, s.box.x0))

@@ -4,9 +4,9 @@ import unittest
 
 import fitz
 
-import _paths  # noqa: F401
+from pdf_fakes import real_page
 from extraction.odl_elements import OdlElements
-from extraction.tables.table_scan import scan_tables
+from extraction.tables.table_scan import TableScanner
 
 COLUMNS = [(72, 140), (140, 432)]
 HEADER_TOP = 100
@@ -47,7 +47,8 @@ def _pdf_with(build, settings=SETTINGS):
     build(document.new_page())
     document.save(path)
     document.close()
-    return tmp, scan_tables(path, 1, settings)
+    with real_page(path) as page:
+        return tmp, TableScanner(settings).scan(page)
 
 
 class SeparateTablesTest(unittest.TestCase):

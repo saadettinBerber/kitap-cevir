@@ -36,14 +36,14 @@ class TableColumns:
     @classmethod
     def of_header(cls, header):
         """Kalın başlığın her parçası bir sütundur."""
-        return cls(sorted(round(span["bbox"].x0, 1) for span in header), max(span["bbox"].x1 for span in header))
+        return cls(sorted(round(span.box.x0, 1) for span in header), max(span.box.x1 for span in header))
 
     @classmethod
     def of_row(cls, row):
         """Başlıksız satırda sütunu geniş boşluk açar; hücre içindeki stil
         parçası (italik "x") yeni sütun değildir."""
-        starts = [round(cell[0]["bbox"].x0, 1) for cell in cls._gutter_cells(row)]
-        return cls(starts, max(span["bbox"].x1 for span in row))
+        starts = [round(cell[0].box.x0, 1) for cell in cls._gutter_cells(row)]
+        return cls(starts, max(span.box.x1 for span in row))
 
     @staticmethod
     def is_header(row):
@@ -57,7 +57,7 @@ class TableColumns:
 
     @staticmethod
     def _is_bold(row):
-        return all("bold" in span["font"].lower() for span in row)
+        return all("bold" in span.font.lower() for span in row)
 
     @staticmethod
     def _has_gutters(row):
@@ -70,7 +70,7 @@ class TableColumns:
         """Soldan sağa dizili parçalar, aralarındaki geniş boşluklardan bölünür."""
         cells = [[row[0]]]
         for left, right in zip(row, row[1:]):
-            if right["bbox"].x0 - left["bbox"].x1 >= COLUMN_GAP_MIN:
+            if right.box.x0 - left.box.x1 >= COLUMN_GAP_MIN:
                 cells.append([])
             cells[-1].append(right)
         return cells
@@ -81,8 +81,8 @@ class TableColumns:
 
     def _within_columns(self, row):
         left, right = self.columns[0][0], self.columns[-1][1]
-        return (min(span["bbox"].x0 for span in row) >= left - COLUMN_GUTTER
-                and max(span["bbox"].x1 for span in row) <= right + ROW_RIGHT_SLACK)
+        return (min(span.box.x0 for span in row) >= left - COLUMN_GUTTER
+                and max(span.box.x1 for span in row) <= right + ROW_RIGHT_SLACK)
 
     def buckets(self, row):
         """Her sütuna düşen parçalar. İki sütunun payına giren parça soldakine gider;
@@ -94,17 +94,17 @@ class TableColumns:
 
     @staticmethod
     def _holds(column, span):
-        center = (span["bbox"].x0 + span["bbox"].x1) / 2
+        center = span.box.center_x
         return column[0] - CENTER_TOLERANCE <= center <= column[1] + CENTER_TOLERANCE
 
     def table(self, rows, header_rows):
         spans = [span for row in rows for span in row]
         block = {"type": "table", "header_rows": header_rows, "rows": [self._cells(row) for row in rows]}
-        return {"y0": min(s["bbox"].y0 for s in spans), "y1": max(s["bbox"].y1 for s in spans), "block": block}
+        return {"y0": min(s.box.y0 for s in spans), "y1": max(s.box.y1 for s in spans), "block": block}
 
     def _cells(self, row):
         buckets = self.buckets(row)
-        main_size = max((span["size"] for bucket in buckets for span in bucket), default=DEFAULT_MAIN_SIZE)
+        main_size = max((span.size for bucket in buckets for span in bucket), default=DEFAULT_MAIN_SIZE)
         return [TableCell(bucket, column, main_size).unit(False) for bucket, column in zip(buckets, self.columns)]
 
 
@@ -118,8 +118,8 @@ class AlignedTableFinder:
     def _line_rows(spans):
         rows = {}
         for span in spans:
-            rows.setdefault(span["line_y"], []).append(span)
-        return [sorted(rows[y], key=lambda span: span["bbox"].x0) for y in sorted(rows)]
+            rows.setdefault(span.line_y, []).append(span)
+        return [sorted(rows[y], key=lambda span: span.box.x0) for y in sorted(rows)]
 
     def tables(self):
         """[{y0, y1, block}]; bir tablonun satırları başka tablonun başlığı olamaz."""
