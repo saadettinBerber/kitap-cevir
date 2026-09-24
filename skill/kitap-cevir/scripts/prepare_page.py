@@ -23,7 +23,7 @@ SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 class PagePreparer:
-    """Sıradaki ya da istenen sayfaların girdisini yazar; boş sayfaları ilerlemeye işler."""
+    """Sayfaların çevirmen girdisini _work/in'e yazar."""
 
     def __init__(self, project, progress, builder):
         self.project = project
