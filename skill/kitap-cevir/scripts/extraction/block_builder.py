@@ -43,6 +43,32 @@ class TypeScale:
         return 2 if size >= self.subsection else 3
 
 
+class SpecialParagraphs:
+    """Paragraf görünümlü ama başka türde blok: caption, dipnot, kalın küçük başlık."""
+
+    def __init__(self, settings, fixer):
+        self.table_caption = re.compile(settings["table_caption_pattern"])
+        self.equation_caption = re.compile(settings["equation_caption_pattern"])
+        self.footnote_max_size = settings["footnote_max_size"]
+        self.bold_heading_font = settings["bold_heading_font"]
+        self.fixer = fixer
+
+    def blocks_of(self, element, text):
+        """Özel bir tür değilse boş liste."""
+        if self.table_caption.match(text):
+            return [{"type": "caption", "kind": "table", "en": self.fixer.rich(text)}]
+        if self.equation_caption.match(text):
+            return [{"type": "caption", "kind": "equation", "en": self.fixer.rich(text)}]
+        if element.font_size <= self.footnote_max_size:
+            return [{"type": "footnote", "en": self.fixer.rich(text)}]
+        if self._is_bold_heading(element.font):
+            return [{"type": "heading", "level": 3, "en": text}]
+        return []
+
+    def _is_bold_heading(self, font):
+        return self.bold_heading_font in font and "bold" in font.lower()
+
+
 class BlockBuilder:
     """Bir sayfanın düzen öğelerini bloklara çevirir; metni sayfanın TextFixer'ı onarır."""
 
@@ -50,9 +76,8 @@ class BlockBuilder:
         self.settings = settings
         self.fixer = fixer
         self.scale = TypeScale(settings)
+        self.special = SpecialParagraphs(settings, fixer)
         self.listing_caption = re.compile(settings["listing_caption_pattern"])
-        self.table_caption = re.compile(settings["table_caption_pattern"])
-        self.equation_caption = re.compile(settings["equation_caption_pattern"])
         label = settings["chapter_label_pattern"]
         self.chapter_label = re.compile(label) if label else None
         self._builders = {"list item": self._list_item_blocks, "heading": self._heading_blocks,
@@ -103,7 +128,7 @@ class BlockBuilder:
         text = self._plain(element)
         if not text or is_numeric_only(text):
             return []
-        special = self._special_paragraph(element, text)
+        special = self.special.blocks_of(element, text)
         if special:
             return special
         block = {"type": "para", "sentences": self._sentences(self.fixer.rich(text))}
@@ -111,21 +136,6 @@ class BlockBuilder:
         if style:
             block["style"] = style
         return [block] if block["sentences"] else []
-
-    def _special_paragraph(self, element, text):
-        """Paragraf görünümlü ama başka türde blok: caption, dipnot, kalın küçük başlık."""
-        if self.table_caption.match(text):
-            return [{"type": "caption", "kind": "table", "en": self.fixer.rich(text)}]
-        if self.equation_caption.match(text):
-            return [{"type": "caption", "kind": "equation", "en": self.fixer.rich(text)}]
-        if element.font_size <= self.settings["footnote_max_size"]:
-            return [{"type": "footnote", "en": self.fixer.rich(text)}]
-        if self._is_bold_heading(element.font):
-            return [{"type": "heading", "level": 3, "en": text}]
-        return []
-
-    def _is_bold_heading(self, font):
-        return self.settings["bold_heading_font"] in font and "bold" in font.lower()
 
     @staticmethod
     def _sentences(text):
