@@ -2,6 +2,7 @@ import unittest
 
 from pdf_fakes import FakePdfPage, fill, span, stroke
 from extraction.settings import with_defaults
+from extraction.tables.table_grid import MAX_BAND_GAP_RATIO, PageFills
 from extraction.tables.table_scan import TableScanner
 
 COLUMNS = [(70, 170), (170, 270), (270, 370)]
@@ -129,6 +130,23 @@ class RowGapBoundaryTest(unittest.TestCase):
 
     def test_line_just_below_the_ratio_starts_a_row(self):
         self.assertEqual(len(self._rows(self.BODY_TOP + self.TEXT_HEIGHT * self.RATIO + STEP)), 3)
+
+
+class TableGroupTest(unittest.TestCase):
+    """Aynı sütun kenarını paylaşan dolgular, aralarındaki boşluk hücre yüksekliği × oranı aşmadıkça tek tablodur."""
+
+    TEXT_BOTTOM = 700
+
+    def _groups(self, gap):
+        second_top = TABLE_TOP + CELL_HEIGHT + gap
+        fills = [fill(left, top, right, top + CELL_HEIGHT) for top in (TABLE_TOP, second_top) for left, right in TERM_COLUMNS]
+        return PageFills(fills, self.TEXT_BOTTOM).table_groups()
+
+    def test_fills_at_the_gap_ratio_are_one_table(self):
+        self.assertEqual(len(self._groups(CELL_HEIGHT * MAX_BAND_GAP_RATIO)), 1)
+
+    def test_fills_further_apart_are_two_tables(self):
+        self.assertEqual(len(self._groups(CELL_HEIGHT * MAX_BAND_GAP_RATIO + STEP)), 2)
 
 
 class TableEndTest(unittest.TestCase):
