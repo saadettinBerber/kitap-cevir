@@ -56,8 +56,8 @@ kullanılır; varsayılanlar 6x9 inç teknik kitap dizgisi için ayarlanmıştı
 | `code_font_prefix`         | `"Courier"`           | Bu önekle başlayan font = kod. Kitabınızda `Consolas`, `LucidaConsole`, `CourierNew` olabilir. |
 | `code_max_font_size`       | `9.5`                 | Bu boyutun altındaki kod fontu gövde kodudur; daha büyüğü başlık/dosya adı sayılır. |
 | `running_header`           | `"top"`               | Koşu başlığının yeri. `"top"`: `header_zone_bottom` üstündeki ilk öğe. `"bottom"`: sayfanın altında (O'Reilly dizgisi: `Kesit Adı \| 201`, çift sayfada `200 \| Chapter 14: ...`); kesit adı alt bilgi bölgesinden okunur. `"none"`: koşu başlığı yok (e-kitap kökenli PDF'ler); sayfanın en üstü gövdedir. Eski `header_at_bottom` anahtarı kaldırıldı, bulunursa çıkarım durur. |
-| `header_zone_bottom`       | `610`                 | Yalnız `running_header: "top"`: ODL y (sol-alt orijin) bu değerin üstündeki ilk öğe koşu başlığıdır. |
-| `footer_zone_top`          | `30`                  | ODL y bu değerin altındaki öğeler alt bilgidir, atılır. |
+| `header_zone_bottom`       | `610`                 | Yalnız `running_header: "top"`: alt kenarı sayfanın altından bu yükseklikten (`odlY`) yukarıda kalan ilk öğe koşu başlığıdır. |
+| `footer_zone_top`          | `30`                  | Üst kenarı sayfanın altından bu yükseklikten (`odlY`) aşağıda kalan öğeler alt bilgidir, atılır. |
 | `chapter_number_min_size`  | `40`                  | Bu boyut ve üstünde tek başına sayı = bölüm numarası. |
 | `chapter_title_min_size`   | `20`                  | Bu boyut ve üstündeki başlık = bölüm başlığı (`chapter` bloğu). |
 | `section_min_size`         | `13.5`                | Başlık seviyesi 1 eşiği. |
@@ -81,7 +81,7 @@ kullanılır; varsayılanlar 6x9 inç teknik kitap dizgisi için ayarlanmıştı
 python3 $SKILL/scripts/inspect_pdf.py book.pdf layout <PDF sayfası>
 ```
 
-Her satır için `y` (üst orijin), `odlY` (sol-alt orijin, ODL ile aynı), font ve
+Her satır için `y` (üst orijin), `odlY` (sayfanın altından yükseklik; bölge ayarları bununla ölçülür), font ve
 boyut basılır; sonunda font/boyut histogramı gelir. Kod içeren bir sayfa ile
 bölüm açılış sayfasına bakmak yeterlidir:
 
