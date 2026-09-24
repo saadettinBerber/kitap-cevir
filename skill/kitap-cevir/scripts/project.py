@@ -23,18 +23,21 @@ class ProjectNotFound(FileNotFoundError):
 
 
 def find_root(start=None):
+    """KITAP_ROOT ayarlıysa odur; değilse başlangıç dizininden yukarı aranır."""
     if os.environ.get(ENV_ROOT):
         return os.path.abspath(os.environ[ENV_ROOT])
-    current = os.path.abspath(start or os.getcwd())
-    while True:
-        if os.path.isfile(os.path.join(current, PROGRESS_FILE)):
-            return current
-        parent = os.path.dirname(current)
-        if parent == current:
-            raise ProjectNotFound(
-                f"{PROGRESS_FILE} bulunamadı; kitap projesinin dizininde çalıştırın "
-                f"ya da {ENV_ROOT} ortam değişkenini ayarlayın")
-        current = parent
+    return _nearest_project(os.path.abspath(start or os.getcwd()))
+
+
+def _nearest_project(directory):
+    """İçinde progress.json bulunan en yakın dizin: kendisi ya da bir üstü."""
+    if os.path.isfile(os.path.join(directory, PROGRESS_FILE)):
+        return directory
+    parent = os.path.dirname(directory)
+    if parent == directory:
+        raise ProjectNotFound(f"{PROGRESS_FILE} bulunamadı; kitap projesinin dizininde çalıştırın "
+                              f"ya da {ENV_ROOT} ortam değişkenini ayarlayın")
+    return _nearest_project(parent)
 
 
 class Project:
