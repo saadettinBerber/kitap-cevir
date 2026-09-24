@@ -6,6 +6,7 @@ import _paths  # noqa: F401
 from backfill_images import ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ImageBackfiller, ImageFolder, ImagePlacement, PageImages
 from page_document import PageDocument
 from project import Project
+from translated_pages import TranslatedPages
 
 ANCHOR = "layers separate concerns"
 FIGURE = (MIN_IMAGE_SIDE_PX, MIN_IMAGE_SIDE_PX)
@@ -169,16 +170,17 @@ class ImageBackfillerTest(unittest.TestCase):
         self.project = Project(self.tmp.name)
         self.folder = FakeImageFolder({"fig.png": FIGURE})
         extracted = FakeExtractedImages([_para("Layers separate concerns."), _image("fig.png")], self.folder)
-        self.backfiller = ImageBackfiller(self.project, extracted)
+        self.pages = TranslatedPages(self.project)
+        self.backfiller = ImageBackfiller(self.pages, extracted)
 
     def tearDown(self):
         self.tmp.cleanup()
 
     def _write_page(self, blocks):
-        PageDocument({"page": self.PAGE, "blocks": blocks}).write(self.project.page_js(self.PAGE))
+        self.pages.save(PageDocument({"page": self.PAGE, "blocks": blocks}))
 
     def _page_blocks(self):
-        return PageDocument.read(self.project.page_js(self.PAGE)).data["blocks"]
+        return self.pages.get(self.PAGE).data["blocks"]
 
     def test_missing_image_goes_below_its_text(self):
         self._write_page([_para("Layers separate concerns."), _para("Microservices are small.")])
@@ -188,7 +190,7 @@ class ImageBackfillerTest(unittest.TestCase):
     def test_added_image_is_copied_next_to_the_page(self):
         self._write_page([_para("Layers separate concerns.")])
         self.backfiller.backfill_page(self.PAGE)
-        self.assertEqual(self.folder.copied, [("fig.png", self.project.page_images(self.PAGE))])
+        self.assertEqual(self.folder.copied, [("fig.png", self.pages.images_dir(self.PAGE))])
 
     def test_second_run_adds_nothing(self):
         self._write_page([_para("Layers separate concerns.")])

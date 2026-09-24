@@ -16,9 +16,9 @@ import sys
 
 from extraction.pdf.pymupdf_adapter import image_size
 from page_blocks import Block
-from page_document import PageDocument
 from page_input import PageInputBuilder
 from project import Project
+from translated_pages import TranslatedPages
 
 MIN_IMAGE_SIDE_PX = 80          # daha küçükler süs/çizgi parçasıdır
 MATCH_THRESHOLD = 0.55
@@ -125,21 +125,22 @@ class ExtractedImages:
 class ImageBackfiller:
     """Çevrilmiş sayfalara PDF'teki görselleri ekler; metin bloklarına dokunmaz."""
 
-    def __init__(self, project, extracted):
-        self.project = project
+    def __init__(self, pages, extracted):
+        self.pages = pages
         self.extracted = extracted
 
     @classmethod
     def for_project(cls, project):
-        return cls(project, ExtractedImages(PageInputBuilder.for_progress(project, project.load_progress())))
+        builder = PageInputBuilder.for_progress(project, project.load_progress())
+        return cls(TranslatedPages(project), ExtractedImages(builder))
 
     def backfill_page(self, page):
         """Eklenen görsel sayısı; sayfa yalnız görsel eklendiyse yeniden yazılır."""
         images = self.extracted.of(page)
-        page_document = PageDocument.read(self.project.page_js(page))
-        added = self._place(images, ImagePlacement(page_document.data["blocks"]), self.project.page_images(page))
+        page_document = self.pages.get(page)
+        added = self._place(images, ImagePlacement(page_document.data["blocks"]), self.pages.images_dir(page))
         if added:
-            page_document.write(self.project.page_js(page))
+            self.pages.save(page_document)
         return added
 
     @staticmethod
