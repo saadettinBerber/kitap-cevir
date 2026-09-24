@@ -9,6 +9,7 @@ MAX_CARDS = 4
 MIN_OPTIONS = 2
 MAX_OPTIONS = 3
 SIDES = ("bad", "good")
+COMMON_PAIRS = ("title", "summary", "tip")
 _LANG_ALIASES = {"js": "javascript", "py": "python", "ts": "typescript"}
 
 
@@ -35,6 +36,14 @@ def _missing_pair(unit, label):
 def _normal_lang(lang):
     key = str(lang or "").lower()
     return _LANG_ALIASES.get(key, key)
+
+
+def _common_problems(card):
+    """Her türde zorunlu alanlar: id ve iki dilli title, summary, tip."""
+    problems = [] if card.get("id") else ["id yok"]
+    for field in COMMON_PAIRS:
+        problems += _missing_pair(card.get(field), field)
+    return problems
 
 
 def _duplicate_ids(cards):
@@ -133,7 +142,4 @@ class CardChecker:
         kind = card_kind(card)
         if kind not in self.allowed_rules:
             return [f"tür {kind!r} bu kitapta izinli değil ({', '.join(self.allowed_rules)})"]
-        problems = [] if card.get("id") else ["id yok"]
-        for field in ("title", "summary", "tip"):
-            problems += _missing_pair(card.get(field), field)
-        return problems + self.allowed_rules[kind].problems(card)
+        return _common_problems(card) + self.allowed_rules[kind].problems(card)
