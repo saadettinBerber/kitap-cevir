@@ -6,6 +6,7 @@ import unittest
 import _paths  # noqa: F401
 from page_document import PageDocument
 from project import Project
+from translated_pages import TranslatedPages
 from regen_concepts import CardInputs, CardOutputs, select_pages
 
 PROGRESS = {"book": {"slug": "demo"}, "book_pdf": "book.pdf", "pdf_offset": 0,
@@ -42,7 +43,8 @@ class _BookTestCase(unittest.TestCase):
         with open(os.path.join(self.tmp.name, "progress.json"), "w", encoding="utf-8") as handle:
             json.dump(PROGRESS, handle)
         self.project = Project(self.tmp.name)
-        PageDocument(PAGE).write(self.project.page_js(PAGE["page"]))
+        self.pages = TranslatedPages(self.project)
+        self.pages.save(PageDocument(PAGE))
 
     def tearDown(self):
         self.tmp.cleanup()

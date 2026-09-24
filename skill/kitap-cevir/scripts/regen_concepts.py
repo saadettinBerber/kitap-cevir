@@ -15,6 +15,7 @@ from concept_check import CardChecker
 from json_file import read_json, write_json
 from page_document import PageDocument
 from project import Project
+from translated_pages import TranslatedPages
 
 _RANGE = re.compile(r"^(\d+)-(\d+)$")
 
@@ -38,6 +39,7 @@ class CardInputs:
     def __init__(self, project, spec):
         """spec = BookSettings.concepts(); agent'a gider, kart türlerini buna göre seçer."""
         self.project = project
+        self.pages = TranslatedPages(project)
         self.spec = spec
 
     @classmethod
@@ -50,7 +52,7 @@ class CardInputs:
 
     def _write_input(self, page):
         path = self.project.work_cards_file("in", page)
-        write_json(path, self.card_input(PageDocument.read(self.project.page_js(page))))
+        write_json(path, self.card_input(self.pages.get(page)))
         return self.project.relative_to_root(path)
 
     def card_input(self, document):
