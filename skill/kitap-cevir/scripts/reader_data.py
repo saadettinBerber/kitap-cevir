@@ -18,16 +18,16 @@ class ReaderScript:
     """Okuyucunun <script> ile yüklediği, tek bir global değişken tanımlayan dosya."""
 
     def __init__(self, path, global_name):
-        self.path = path
-        self.global_name = global_name
+        self._path = path
+        self._global_name = global_name
 
     def write(self, payload):
-        os.makedirs(os.path.dirname(self.path), exist_ok=True)
-        with open(self.path, "w", encoding="utf-8") as handle:
-            handle.write(f"window.{self.global_name} = ")
+        os.makedirs(os.path.dirname(self._path), exist_ok=True)
+        with open(self._path, "w", encoding="utf-8") as handle:
+            handle.write(f"window.{self._global_name} = ")
             handle.write(json.dumps(payload, ensure_ascii=False, indent=2))
             handle.write(";\n")
-        return self.path
+        return self._path
 
 
 class TableOfContents:
