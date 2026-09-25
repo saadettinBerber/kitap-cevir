@@ -2,7 +2,7 @@
 from html import escape
 
 from epub.block_visitor import EpubBlockVisitor
-from epub.cards import CARDS_ANCHOR, CARDS_TITLE, cards_section, is_drawable
+from epub.cards import CARDS_ANCHOR, CARDS_TITLE, cards_section, page_cards
 from epub.fragments import Fragment, notes_section
 from epub.xhtml import document
 
@@ -68,7 +68,7 @@ class Chapter:
         page = page_document.number()
         self.pages.append(page)
         self.flow.add_page(page, EpubBlockVisitor(page_document).fragments())
-        self.page_cards += [(page, card) for card in page_document.concepts() if is_drawable(card)]
+        self.page_cards += page_cards(page, page_document.concepts())
 
     def title(self):
         return self.info.get("tr") or self.info.get("en") or ""

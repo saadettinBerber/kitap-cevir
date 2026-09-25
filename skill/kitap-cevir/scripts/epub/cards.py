@@ -2,6 +2,8 @@
 Kart bir veri yapısıdır ve türleri sabittir; aynı veriye yeni bir işlem eklendiği için
 çizim fonksiyonlarla yazılır (Bl.6). Denetimi concept_check'tedir.
 """
+from typing import NamedTuple
+
 from concept_check import SIDES, card_kind
 from epub.xhtml import code_block, translated_html
 
@@ -11,6 +13,14 @@ SIDE_LABELS = {"code": ("Önce", "Sonra"), "contrast": ("Kaçın", "Tercih et")}
 TIP_LABELS = {"tradeoff": "Ne zaman hangisi"}
 DEFAULT_TIP_LABEL = "Pratik ipucu"
 OPTION_LABELS = (("gains", "Kazandırır"), ("costs", "Bedeli"))
+FIRST_CARD = 1
+
+
+class PageCard(NamedTuple):
+    """Bölüm sonuna giden kart; çapası geldiği sayfadan ve o sayfadaki sırasından kurulur."""
+    page: int
+    index: int
+    card: dict
 
 
 def is_drawable(card):
@@ -18,20 +28,35 @@ def is_drawable(card):
     return bool(card.get("summary"))
 
 
+def page_cards(page, cards):
+    """Sayfanın çizilecek kartları, sayfa içinde 1'den numaralanmış."""
+    drawable = [card for card in cards if is_drawable(card)]
+    return [PageCard(page, index, card) for index, card in enumerate(drawable, FIRST_CARD)]
+
+
+def card_anchor(page_card):
+    """Kart kimliği değil sıra kullanılır: kimlikler ASCII dışı harf taşıyabilir (G26)."""
+    return f"kart-{page_card.page}-{page_card.index}"
+
+
 def cards_section(page_cards):
-    """(sayfa, kart) çiftlerinden bölüm sonu kesiti; kart yoksa boş."""
+    """Bölüm sonu kesiti; kart yoksa boş."""
     if not page_cards:
         return ""
-    cards = "\n".join(card_html(page, card) for page, card in page_cards)
+    cards = "\n".join(card_html(page_card) for page_card in page_cards)
     return f'<section class="cards">\n<h2 id="{CARDS_ANCHOR}">{CARDS_TITLE}</h2>\n{cards}\n</section>'
 
 
-def card_html(page, card):
+def card_html(page_card):
+    card = page_card.card
     kind = card_kind(card)
-    middle = _MIDDLE_PARTS.get(kind, _no_middle)(card, kind)
-    return (f'<div class="card"><h3>{_text(card.get("title"))}</h3>'
-            f'<p class="card-page"><a href="#page-{page}">s. {page}</a></p>'
-            f'{_paragraph(card.get("summary"))}{middle}{_tip(card, kind)}</div>')
+    body = f'{_paragraph(card.get("summary"))}{_MIDDLE_PARTS.get(kind, _no_middle)(card, kind)}{_tip(card, kind)}'
+    return f'<div class="card" id="{card_anchor(page_card)}">{_card_head(page_card)}{body}</div>'
+
+
+def _card_head(page_card):
+    page = page_card.page
+    return f'<h3>{_text(page_card.card.get("title"))}</h3><p class="card-page"><a href="#page-{page}">s. {page}</a></p>'
 
 
 def _no_middle(card, kind):
