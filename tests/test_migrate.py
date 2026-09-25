@@ -24,7 +24,7 @@ OLD_PAGE = {
 
 
 def _pending(filler):
-    return filler.pending
+    return filler.pending()
 
 
 class TranslationKeyTest(unittest.TestCase):

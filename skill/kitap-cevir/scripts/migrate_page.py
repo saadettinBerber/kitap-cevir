@@ -43,7 +43,7 @@ class PageMigration:
         if not self.document.get("chapter", {}).get("tr"):
             self.document["chapter"] = self.old.get("chapter", self.document["chapter"])
         self.document["glossary_new"] = []
-        return filler.pending, self._missing_latex()
+        return filler.pending(), self._missing_latex()
 
     def _carry_latex(self):
         """Eski sayfada aynı PNG için LaTeX yazılmışsa yeni yapıya taşınır; ayrı

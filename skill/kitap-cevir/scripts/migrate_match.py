@@ -78,8 +78,12 @@ class TranslationFiller:
     """Yeni birimlere eski çevirileri yazar; bulunamayanlar `pending`'e düşer."""
 
     def __init__(self, translations):
-        self.translations = translations
-        self.pending = []
+        self._translations = translations
+        self._pending = []
+
+    def pending(self):
+        """Çevirisi bulunamayan ya da yer tutucusu eksik kalan birimler: {path, en, tr_hint}."""
+        return list(self._pending)
 
     def fill_block(self, block, path):
         Block.of(block).fill(self, path)
@@ -88,16 +92,15 @@ class TranslationFiller:
         """Birime tr yazar; bulunamazsa ya da yer tutucu eksikse pending'e ekler."""
         if not (unit["en"] or "").strip():
             unit["tr"] = ""
-            return True
-        translation = self.translations.lookup(unit["en"])
+            return
+        translation = self._translations.lookup(unit["en"])
         if not translation and NUMERIC_CELL.match(unit["en"]):
             translation = unit["en"]
         if translation and not self._drops_placeholder(unit, translation):
             unit["tr"] = translation
-            return True
+            return
         unit["tr"] = ""
-        self.pending.append({"path": path, "en": unit["en"], "tr_hint": translation})
-        return False
+        self._pending.append({"path": path, "en": unit["en"], "tr_hint": translation})
 
     @staticmethod
     def _drops_placeholder(unit, translation):
@@ -114,11 +117,11 @@ class TranslationFiller:
         return merged
 
     def _merge_run(self, sentences, index):
-        if self.translations.lookup(sentences[index]["en"]):
+        if self._translations.lookup(sentences[index]["en"]):
             return sentences[index], 1
         for count in range(MAX_JOIN, 1, -1):
             window = sentences[index:index + count]
             joined = " ".join(s["en"] for s in window)
-            if len(window) == count and self.translations.lookup_single(joined):
+            if len(window) == count and self._translations.lookup_single(joined):
                 return {**sentences[index], "en": joined}, count
         return sentences[index], 1
