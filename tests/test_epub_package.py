@@ -94,9 +94,11 @@ class ArchiveTest(unittest.TestCase):
 
 
 class ManifestTest(unittest.TestCase):
-    def test_opf_lists_chapters_in_spine_and_images_in_manifest(self):
-        opf = _opf([_Chapter("chapter-01.xhtml")], ["images/page-5/a b.png"])
-        self.assertIn('<itemref idref="chapter-01"/>', opf)
+    def test_opf_lists_chapters_in_spine(self):
+        self.assertIn('<itemref idref="chapter-01"/>', _opf([_Chapter("chapter-01.xhtml")]))
+
+    def test_opf_lists_images_in_manifest_with_quoted_href(self):
+        opf = _opf(image_hrefs=["images/page-5/a b.png"])
         self.assertIn('href="images/page-5/a%20b.png" media-type="image/png"', opf)
 
     def test_opf_types_chapters_as_xhtml(self):
@@ -118,10 +120,11 @@ class ManifestTest(unittest.TestCase):
     def test_opf_escapes_author(self):
         self.assertIn("Yazar &amp; Ortak", _opf())
 
-    def test_nav_links_headings_and_printed_pages(self):
-        nav = nav_xhtml([_Chapter("chapter-01.xhtml")])
-        self.assertIn('href="chapter-01.xhtml#h-5-1">Giriş', nav)
-        self.assertIn(f'href="chapter-01.xhtml#page-{PAGE}">{PAGE}', nav)
+    def test_nav_links_headings(self):
+        self.assertIn('href="chapter-01.xhtml#h-5-1">Giriş', nav_xhtml([_Chapter("chapter-01.xhtml")]))
+
+    def test_nav_links_printed_pages(self):
+        self.assertIn(f'href="chapter-01.xhtml#page-{PAGE}">{PAGE}', nav_xhtml([_Chapter("chapter-01.xhtml")]))
 
     def test_nav_without_chapters_has_no_start(self):
         self.assertNotIn("bodymatter", nav_xhtml([]))
