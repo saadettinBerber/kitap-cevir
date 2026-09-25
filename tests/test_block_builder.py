@@ -3,7 +3,7 @@ bloğu verir. Eşikler varsayılan ayarlardandır; iki yanı ayrı testte sınan
 import unittest
 
 from pdf_fakes import element
-from extraction.block_builder import MAX_HEADING_CHARS, BlockBuilder
+from extraction.block_builder import MAX_HEADING_CHARS, MINOR_HEADING_LEVEL, SECTION_LEVEL, SUBSECTION_LEVEL, BlockBuilder
 from extraction.settings import DEFAULT_EXTRACTION, with_defaults
 
 BOX = (70, 280, 430, 300)
@@ -15,6 +15,7 @@ SECTION = DEFAULT_EXTRACTION["section_min_size"]
 SUBSECTION = DEFAULT_EXTRACTION["subsection_min_size"]
 FOOTNOTE = DEFAULT_EXTRACTION["footnote_max_size"]
 STEP = 0.1
+CHAPTER = 7
 
 
 class InlineCodeFixer:
@@ -27,18 +28,19 @@ class InlineCodeFixer:
         return text.replace(CODE, f"`{CODE}`")
 
 
-def _blocks(text, kind="paragraph", size=BODY_SIZE, **fields):
+def _blocks(text, **fields):
+    """fields: düzen öğesinin alanları; verilmeyenler gövde puntosundaki bir paragrafınkidir."""
     builder = BlockBuilder(with_defaults({}), InlineCodeFixer())
-    return builder.blocks_of(element(text, BOX, kind, font_size=size, **fields))
+    return builder.blocks_of(element(text, BOX, **{"kind": "paragraph", "font_size": BODY_SIZE, **fields}))
 
 
 def _heading(text, size):
-    return _blocks(text, "heading", size)
+    return _blocks(text, kind="heading", font_size=size)
 
 
 class HeadingSizeTest(unittest.TestCase):
     def test_digits_at_chapter_number_size_are_the_chapter_number(self):
-        self.assertEqual(_heading("7", CHAPTER_NUMBER), [{"type": "chapter_number", "num": 7}])
+        self.assertEqual(_heading(str(CHAPTER), CHAPTER_NUMBER), [{"type": "chapter_number", "num": CHAPTER}])
 
     def test_digits_just_below_chapter_number_size_are_a_chapter_title(self):
         self.assertEqual(_heading("7", CHAPTER_NUMBER - STEP), [{"type": "chapter", "en": "7"}])
@@ -50,19 +52,19 @@ class HeadingSizeTest(unittest.TestCase):
         self.assertEqual(_heading("Modularity", CHAPTER_TITLE), [{"type": "chapter", "en": "Modularity"}])
 
     def test_text_just_below_chapter_title_size_is_a_section(self):
-        self.assertEqual(_heading("Modularity", CHAPTER_TITLE - STEP), [{"type": "heading", "level": 1, "en": "Modularity"}])
+        self.assertEqual(_heading("Modularity", CHAPTER_TITLE - STEP), [{"type": "heading", "level": SECTION_LEVEL, "en": "Modularity"}])
 
     def test_section_size_is_level_one(self):
-        self.assertEqual(_heading("Cohesion", SECTION)[0]["level"], 1)
+        self.assertEqual(_heading("Cohesion", SECTION)[0]["level"], SECTION_LEVEL)
 
     def test_just_below_section_size_is_level_two(self):
-        self.assertEqual(_heading("Cohesion", SECTION - STEP)[0]["level"], 2)
+        self.assertEqual(_heading("Cohesion", SECTION - STEP)[0]["level"], SUBSECTION_LEVEL)
 
     def test_subsection_size_is_level_two(self):
-        self.assertEqual(_heading("Cohesion", SUBSECTION)[0]["level"], 2)
+        self.assertEqual(_heading("Cohesion", SUBSECTION)[0]["level"], SUBSECTION_LEVEL)
 
     def test_just_below_subsection_size_is_level_three(self):
-        self.assertEqual(_heading("Cohesion", SUBSECTION - STEP)[0]["level"], 3)
+        self.assertEqual(_heading("Cohesion", SUBSECTION - STEP)[0]["level"], MINOR_HEADING_LEVEL)
 
 
 class HeadingTextTest(unittest.TestCase):
@@ -100,13 +102,13 @@ class ParagraphTest(unittest.TestCase):
         self.assertEqual(_blocks("Equation 3-3. Abstractness"), [{"type": "caption", "kind": "equation", "en": "Equation 3-3. Abstractness"}])
 
     def test_footnote_size_is_a_footnote(self):
-        self.assertEqual(_blocks(f"1 See {CODE}.", size=FOOTNOTE), [{"type": "footnote", "en": f"1 See `{CODE}`."}])
+        self.assertEqual(_blocks(f"1 See {CODE}.", font_size=FOOTNOTE), [{"type": "footnote", "en": f"1 See `{CODE}`."}])
 
     def test_just_above_footnote_size_is_a_paragraph(self):
-        self.assertEqual(_blocks("1 See the notes.", size=FOOTNOTE + STEP)[0]["type"], "para")
+        self.assertEqual(_blocks("1 See the notes.", font_size=FOOTNOTE + STEP)[0]["type"], "para")
 
     def test_bold_heading_font_is_a_minor_heading(self):
-        self.assertEqual(_blocks(f"About {CODE}", font="Arial-BoldMT"), [{"type": "heading", "level": 3, "en": f"About {CODE}"}])
+        self.assertEqual(_blocks(f"About {CODE}", font="Arial-BoldMT"), [{"type": "heading", "level": MINOR_HEADING_LEVEL, "en": f"About {CODE}"}])
 
     def test_regular_weight_of_the_bold_heading_font_is_a_paragraph(self):
         self.assertEqual(_blocks("About modules", font="ArialMT")[0]["type"], "para")
@@ -129,34 +131,34 @@ class ParagraphTest(unittest.TestCase):
 
 class ListTest(unittest.TestCase):
     def test_numbered_list_item_keeps_its_number(self):
-        self.assertEqual(_blocks("2. If the shop offers more.", "list item")[0]["sentences"][0]["en"],
+        self.assertEqual(_blocks("2. If the shop offers more.", kind="list item")[0]["sentences"][0]["en"],
                          "2. If the shop offers more.")
 
     def test_list_item_in_chapter_title_size_stays_a_list_item(self):
-        self.assertEqual(_blocks("2. Big item", "list item", CHAPTER_TITLE)[0]["sentences"][0]["en"], "2. Big item")
+        self.assertEqual(_blocks("2. Big item", kind="list item", font_size=CHAPTER_TITLE)[0]["sentences"][0]["en"], "2. Big item")
 
     def test_list_items_are_rich_without_markers(self):
         items = (element(f"1. Call {CODE}", BOX, "list item"), element("2. Stop", BOX, "list item"))
-        self.assertEqual(_blocks("", "list", list_items=items, is_ordered=True),
+        self.assertEqual(_blocks("", kind="list", list_items=items, is_ordered=True),
                          [{"type": "list", "ordered": True, "items": [{"en": f"Call `{CODE}`"}, {"en": "Stop"}]}])
 
 
 class OtherKindsTest(unittest.TestCase):
     def test_table_cells_are_rich(self):
-        self.assertEqual(_blocks("", "table", table_rows=((CODE, "b"),)),
+        self.assertEqual(_blocks("", kind="table", table_rows=((CODE, "b"),)),
                          [{"type": "table", "rows": [[{"en": f"`{CODE}`"}, {"en": "b"}]]}])
 
     def test_table_without_rows_gives_nothing(self):
-        self.assertEqual(_blocks("", "table"), [])
+        self.assertEqual(_blocks("", kind="table"), [])
 
     def test_caption_is_rich(self):
-        self.assertEqual(_blocks(f"Figure 1-1. {CODE}", "caption"), [{"type": "caption", "en": f"Figure 1-1. `{CODE}`"}])
+        self.assertEqual(_blocks(f"Figure 1-1. {CODE}", kind="caption"), [{"type": "caption", "en": f"Figure 1-1. `{CODE}`"}])
 
     def test_image_names_its_file(self):
-        self.assertEqual(_blocks("", "image", image_file="img-1.png"), [{"type": "image", "src": "img-1.png"}])
+        self.assertEqual(_blocks("", kind="image", image_file="img-1.png"), [{"type": "image", "src": "img-1.png"}])
 
     def test_unknown_kind_gives_nothing(self):
-        self.assertEqual(_blocks("x", "formula"), [])
+        self.assertEqual(_blocks("x", kind="formula"), [])
 
 
 if __name__ == "__main__":
