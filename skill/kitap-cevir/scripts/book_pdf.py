@@ -6,6 +6,7 @@ page_input kullanır.
 import functools
 
 from extraction.page_extractor import PageExtractor
+from extraction.pdf.ports import FIRST_PAGE_NUMBER
 from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from extraction.text_utils import normalize_spaces
 
@@ -14,7 +15,7 @@ CONTEXT_CHARS = 700
 
 def _page_text(document, pdf_page):
     """İlk sayfanın öncesi ve son sayfanın sonrası boş metindir."""
-    if not 1 <= pdf_page <= document.page_count:
+    if not FIRST_PAGE_NUMBER <= pdf_page <= document.page_count:
         return ""
     return normalize_spaces(document.page_text(pdf_page))
 
