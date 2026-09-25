@@ -6,6 +6,7 @@ OpenDataLoader kod listelerini satır satır paragraf sanır, girintiyi atar ve
 "McGraw-\\nHill" gibi tireleri siler; bu modül o kayıpları telafi eder.
 Kod fontu ve boyut eşiği progress.json -> extraction ayarlarından gelir.
 """
+import itertools
 import re
 
 from extraction.settings import optional_pattern
@@ -16,6 +17,10 @@ BLANK_LINE_GAP_RATIO = 1.6        # bu oranın üstündeki dikey boşluk = boş 
 MIN_INLINE_TOKEN_LENGTH = 2
 _PLAIN_LOWERCASE_WORD = re.compile(r"^[a-z]+$")
 _EDGE_PUNCTUATION = ".,;:()[]{}\"'“”‘’"
+
+
+def _is_code(line):
+    return line.is_code
 
 
 def _clean_token(text):
@@ -30,14 +35,8 @@ class CodeListing:
 
     @classmethod
     def group(cls, lines):
-        listings, current = [], []
-        for line in lines:
-            if line.is_code:
-                current.append(line)
-            elif current:
-                listings.append(cls(current))
-                current = []
-        return listings + [cls(current)] if current else listings
+        """Ardışık kod satırlarının her kesintisiz dizisi bir listedir."""
+        return [cls(list(run)) for is_code, run in itertools.groupby(lines, key=_is_code) if is_code]
 
     def region(self):
         """{y0, y1, code}: sayfadaki yeri ve girintisi korunmuş kodu."""
