@@ -6,14 +6,27 @@ regen_concepts.py kullanır.
 """
 from concept_cards import Card
 
-MIN_CARDS = 2
-MAX_CARDS = 4
-MIN_OPTIONS = 2
-MAX_OPTIONS = 3
 SIDES = ("bad", "good")
 COMMON_PAIRS = ("title", "summary", "tip")
 OPTION_FIELDS = ("name", "gains", "costs")
 _LANG_ALIASES = {"js": "javascript", "py": "python", "ts": "typescript"}
+
+
+class CountLimit:
+    """Bir listenin izinli uzunluğu; aralığın dışındaki liste tek bir sorun verir."""
+
+    def __init__(self, noun, bounds):
+        self._noun = noun
+        self._low, self._high = bounds
+
+    def problems(self, items):
+        if self._low <= len(items) <= self._high:
+            return []
+        return [f"{self._noun} sayısı {len(items)} ({self._low}-{self._high} olmalı)"]
+
+
+CARD_LIMIT = CountLimit("kart", (2, 4))
+OPTION_LIMIT = CountLimit("options", (2, 3))
 
 
 def _missing_pair(unit, label):
@@ -63,9 +76,7 @@ class CardRules:
     def visit_tradeoff(self, card):
         """2-3 seçenek; her seçeneğin adı, kazancı ve bedeli vardır."""
         options = card.get("options") or []
-        count = [] if MIN_OPTIONS <= len(options) <= MAX_OPTIONS else [
-            f"options sayısı {len(options)} ({MIN_OPTIONS}-{MAX_OPTIONS} olmalı)"]
-        return count + [problem for index, option in enumerate(options, 1) for problem in _option_problems(option, index)]
+        return OPTION_LIMIT.problems(options) + _problems_per_option(options)
 
     def visit_contrast(self, card):
         return self._sided(card, _text_body_problems)
@@ -88,8 +99,13 @@ class CardRules:
         return []
 
 
+def _problems_per_option(options):
+    return [problem for index, option in enumerate(options, 1) for problem in _option_problems(option, index)]
+
+
 def _option_problems(option, index):
-    return [problem for field in OPTION_FIELDS for problem in _missing_pair(option.get(field), f"options[{index}].{field}")]
+    return [problem for field in OPTION_FIELDS
+            for problem in _missing_pair(option.get(field), f"options[{index}].{field}")]
 
 
 def _samples(card):
@@ -113,9 +129,7 @@ class CardChecker:
         self._rules = CardRules(spec["code_langs"])
 
     def problems(self, cards):
-        problems = []
-        if not MIN_CARDS <= len(cards) <= MAX_CARDS:
-            problems.append(f"kart sayısı {len(cards)} ({MIN_CARDS}-{MAX_CARDS} olmalı)")
+        problems = CARD_LIMIT.problems(cards)
         for index, card in enumerate(cards, 1):
             label = card.get("id") or f"#{index}"
             problems += [f"{label}: {problem}" for problem in self._card_problems(card)]
