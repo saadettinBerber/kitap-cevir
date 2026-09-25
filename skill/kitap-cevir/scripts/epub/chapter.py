@@ -71,33 +71,33 @@ class Chapter:
 
     def __init__(self, file_name, info):
         self.file_name = file_name
-        self.info = info
-        self.flow = ChapterFlow()
+        self._info = info
+        self._flow = ChapterFlow()
         self.pages = []
         self._cards = ChapterCards()
 
     def add(self, page_document):
         page = page_document.number()
         self.pages.append(page)
-        self.flow.add_page(page, EpubBlockVisitor(page_document).fragments())
+        self._flow.add_page(page, EpubBlockVisitor(page_document).fragments())
         self._add_cards(PageCards(page, page_document.concepts()))
 
     def _add_cards(self, cards):
-        self.flow.end_page(cards.page_end())
+        self._flow.end_page(cards.page_end())
         self._cards.add(cards)
 
     def title(self):
-        return self.info.get("tr") or self.info.get("en") or ""
+        return self._info.get("tr") or self._info.get("en") or ""
 
     def toc_entries(self):
-        return self.flow.toc_entries() + self._cards.toc_entries()
+        return self._flow.toc_entries() + self._cards.toc_entries()
 
     def xhtml(self):
-        parts = [self._heading(), self.flow.render(), self._cards.section(),
-                 notes_section(self.flow.english())]
+        parts = [self._heading(), self._flow.render(), self._cards.section(),
+                 notes_section(self._flow.english())]
         return document(self.title(), "\n".join(part for part in parts if part))
 
     def _heading(self):
-        number = self.info.get("num")
+        number = self._info.get("num")
         label = f'<p class="chapter-num">Bölüm {number}</p>' if number else ""
         return f'<header class="chapter">{label}<h1 class="chapter-title">{escape(self.title())}</h1></header>'
