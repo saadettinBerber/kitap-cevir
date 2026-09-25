@@ -2,7 +2,8 @@ import unittest
 
 import _paths  # noqa: F401
 from book_settings import CARD_KINDS
-from concept_check import CardChecker, kind_rules
+from concept_cards import Card
+from concept_check import CardChecker, CardRules
 
 SPEC = {"kinds": ["explain", "contrast", "tradeoff", "code"], "code_langs": ["python"],
         "code_comment_lang": "en"}
@@ -73,9 +74,10 @@ class CardProblemsTest(unittest.TestCase):
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, EXPLAIN]), ["tanim: id tekrar ediyor"])
 
 
-class KindRulesTest(unittest.TestCase):
+class CardRulesTest(unittest.TestCase):
     def test_every_card_kind_has_rules(self):
-        self.assertEqual(set(kind_rules(["python"])), set(CARD_KINDS))
+        rules = CardRules(SPEC["code_langs"])
+        self.assertTrue(all(isinstance(Card.of({"kind": kind}).accept(rules), list) for kind in CARD_KINDS))
 
 
 if __name__ == "__main__":

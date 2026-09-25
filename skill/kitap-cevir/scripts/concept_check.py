@@ -12,6 +12,7 @@ MIN_OPTIONS = 2
 MAX_OPTIONS = 3
 SIDES = ("bad", "good")
 COMMON_PAIRS = ("title", "summary", "tip")
+OPTION_FIELDS = ("name", "gains", "costs")
 _LANG_ALIASES = {"js": "javascript", "py": "python", "ts": "typescript"}
 
 
@@ -43,70 +44,64 @@ def _duplicate_ids(cards):
     return duplicates
 
 
-class ExplainRules:
-    """explain kartı yalnız ortak alanları taşır; örnek ya da seçenek taşımaz."""
+class CardRules:
+    """Türe özgü kurallar (VISITOR, Bl.6): tür dallanması Card.of'ta kalır, yeni tür buraya bir
+    visit_* metoduyla eklenir. bad/good taraflı türlerde yalnız gövdenin kuralı değişir."""
 
-    def problems(self, card):
+    def __init__(self, code_langs):
+        self._langs = code_langs
+        self._normal_langs = {_normal_lang(lang) for lang in code_langs}
+
+    def visit_unknown(self, card):
+        """İzinsiz tür CardChecker'da durur; buraya yalnız izinli türler gelir."""
+        return []
+
+    def visit_explain(self, card):
+        """Yalnız ortak alanlar; örnek ya da seçenek taşımaz."""
         return [f"explain kartında `{field}` olmamalı" for field in SIDES + ("options",) if card.get(field)]
 
-
-class TradeoffRules:
-    """tradeoff kartı 2-3 seçenek taşır; her seçeneğin adı, kazancı ve bedeli vardır."""
-
-    def problems(self, card):
+    def visit_tradeoff(self, card):
+        """2-3 seçenek; her seçeneğin adı, kazancı ve bedeli vardır."""
         options = card.get("options") or []
-        problems = []
-        if not MIN_OPTIONS <= len(options) <= MAX_OPTIONS:
-            problems.append(f"options sayısı {len(options)} ({MIN_OPTIONS}-{MAX_OPTIONS} olmalı)")
-        for index, option in enumerate(options, 1):
-            for field in ("name", "gains", "costs"):
-                problems += _missing_pair(option.get(field), f"options[{index}].{field}")
-        return problems
+        count = [] if MIN_OPTIONS <= len(options) <= MAX_OPTIONS else [
+            f"options sayısı {len(options)} ({MIN_OPTIONS}-{MAX_OPTIONS} olmalı)"]
+        return count + [problem for index, option in enumerate(options, 1) for problem in _option_problems(option, index)]
 
+    def visit_contrast(self, card):
+        return self._sided(card, _text_body_problems)
 
-class SidedRules:
-    """bad/good taraflı kartlar (TEMPLATE METHOD): her tarafın bir gövdesi ve iki
-    dilli `why` açıklaması vardır; gövdenin ne olduğunu alt sınıf söyler."""
+    def visit_code(self, card):
+        return self._sided(card, self._code_body_problems)
 
-    def problems(self, card):
-        problems = []
-        for side in SIDES:
-            sample = card.get(side) or {}
-            problems += self._body_problems(sample, side) + _missing_pair(sample.get("why"), f"{side}.why")
-        return problems
+    @staticmethod
+    def _sided(card, body_problems):
+        """Her tarafın bir gövdesi ve iki dilli `why` açıklaması vardır."""
+        return [problem for side, sample in _samples(card)
+                for problem in body_problems(sample, side) + _missing_pair(sample.get("why"), f"{side}.why")]
 
-    def _body_problems(self, sample, side):
-        raise NotImplementedError
-
-
-class ContrastRules(SidedRules):
-    """contrast tarafının gövdesi iki dilli metindir; kod taşıyan taraf metinsiz olabilir."""
-
-    def _body_problems(self, sample, side):
-        if sample.get("code"):
-            return []
-        return _missing_pair(sample.get("text"), f"{side}.text")
-
-
-class CodeRules(SidedRules):
-    """code tarafının gövdesi kitabın izin verdiği dilde koddur."""
-
-    def __init__(self, langs):
-        self.langs = langs
-        self.normal_langs = {_normal_lang(lang) for lang in langs}
-
-    def _body_problems(self, sample, side):
+    def _code_body_problems(self, sample, side):
+        """Gövde, kitabın izin verdiği dilde koddur."""
         if not str(sample.get("code", "")).strip():
             return [f"{side}.code boş"]
-        if _normal_lang(sample.get("lang")) not in self.normal_langs:
-            return [f"{side}.lang {sample.get('lang')!r} izinli değil ({', '.join(self.langs)})"]
+        if _normal_lang(sample.get("lang")) not in self._normal_langs:
+            return [f"{side}.lang {sample.get('lang')!r} izinli değil ({', '.join(self._langs)})"]
         return []
 
 
-def kind_rules(code_langs):
-    """Kart türünden kurallarına; yeni kart türü buraya bir kural sınıfıyla eklenir."""
-    return {"explain": ExplainRules(), "contrast": ContrastRules(),
-            "tradeoff": TradeoffRules(), "code": CodeRules(code_langs)}
+def _option_problems(option, index):
+    return [problem for field in OPTION_FIELDS for problem in _missing_pair(option.get(field), f"options[{index}].{field}")]
+
+
+def _samples(card):
+    """(taraf, örnek) çiftleri; eksik taraf boş örnektir."""
+    return [(side, card.get(side) or {}) for side in SIDES]
+
+
+def _text_body_problems(sample, side):
+    """Gövde iki dilli metindir; kod taşıyan taraf metinsiz olabilir."""
+    if sample.get("code"):
+        return []
+    return _missing_pair(sample.get("text"), f"{side}.text")
 
 
 class CardChecker:
@@ -114,8 +109,8 @@ class CardChecker:
     spec = BookSettings.concepts()."""
 
     def __init__(self, spec):
-        rules = kind_rules(spec["code_langs"])
-        self.allowed_rules = {kind: rules[kind] for kind in spec["kinds"]}
+        self._allowed_kinds = spec["kinds"]
+        self._rules = CardRules(spec["code_langs"])
 
     def problems(self, cards):
         problems = []
@@ -127,7 +122,7 @@ class CardChecker:
         return problems + _duplicate_ids(cards)
 
     def _card_problems(self, card):
-        kind = Card.of(card).kind()
-        if kind not in self.allowed_rules:
-            return [f"tür {kind!r} bu kitapta izinli değil ({', '.join(self.allowed_rules)})"]
-        return _common_problems(card) + self.allowed_rules[kind].problems(card)
+        typed = Card.of(card)
+        if typed.kind() not in self._allowed_kinds:
+            return [f"tür {typed.kind()!r} bu kitapta izinli değil ({', '.join(self._allowed_kinds)})"]
+        return _common_problems(card) + typed.accept(self._rules)
