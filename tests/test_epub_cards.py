@@ -56,6 +56,16 @@ class KindTest(unittest.TestCase):
         self.assertIn("<em>Kazandırır:</em> kazanç", html)
         self.assertIn("<strong>Ne zaman hangisi:</strong>", html)
 
+    def test_contrast_side_explains_why(self):
+        card = _card("contrast", bad={"text": _pair("kötü"), "why": _pair("çünkü")}, good={"text": _pair("iyi")})
+        html = _html(card)
+        self.assertLess(html.index("kötü"), html.index("çünkü"))
+
+    def test_every_kind_ends_with_its_tip(self):
+        cards = [_card("explain"), _card("contrast", bad={}, good={}), _card("code", bad={}, good={}),
+                 _card("tradeoff", options=[]), _card("quiz")]
+        self.assertTrue(all(_html(card).endswith("ipucu</p></div>") for card in cards))
+
     def test_card_without_kind_is_inferred_from_its_content(self):
         card = _card(bad={"lang": "java", "code": "x"}, good={"lang": "java", "code": "y"})
         self.assertIn("Önce", _html(card))
