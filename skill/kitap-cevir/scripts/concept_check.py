@@ -29,23 +29,27 @@ CARD_LIMIT = CountLimit("kart", (2, 4))
 OPTION_LIMIT = CountLimit("options", (2, 3))
 
 
-def _missing_pair(unit, label):
-    if not isinstance(unit, dict):
-        return [f"{label} yok"]
-    return [f"{label}.{lang} boş" for lang in ("en", "tr") if not str(unit.get(lang, "")).strip()]
+class CardChecker:
+    """Bir sayfanın kartlarını kitabın kart ayarlarına göre denetler;
+    spec = BookSettings.concepts()."""
 
+    def __init__(self, spec):
+        self._allowed_kinds = spec["kinds"]
+        self._rules = CardRules(spec["code_langs"])
 
-def _normal_lang(lang):
-    key = str(lang or "").lower()
-    return _LANG_ALIASES.get(key, key)
+    def problems(self, cards):
+        return CARD_LIMIT.problems(cards) + self._named_card_problems(cards) + _duplicate_ids(cards)
 
+    def _named_card_problems(self, cards):
+        """Her sorun kartın kimliğiyle başlar; kimliği olmayan kart sırasıyla anılır."""
+        names = [card.get("id") or f"#{index}" for index, card in enumerate(cards, 1)]
+        return [f"{name}: {problem}" for name, card in zip(names, cards) for problem in self._card_problems(card)]
 
-def _common_problems(card):
-    """Her türde zorunlu alanlar: id ve iki dilli title, summary, tip."""
-    problems = [] if card.get("id") else ["id yok"]
-    for field in COMMON_PAIRS:
-        problems += _missing_pair(card.get(field), field)
-    return problems
+    def _card_problems(self, card):
+        typed = Card.of(card)
+        if typed.kind() not in self._allowed_kinds:
+            return [f"tür {typed.kind()!r} bu kitapta izinli değil ({', '.join(self._allowed_kinds)})"]
+        return _common_problems(card) + typed.accept(self._rules)
 
 
 def _duplicate_ids(cards):
@@ -55,6 +59,14 @@ def _duplicate_ids(cards):
             duplicates.append(f"{card['id']}: id tekrar ediyor")
         seen.add(card.get("id"))
     return duplicates
+
+
+def _common_problems(card):
+    """Her türde zorunlu alanlar: id ve iki dilli title, summary, tip."""
+    problems = [] if card.get("id") else ["id yok"]
+    for field in COMMON_PAIRS:
+        problems += _missing_pair(card.get(field), field)
+    return problems
 
 
 class CardRules:
@@ -120,24 +132,12 @@ def _text_body_problems(sample, side):
     return _missing_pair(sample.get("text"), f"{side}.text")
 
 
-class CardChecker:
-    """Bir sayfanın kartlarını kitabın kart ayarlarına göre denetler;
-    spec = BookSettings.concepts()."""
+def _missing_pair(unit, label):
+    if not isinstance(unit, dict):
+        return [f"{label} yok"]
+    return [f"{label}.{lang} boş" for lang in ("en", "tr") if not str(unit.get(lang, "")).strip()]
 
-    def __init__(self, spec):
-        self._allowed_kinds = spec["kinds"]
-        self._rules = CardRules(spec["code_langs"])
 
-    def problems(self, cards):
-        return CARD_LIMIT.problems(cards) + self._named_card_problems(cards) + _duplicate_ids(cards)
-
-    def _named_card_problems(self, cards):
-        """Her sorun kartın kimliğiyle başlar; kimliği olmayan kart sırasıyla anılır."""
-        names = [card.get("id") or f"#{index}" for index, card in enumerate(cards, 1)]
-        return [f"{name}: {problem}" for name, card in zip(names, cards) for problem in self._card_problems(card)]
-
-    def _card_problems(self, card):
-        typed = Card.of(card)
-        if typed.kind() not in self._allowed_kinds:
-            return [f"tür {typed.kind()!r} bu kitapta izinli değil ({', '.join(self._allowed_kinds)})"]
-        return _common_problems(card) + typed.accept(self._rules)
+def _normal_lang(lang):
+    key = str(lang or "").lower()
+    return _LANG_ALIASES.get(key, key)
