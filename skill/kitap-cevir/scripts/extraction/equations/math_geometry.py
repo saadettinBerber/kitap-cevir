@@ -21,34 +21,44 @@ class Rule:
     """Aynı y'deki yatay çizgi parçaları: tek bir kural. Tablo kenarlığı sütun
     boyunca parçalar hâlinde çizilir, kesir çizgisi kısa kalır."""
 
-    def __init__(self, first_bar):
-        self.bars = [first_bar]
-
-    @staticmethod
-    def is_bar(rect):
-        return rect.height <= BAR_MAX_HEIGHT and rect.width >= BAR_MIN_WIDTH
+    def __init__(self, bars):
+        self._bars = bars
 
     @classmethod
     def from_drawings(cls, drawings):
+        """Çizgiler yukarıdan aşağı gezilir: bir öncekiyle aynı hizadaki çizgi onun kuralına katılır."""
         rules = []
-        for bar in sorted((drawing.box for drawing in drawings if cls.is_bar(drawing.box)),
-                          key=lambda rect: rect.y0):
+        for bar in _bars_top_down(drawings):
             if rules and rules[-1].is_level_with(bar):
-                rules[-1].bars.append(bar)
+                rules[-1] = rules[-1].with_bar(bar)
             else:
-                rules.append(cls(bar))
+                rules.append(cls([bar]))
         return rules
 
+    def __iter__(self):
+        return iter(self._bars)
+
+    def with_bar(self, bar):
+        return Rule([*self._bars, bar])
+
     def is_level_with(self, bar):
-        return abs(bar.y0 - self.bars[0].y0) <= BAR_GROUP_Y_TOLERANCE
+        return abs(bar.y0 - self._bars[0].y0) <= BAR_GROUP_Y_TOLERANCE
 
     @property
     def left(self):
-        return min(bar.x0 for bar in self.bars)
+        return min(bar.x0 for bar in self._bars)
 
     @property
     def span(self):
-        return max(bar.x1 for bar in self.bars) - self.left
+        return max(bar.x1 for bar in self._bars) - self.left
+
+
+def _bars_top_down(drawings):
+    return sorted((drawing.box for drawing in drawings if _is_bar(drawing.box)), key=lambda rect: rect.y0)
+
+
+def _is_bar(rect):
+    return rect.height <= BAR_MAX_HEIGHT and rect.width >= BAR_MIN_WIDTH
 
 
 class TextColumn:
@@ -56,29 +66,29 @@ class TextColumn:
     kenarlığından ayırmanın ölçüsü."""
 
     def __init__(self, line_rects):
-        self.left = min(rect.x0 for rect in line_rects)
-        self.width = max(rect.x1 for rect in line_rects) - self.left
+        self._left = min(rect.x0 for rect in line_rects)
+        self._width = max(rect.x1 for rect in line_rects) - self._left
 
     def holds_fraction(self, rule):
         """Kesir çizgisi sütunun sol kenarından başlamaz ve sütunun küçük bir
         bölümünü kaplar. Tablo kenarlığı ile alt bilgi kuralı sütunu (gerekirse
         parçalar hâlinde) boydan boya çizer; ölçü parçaya değil kurala uygulanır,
         yoksa kenardan başlayan parça elenip kalanı kesir sanılır."""
-        return (rule.left > self.left + COLUMN_EDGE_TOLERANCE
-                and rule.span <= self.width * BAR_GROUP_MAX_SPAN_RATIO)
+        return (rule.left > self._left + COLUMN_EDGE_TOLERANCE
+                and rule.span <= self._width * BAR_GROUP_MAX_SPAN_RATIO)
 
 
 class FractionEquationFinder:
     """Bir sayfanın metin satırlarından ve çizimlerinden denklem bölgelerini çıkarır."""
 
     def __init__(self, line_rects):
-        self.line_rects = line_rects
+        self._line_rects = line_rects
 
     def regions(self, drawings):
-        if not self.line_rects:
+        if not self._line_rects:
             return []
-        column = TextColumn(self.line_rects)
-        bars = [bar for rule in Rule.from_drawings(drawings) if column.holds_fraction(rule) for bar in rule.bars]
+        column = TextColumn(self._line_rects)
+        bars = [bar for rule in Rule.from_drawings(drawings) if column.holds_fraction(rule) for bar in rule]
         return self._merge_overlapping([self._grow(bar) for bar in bars])
 
     def _grow(self, bar):
@@ -93,7 +103,7 @@ class FractionEquationFinder:
         return region
 
     def _with_neighbours(self, region):
-        near = [rect for rect in self.line_rects if region.vertical_gap(rect) <= EQUATION_LINE_GAP]
+        near = [rect for rect in self._line_rects if region.vertical_gap(rect) <= EQUATION_LINE_GAP]
         return Box.enclosing([region, *near])
 
     @staticmethod
