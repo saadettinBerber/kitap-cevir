@@ -48,7 +48,7 @@ class PagePreparerTest(unittest.TestCase):
         self.project.save_progress(progress)
         extractor = _FakeExtractor({2: [PARA, MATH], 3: [IMAGE], 4: [PARA], 5: [PARA]})
         builder = PageInputBuilder(progress, BookPdf(_fake_document, extractor))
-        self.preparer = PagePreparer(self.project, progress, builder)
+        self.preparer = PagePreparer(self.project, builder)
 
     def tearDown(self):
         self.tmp.cleanup()
