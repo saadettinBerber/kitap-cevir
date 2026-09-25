@@ -20,6 +20,10 @@ from project import Project
 MAX_BLANK_SKIPS = 3
 NEXT_ALIASES = ("next", "sıradaki", "sonraki", "devam")
 SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+NEXT_STEP = ("\nSonraki adım: her girdi için bir çevirmen agent çalıştır "
+             "(sözleşme: references/FORMAT.md), çıktıyı _work/out/page-N.json yaz, "
+             f"sonra: python3 {SCRIPTS_DIR}/finalize_page.py _work/out/page-N.json; "
+             "kartlar en son (SKILL.md → C)")
 
 
 class PagePreparer:
@@ -77,34 +81,31 @@ def parse_args(argv):
     return spec, count
 
 
-def _math_note(has_vision):
-    if has_vision:
-        return "çevirmen PNG'leri okuyup `latex` alanlarını doldursun"
-    return "translator.vision=false: `latex` boş kalır, okuyucu PNG gösterir"
+class PreparationReport:
+    """Hazırlanan girdilerin kullanıcıya özeti; denklem notu çevirmenin görsel okuyup okuyamadığına bağlıdır."""
 
+    def __init__(self, has_vision):
+        self._has_vision = has_vision
 
-def _print_entry(entry, has_vision):
-    print(f"  Sayfa {entry['page']} (PDF {entry['pdf_page']})  [{entry['blocks']}]")
-    print(f"    girdi: {entry['path']}")
-    if entry["math"]:
-        print(f"    denklem: {entry['math']} PNG — {_math_note(has_vision)}")
+    def show(self, prepared):
+        if not prepared:
+            print("Hazırlanacak sayfa yok.")
+            return
+        print(f"Hazırlanan sayfa sayısı: {len(prepared)}\n")
+        for entry in prepared:
+            self._print_entry(entry)
+        print(NEXT_STEP)
 
+    def _print_entry(self, entry):
+        print(f"  Sayfa {entry['page']} (PDF {entry['pdf_page']})  [{entry['blocks']}]")
+        print(f"    girdi: {entry['path']}")
+        if entry["math"]:
+            print(f"    denklem: {entry['math']} PNG — {self._math_note()}")
 
-def _report(prepared, settings):
-    if not prepared:
-        print("Hazırlanacak sayfa yok.")
-        return
-    _print_prepared(prepared, settings.translator_has_vision())
-
-
-def _print_prepared(prepared, has_vision):
-    print(f"Hazırlanan sayfa sayısı: {len(prepared)}\n")
-    for entry in prepared:
-        _print_entry(entry, has_vision)
-    print("\nSonraki adım: her girdi için bir çevirmen agent çalıştır "
-          "(sözleşme: references/FORMAT.md), çıktıyı _work/out/page-N.json yaz, "
-          f"sonra: python3 {SCRIPTS_DIR}/finalize_page.py _work/out/page-N.json; "
-          "kartlar en son (SKILL.md → C)")
+    def _math_note(self):
+        if self._has_vision:
+            return "çevirmen PNG'leri okuyup `latex` alanlarını doldursun"
+        return "translator.vision=false: `latex` boş kalır, okuyucu PNG gösterir"
 
 
 def _prepare_one(preparer, spec):
@@ -126,7 +127,8 @@ def main():
     project = Project.discover()
     preparer = PagePreparer.for_project(project)
     prepared = _prepare_next(preparer, count) if spec in NEXT_ALIASES else _prepare_one(preparer, spec)
-    _report(prepared, project.load_settings())
+    settings = project.load_settings()
+    PreparationReport(settings.translator_has_vision()).show(prepared)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import os
 import tempfile
@@ -6,7 +8,7 @@ import unittest
 from pdf_fakes import FakePdfDocument, FakePdfPage, span
 from book_pdf import BookPdf
 from page_input import PageInputBuilder
-from prepare_page import PagePreparer
+from prepare_page import PagePreparer, PreparationReport
 from progress import Progress
 from project import Project
 
@@ -84,6 +86,26 @@ class PagePreparerTest(unittest.TestCase):
         self.preparer.prepare_page(1)
         with open(self.project.work_input(1), encoding="utf-8") as handle:
             self.assertEqual(json.load(handle)["blocks"], [PARA, MATH])
+
+
+class PreparationReportTest(unittest.TestCase):
+    ENTRY = {"page": 1, "pdf_page": 2, "path": "_work/in/page-1.json", "blocks": "math:1", "math": 1}
+
+    @staticmethod
+    def _shown(report, prepared):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            report.show(prepared)
+        return output.getvalue()
+
+    def test_nothing_prepared_is_said(self):
+        self.assertEqual(self._shown(PreparationReport(True), []), "Hazırlanacak sayfa yok.\n")
+
+    def test_translator_with_vision_is_asked_for_latex(self):
+        self.assertIn("latex` alanlarını doldursun", self._shown(PreparationReport(True), [self.ENTRY]))
+
+    def test_translator_without_vision_leaves_latex_to_the_png(self):
+        self.assertIn("okuyucu PNG gösterir", self._shown(PreparationReport(False), [self.ENTRY]))
 
 
 if __name__ == "__main__":
