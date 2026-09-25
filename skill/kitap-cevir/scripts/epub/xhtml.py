@@ -66,25 +66,25 @@ class _SafeInlineParser(HTMLParser):
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.parts = []
-        self.open_tags = []
+        self._parts = []
+        self._open_tags = []
 
     def handle_starttag(self, tag, attrs):
         if tag in VOID_TAGS:
-            self.parts.append(f"<{tag}/>")
+            self._parts.append(f"<{tag}/>")
         elif tag in INLINE_TAGS:
-            self.parts.append(f"<{tag}>")
-            self.open_tags.append(tag)
+            self._parts.append(f"<{tag}>")
+            self._open_tags.append(tag)
 
     def handle_endtag(self, tag):
-        if tag in self.open_tags:
-            while self.open_tags[-1] != tag:
-                self.parts.append(f"</{self.open_tags.pop()}>")
-            self.parts.append(f"</{self.open_tags.pop()}>")
+        if tag in self._open_tags:
+            while self._open_tags[-1] != tag:
+                self._parts.append(f"</{self._open_tags.pop()}>")
+            self._parts.append(f"</{self._open_tags.pop()}>")
 
     def handle_data(self, data):
-        self.parts.append(escape(data))
+        self._parts.append(escape(data))
 
     def xhtml(self):
-        closing = "".join(f"</{tag}>" for tag in reversed(self.open_tags))
-        return "".join(self.parts) + closing
+        closing = "".join(f"</{tag}>" for tag in reversed(self._open_tags))
+        return "".join(self._parts) + closing
