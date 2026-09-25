@@ -1,7 +1,7 @@
 import unittest
 
 from pdf_fakes import FakePdfPage, fill, span
-from extraction.tables.aligned_tables import AlignedTableFinder, SpanRow, TableColumns
+from extraction.tables.aligned_tables import COLUMN_GUTTER, AlignedTableFinder, SpanRow, TableColumns
 from extraction.settings import with_defaults
 from extraction.tables.table_scan import TableScanner
 
@@ -63,6 +63,13 @@ class TableColumnsTest(unittest.TestCase):
     def test_span_outside_every_column_is_dropped(self):
         row = SpanRow([_span("a", 72, 0), _span("b", 400, 0)])
         self.assertEqual([len(bucket) for bucket in self.columns.buckets(row)], [1, 0])
+
+    def test_span_claimed_by_two_columns_goes_to_the_left_one(self):
+        """İlk sütun ikincinin COLUMN_GUTTER solunda biter; aradaki boşluğun ortası iki sütunun
+        CENTER_TOLERANCE payında da kalır."""
+        center = COLUMN_X[1] - COLUMN_GUTTER / 2
+        between = span("a", (center - 1, 0, center + 1, 10))
+        self.assertEqual([len(bucket) for bucket in self.columns.buckets(SpanRow([between]))], [1, 0])
 
 
 class AlignedTableFinderTest(unittest.TestCase):
