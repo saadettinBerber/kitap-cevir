@@ -33,13 +33,13 @@ class PageMigration:
         self._old = old
 
     def run(self, fixes):
-        """(pending, latex_items): çevirisi bulunamayan birimler ve LaTeX'i olmayan denklemler."""
+        """Bekleyenler: çevirisi bulunamayan birimler (units) ve LaTeX'i olmayan denklemler (latex)."""
         filler = TranslationFiller(Translations.of_page(self._old, fixes))
         for index, block in enumerate(self._document["blocks"]):
             filler.fill_block(block, f"blocks[{index}]")
         self._carry_fields()
         self._carry_latex()
-        return filler.pending(), self._missing_latex()
+        return {"units": filler.pending(), "latex": self._missing_latex()}
 
     def _carry_fields(self):
         """Başlık, kesit ve kartlar eski sayfadan gelir; bölümün Türkçesi yoksa bölüm de. Eski sayfanın
@@ -83,11 +83,10 @@ class Migrator:
         """Sayfayı yeniden çıkarıp eski çevirileri taşır; sonlandırmaz."""
         old = self.pages.get(page).data
         document = self.builder.build(page, self.project.work_images(page))
-        pending, latex_items = PageMigration(document, old).run(self.builder.hyphen_fixes(document["pdf_page"]))
+        pending = PageMigration(document, old).run(self.builder.hyphen_fixes(document["pdf_page"]))
         write_json(self._out_path(page), document)
-        self._write_pending(page, pending, latex_items)
-        return {"page": page, "units": len(PageDocument(document).text_units()), "pending": len(pending),
-                "latex": len(latex_items), "complete": not pending and not latex_items}
+        self._write_pending(page, pending)
+        return {"page": page, **_summary(document, pending)}
 
     def finalize(self, page):
         return self.finalizer.finalize(self._out_path(page))
@@ -106,11 +105,12 @@ class Migrator:
     def _out_path(self, page):
         return self.project.work_output(page)
 
-    def _write_pending(self, page, pending, latex_items):
+    def _write_pending(self, page, pending):
+        """Bekleyen yoksa eski bekleyenler dosyası da silinir: sayfa tamamlanmıştır."""
         path = self.project.work_migration_file("pending", page)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        if pending or latex_items:
-            write_json(path, {"page": page, "units": pending, "latex": latex_items})
+        if pending["units"] or pending["latex"]:
+            write_json(path, {"page": page, **pending})
         elif os.path.exists(path):
             os.remove(path)
 
@@ -122,6 +122,10 @@ class Migrator:
             node = node[key] if key else node[int(index)]
         return node
 
+
+def _summary(document, pending):
+    return {"units": len(PageDocument(document).text_units()), "pending": len(pending["units"]),
+            "latex": len(pending["latex"]), "complete": not pending["units"] and not pending["latex"]}
 
 
 def _apply_done(migrator, pages):

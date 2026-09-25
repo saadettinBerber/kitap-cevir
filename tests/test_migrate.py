@@ -155,8 +155,8 @@ def _new_document():
 
 def _migrated(document, old=OLD_PAGE):
     """(taşınmış belge, bekleyen birimler, LaTeX'i olmayan denklemler)."""
-    pending, latex_items = PageMigration(document, copy.deepcopy(old)).run({})
-    return document, pending, latex_items
+    pending = PageMigration(document, copy.deepcopy(old)).run({})
+    return document, pending["units"], pending["latex"]
 
 
 class PageMigrationTest(unittest.TestCase):
