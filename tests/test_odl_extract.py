@@ -178,7 +178,7 @@ class CodeImageLinkPlacementTest(unittest.TestCase):
 
     def test_one_line_listing_glued_under_the_link_is_placed_as_code(self):
         code = {"type": "code", "lang": "java", "code": "// Two classes"}
-        regions = PageRegions([Region(self.CODE_LINE, code)])
+        regions = PageRegions([Region({**self.CODE_LINE, "block": code})])
         glued = _element(f"{self.LINK} // Two classes", (70, 60, 430, 90))
         body = LayoutElements([glued]).without_code_image_links([self.SLOT]).items
         self.assertEqual(regions.place(body, _builder().blocks_of), [code])

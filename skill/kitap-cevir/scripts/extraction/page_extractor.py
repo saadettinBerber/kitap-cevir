@@ -45,7 +45,7 @@ class PageExtractor:
         header, body = self.zones.split(self.layout_reader.read(page, image_dir))
         layout = self.text_layer.scan(page)
         math = MathScanner(self.settings, page, image_dir).scan()
-        regions = PageRegions.from_layout(layout, self.tables.scan(page) + math["display"], self._code_block)
+        regions = PageRegions.of(self.tables.scan(page) + math["display"], self._code_regions(layout))
         body = (LayoutElements(body).flatten_nested_lists().drop_nested_fragments().merge_footnote_markers()
                 .with_inline_math(math["inline"]).without_code_image_links(layout["code_image_links"]).items)
         builder = BlockBuilder(self.settings, TextFixer(layout))
@@ -56,8 +56,10 @@ class PageExtractor:
         """page: PdfPage; satır sonunda bölünmüş sözcüklerin onarımı ('McGraw-' + 'Hill')."""
         return self.text_layer.scan(page)["hyphen_fixes"]
 
-    def _code_block(self, region):
-        return {"type": "code", "lang": self.settings["default_code_language"], "code": region["code"]}
+    def _code_regions(self, layout):
+        language = self.settings["default_code_language"]
+        return [{**region, "block": {"type": "code", "lang": language, "code": region["code"]}}
+                for region in layout["code_blocks"]]
 
     @staticmethod
     def _inline_images(math):
