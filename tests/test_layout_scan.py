@@ -126,6 +126,16 @@ class CodeLineTest(unittest.TestCase):
         [line] = _lines((head,), (CODE.after(head, "count + 1"),))
         self.assertEqual((line.is_code, line.text), (True, "total = count + 1"))
 
+    def test_code_fragments_at_the_baseline_tolerance_form_one_line(self):
+        head = CODE.at("total = ", (LEFT, TOP))
+        tail = CODE.on_baseline("count + 1", _end_of(head, SAME_BASELINE_TOLERANCE))
+        self.assertEqual(len(_lines((head,), (tail,))), 1)
+
+    def test_code_fragments_further_apart_stay_two_lines(self):
+        head = CODE.at("total = ", (LEFT, TOP))
+        tail = CODE.on_baseline("count + 1", _end_of(head, SAME_BASELINE_TOLERANCE + STEP))
+        self.assertEqual(len(_lines((head,), (tail,))), 2)
+
     def test_short_code_beside_prose_is_inline_code(self):
         prose = BODY.at("The value is stored in ", (LEFT, TOP))
         lines = _lines((prose,), (CODE.after(prose, "count"),))
