@@ -107,10 +107,15 @@ class BookSetupTest(_BookSetupTestCase):
         self.assertEqual((self.opener.opened, self._progress()["pdf_total_pages"]),
                          ([os.path.join(self.target, "book.pdf")], PAGE_COUNT))
 
-    def test_pdf_inside_the_project_is_not_copied(self):
-        inside = self._write(os.path.join(self.target, "kaynak", "kitap.pdf"), "%PDF sahte")
-        self._run(pdf=inside)
+    def _run_with_pdf_inside(self):
+        self._run(pdf=self._write(os.path.join(self.target, "kaynak", "kitap.pdf"), "%PDF sahte"))
+
+    def test_pdf_inside_the_project_is_named_relative_to_it(self):
+        self._run_with_pdf_inside()
         self.assertEqual(self._progress()["book_pdf"], os.path.join("kaynak", "kitap.pdf"))
+
+    def test_pdf_inside_the_project_is_not_copied(self):
+        self._run_with_pdf_inside()
         self.assertFalse(os.path.exists(os.path.join(self.target, "book.pdf")))
 
     def test_slug_comes_from_the_title(self):
@@ -132,14 +137,17 @@ class BookSetupTest(_BookSetupTestCase):
         self.assertEqual(self._progress()["concepts"], {"kinds": ["explain", "contrast", "tradeoff", "code"],
                                                         "code_comment_lang": "en"})
 
-    def test_placeholders_are_filled(self):
+    def _text(self, name):
+        with open(os.path.join(self.target, name), encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_title_and_author_fill_the_reader_page(self):
         self._run()
-        with open(os.path.join(self.target, "index.html"), encoding="utf-8") as html:
-            text = html.read()
-        self.assertIn("Demo Kitap — Yazar", text)
-        self.assertNotIn("{{", text)
-        with open(os.path.join(self.target, "CLAUDE.md"), encoding="utf-8") as claude_md:
-            self.assertNotIn("{{", claude_md.read())
+        self.assertIn("Demo Kitap — Yazar", self._text("index.html"))
+
+    def test_no_placeholder_is_left(self):
+        self._run()
+        self.assertEqual([name for name in ("index.html", "CLAUDE.md", "glossary.md") if "{{" in self._text(name)], [])
 
     def test_refuses_existing_project(self):
         self._run()
