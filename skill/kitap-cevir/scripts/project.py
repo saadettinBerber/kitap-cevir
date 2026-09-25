@@ -13,6 +13,7 @@ from progress import Progress
 PROGRESS_FILE = "progress.json"
 GLOSSARY_FILE = "glossary.md"
 WORK_DIR = "_work"
+DIST_DIR = "dist"
 ENV_ROOT = "KITAP_ROOT"
 
 
@@ -53,6 +54,7 @@ class Project:
         self._work_out = os.path.join(self.root, WORK_DIR, "out")
         self._work_cards = os.path.join(self.root, WORK_DIR, "cards")
         self.work_migrate = os.path.join(self.root, WORK_DIR, "migrate")
+        self._dist_dir = os.path.join(self.root, DIST_DIR)
 
     @classmethod
     def discover(cls):
@@ -76,6 +78,9 @@ class Project:
 
     def relative_to_root(self, path):
         return os.path.relpath(path, self.root)
+
+    def epub_file(self, slug):
+        return os.path.join(self._dist_dir, f"{slug}.epub")
 
     def page_js(self, page):
         return _page_path(self._pages_dir, page, ".js")
