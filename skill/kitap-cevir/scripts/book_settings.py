@@ -19,20 +19,20 @@ class BookSettings:
     """Ayar bölümleri varsayılanlarla birleşmiş olarak okunur."""
 
     def __init__(self, data):
-        self.data = data
+        self._data = data
 
     def book_pdf(self):
-        return self.data["book_pdf"]
+        return self._data["book_pdf"]
 
     def extraction(self):
-        return with_defaults(self.data.get("extraction", {}))
+        return with_defaults(self._data.get("extraction", {}))
 
     def book(self):
-        return {**DEFAULT_BOOK, **self.data.get("book", {})}
+        return {**DEFAULT_BOOK, **self._data.get("book", {})}
 
     def translator_has_vision(self):
         """Çevirmen model görsel okuyabiliyor mu (denklem PNG'sinden latex üretimi)."""
-        return bool(self.data.get("translator", {}).get("vision", True))
+        return bool(self._data.get("translator", {}).get("vision", True))
 
     def concepts(self):
         """Kavram kartı ayarları: izinli kart türleri, kod örneği dilleri, kod yorum dili."""
@@ -45,7 +45,7 @@ class BookSettings:
 
     def _configured_concepts(self):
         """progress.json -> concepts; eski tek `mode` anahtarı izinli tür listesine çevrilir."""
-        configured = dict(self.data.get("concepts", {}))
+        configured = dict(self._data.get("concepts", {}))
         mode = configured.pop("mode", None)
         if mode is None or "kinds" in configured:
             return configured
