@@ -96,9 +96,9 @@ class Migrator:
         done = read_json(self.project.work_migration_file("done", page))
         document = read_json(self._out_path(page))
         for item in done.get("units", []):
-            self._resolve(document, item["path"])["tr"] = item["tr"]
+            node_at(document, item["path"])["tr"] = item["tr"]
         for item in done.get("latex", []):
-            self._resolve(document, item["path"])["latex"] = item["latex"]
+            node_at(document, item["path"])["latex"] = item["latex"]
         write_json(self._out_path(page), document)
         return self.finalize(page)
 
@@ -114,13 +114,12 @@ class Migrator:
         elif os.path.exists(path):
             os.remove(path)
 
-    @staticmethod
-    def _resolve(document, path):
-        """'blocks[3].sentences[1]' gibi bir yolun gösterdiği birim."""
-        node = document
-        for key, index in _PATH_STEP.findall(path):
-            node = node[key] if key else node[int(index)]
-        return node
+def node_at(document, path):
+    """'blocks[3].sentences[1]' gibi bir yolun gösterdiği birim."""
+    node = document
+    for key, index in _PATH_STEP.findall(path):
+        node = node[key] if key else node[int(index)]
+    return node
 
 
 def _summary(document, pending):

@@ -7,7 +7,7 @@ import unittest
 import _paths  # noqa: F401
 from json_file import write_json
 from migrate_match import TranslationFiller, Translations
-from migrate_page import Migrator, PageMigration
+from migrate_page import Migrator, PageMigration, node_at
 from page_document import PageDocument
 from project import Project
 from translated_pages import TranslatedPages
@@ -222,7 +222,7 @@ class PageMigrationTest(unittest.TestCase):
 
 class NodePathTest(unittest.TestCase):
     def test_path_leads_to_the_pending_unit(self):
-        self.assertEqual(Migrator._resolve(_new_document(), "blocks[1].sentences[1]"), {"en": "Unseen sentence."})
+        self.assertEqual(node_at(_new_document(), "blocks[1].sentences[1]"), {"en": "Unseen sentence."})
 
 
 class FakePageInputBuilder:
