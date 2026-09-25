@@ -38,6 +38,7 @@ div.card { margin: 1.4em 0 0; padding-top: 0.6em; border-top: 1px solid #999; }
 div.card h3 { margin-top: 0; }
 div.card p { margin: 0.3em 0; }
 p.card-page { font-size: 0.8em; }
+p.card-links { font-size: 0.8em; color: #555; margin: 0.6em 0; }
 p.label { margin-top: 0.6em; font-weight: bold; }
 div.option { margin: 0.5em 0 0 0.8em; }
 p.tip { margin-top: 0.6em; }

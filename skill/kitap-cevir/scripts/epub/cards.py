@@ -14,6 +14,7 @@ TIP_LABELS = {"tradeoff": "Ne zaman hangisi"}
 DEFAULT_TIP_LABEL = "Pratik ipucu"
 OPTION_LABELS = (("gains", "Kazandırır"), ("costs", "Bedeli"))
 FIRST_CARD = 1
+CARD_LINK_SEPARATOR = " · "
 
 
 class PageCard(NamedTuple):
@@ -37,6 +38,18 @@ def page_cards(page, cards):
 def card_anchor(page_card):
     """Kart kimliği değil sıra kullanılır: kimlikler ASCII dışı harf taşıyabilir (G26)."""
     return f"kart-{page_card.page}-{page_card.index}"
+
+
+def links_anchor(page):
+    """Sayfanın kart satırı; kart okunduktan sonra dönülecek yer."""
+    return f"kartlar-{page}"
+
+
+def card_links(page_cards):
+    """Sayfanın metni bittiği yerde duran satır; her kart başlığı bölüm sonundaki kartına götürür."""
+    links = CARD_LINK_SEPARATOR.join(f'<a href="#{card_anchor(page_card)}">{_text(page_card.card.get("title"))}</a>'
+                                     for page_card in page_cards)
+    return f'<p class="card-links" id="{links_anchor(page_cards[0].page)}">{CARDS_TITLE}: {links}</p>'
 
 
 def cards_section(page_cards):

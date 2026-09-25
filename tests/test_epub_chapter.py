@@ -7,6 +7,14 @@ from epub.fragments import Fragment, ParaPassage
 from page_document import PageDocument
 
 CHAPTER = {"num": 2, "en": "Evaluation", "tr": "Değerlendirme"}
+PAGE = 5
+NEXT_PAGE = 6
+PAGE_END = "<p>ek</p>"
+CLOSED_PAGE = [ParaPassage("para", "Bitti.", "Done.")]
+OPEN_PAGE = [ParaPassage("para", "Bir", "of a")]
+NEXT_PAGE_PARAS = [ParaPassage("para", "Sonraki.", "Next.")]
+CONTINUATION = [ParaPassage("para", "model.", "model."), ParaPassage("para", "Sonraki.", "Next.")]
+CARD = {"kind": "explain", "title": {"en": "A", "tr": "B"}, "summary": {"en": "S", "tr": "Ö"}}
 
 
 def _para(en, tr):
@@ -15,6 +23,19 @@ def _para(en, tr):
 
 def _page(number, blocks, concepts=()):
     return PageDocument({"page": number, "chapter": CHAPTER, "blocks": blocks, "concepts": list(concepts)})
+
+
+def _flow_ending_with_page_end(first_page):
+    flow = ChapterFlow()
+    flow.add_page(PAGE, first_page)
+    flow.end_page([Fragment(PAGE_END)])
+    return flow
+
+
+def _flow_across_page_end(first_page, next_page):
+    flow = _flow_ending_with_page_end(first_page)
+    flow.add_page(NEXT_PAGE, next_page)
+    return flow
 
 
 def _para_block(en, tr):
@@ -56,6 +77,28 @@ class ChapterFlowTest(unittest.TestCase):
         self.assertIn('href="#note-2"', flow.render().split("<hr/>")[1])
 
 
+class PageEndTest(unittest.TestCase):
+    """Sayfa sonu eki (kart satırı) bölünen paragrafı kırmaz; birleşik paragrafın arkasına düşer."""
+
+    def test_page_end_follows_the_page(self):
+        html = _flow_across_page_end(CLOSED_PAGE, NEXT_PAGE_PARAS).render()
+        self.assertLess(html.index(PAGE_END), html.index(page_mark(NEXT_PAGE)))
+
+    def test_open_paragraph_still_joins_across_a_page_end(self):
+        self.assertIn("of a model.", _flow_across_page_end(OPEN_PAGE, CONTINUATION).english())
+
+    def test_page_end_sits_after_the_joined_paragraph(self):
+        html = _flow_across_page_end(OPEN_PAGE, CONTINUATION).render()
+        positions = [html.index("model."), html.index(PAGE_END), html.index("Sonraki.")]
+        self.assertEqual(positions, sorted(positions))
+
+    def test_last_page_end_closes_the_chapter(self):
+        self.assertTrue(_flow_ending_with_page_end(CLOSED_PAGE).render().endswith(PAGE_END))
+
+    def test_page_end_is_used_once(self):
+        self.assertEqual(_flow_across_page_end(CLOSED_PAGE, NEXT_PAGE_PARAS).render().count(PAGE_END), 1)
+
+
 class ChapterTest(unittest.TestCase):
     def setUp(self):
         self.chapter = Chapter("chapter-02.xhtml", CHAPTER)
@@ -80,6 +123,20 @@ class ChapterTest(unittest.TestCase):
         empty = {"kind": "explain", "title": {"en": "A", "tr": "B"}}
         self.chapter.add(_page(5, [_para_block("A.", "B.")], concepts=[empty]))
         self.assertEqual((self.chapter.page_cards, self.chapter.toc_entries()), ([], []))
+
+    def test_page_with_cards_ends_with_its_card_line(self):
+        self.chapter.add(_page(PAGE, [_para_block("A.", "B.")], concepts=[CARD]))
+        self.chapter.add(_page(NEXT_PAGE, [_para_block("C.", "D.")]))
+        xhtml = self.chapter.xhtml()
+        self.assertLess(xhtml.index('class="card-links"'), xhtml.index(page_mark(NEXT_PAGE)))
+
+    def test_page_without_cards_has_no_card_line(self):
+        self.chapter.add(_page(PAGE, [_para_block("A.", "B.")]))
+        self.assertNotIn('class="card-links"', self.chapter.xhtml())
+
+    def test_card_without_summary_gets_no_card_line(self):
+        self.chapter.add(_page(PAGE, [_para_block("A.", "B.")], concepts=[{"kind": "explain", "title": {"en": "A", "tr": "B"}}]))
+        self.assertNotIn('class="card-links"', self.chapter.xhtml())
 
     def test_chapter_without_cards_has_no_cards_entry(self):
         self.chapter.add(_page(5, [_para_block("A.", "B.")]))

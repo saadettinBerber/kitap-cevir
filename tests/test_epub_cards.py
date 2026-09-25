@@ -1,7 +1,8 @@
 import unittest
 
 import _paths  # noqa: F401
-from epub.cards import CARDS_ANCHOR, PageCard, card_anchor, card_html, cards_section, is_drawable, page_cards
+from epub.cards import (CARDS_ANCHOR, PageCard, card_anchor, card_html, card_links, cards_section, is_drawable,
+                        links_anchor, page_cards)
 
 PAGE = 7
 NEXT_PAGE = 8
@@ -85,6 +86,18 @@ class PageCardsTest(unittest.TestCase):
         empty = {"id": "e", "title": _pair("boş")}
         cards = page_cards(PAGE, [empty, _card("explain")])
         self.assertEqual([card_anchor(card) for card in cards], [f"kart-{PAGE}-1"])
+
+
+class CardLinksTest(unittest.TestCase):
+    def test_line_links_every_card(self):
+        line = card_links(page_cards(PAGE, [_card("explain"), _card("explain")]))
+        self.assertEqual(line.count('href="#kart-'), 2)
+
+    def test_link_reads_as_the_card_title(self):
+        self.assertIn(f'<a href="#kart-{PAGE}-1">başlık</a>', card_links(page_cards(PAGE, [_card("explain")])))
+
+    def test_line_carries_the_anchor_cards_return_to(self):
+        self.assertIn(f'id="{links_anchor(PAGE)}"', card_links(page_cards(PAGE, [_card("explain")])))
 
 
 class SectionTest(unittest.TestCase):

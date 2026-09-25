@@ -2,7 +2,7 @@
 from html import escape
 
 from epub.block_visitor import EpubBlockVisitor
-from epub.cards import CARDS_ANCHOR, CARDS_TITLE, cards_section, page_cards
+from epub.cards import CARDS_ANCHOR, CARDS_TITLE, card_links, cards_section, page_cards
 from epub.fragments import Fragment, notes_section
 from epub.xhtml import document
 
@@ -15,40 +15,52 @@ def page_mark(page):
 
 
 class ChapterFlow:
-    """Sayfalar tek akışa dizilir; sayfa sonunda yarım kalan paragraf devamıyla birleşir."""
+    """Sayfalar tek akışa dizilir; sayfa sonunda yarım kalan paragraf devamıyla birleşir.
+    Sayfa sonu eki (kart satırı) bu birleşmeyi kırmasın diye sonraki sayfa gelene dek bekler."""
 
     def __init__(self):
         self.fragments = []
+        self._page_end = []
 
     def add_page(self, page, fragments):
+        self._place(page, fragments)
+        self._page_end = []
+
+    def end_page(self, fragments):
+        self._page_end = fragments
+
+    def english(self):
+        return [en for fragment in self._flow() for en in fragment.english()]
+
+    def render(self):
+        first_notes = self._first_note_numbers()
+        return "\n".join(fragment.render(first) for fragment, first in zip(self._flow(), first_notes))
+
+    def toc_entries(self):
+        return [entry for fragment in self._flow() for entry in fragment.toc_entries()]
+
+    def _flow(self):
+        return self.fragments + self._page_end
+
+    def _place(self, page, fragments):
         if self._is_continued_by(fragments):
             self._continue_paragraph(page, fragments)
         else:
             self._start_page(page, fragments)
-
-    def english(self):
-        return [en for fragment in self.fragments for en in fragment.english()]
-
-    def render(self):
-        first_notes = self._first_note_numbers()
-        return "\n".join(fragment.render(first) for fragment, first in zip(self.fragments, first_notes))
-
-    def toc_entries(self):
-        return [entry for fragment in self.fragments for entry in fragment.toc_entries()]
 
     def _is_continued_by(self, fragments):
         return bool(fragments and self.fragments) and self.fragments[-1].continues_into(fragments[0])
 
     def _continue_paragraph(self, page, fragments):
         self.fragments[-1] = self.fragments[-1].join(fragments[0], page_mark(page))
-        self.fragments += fragments[1:]
+        self.fragments += self._page_end + fragments[1:]
 
     def _start_page(self, page, fragments):
-        self.fragments += [Fragment(page_mark(page)), *fragments]
+        self.fragments += [*self._page_end, Fragment(page_mark(page)), *fragments]
 
     def _first_note_numbers(self):
         numbers, next_note = [], 1
-        for fragment in self.fragments:
+        for fragment in self._flow():
             numbers.append(next_note)
             next_note += len(fragment.english())
         return numbers
@@ -68,7 +80,11 @@ class Chapter:
         page = page_document.number()
         self.pages.append(page)
         self.flow.add_page(page, EpubBlockVisitor(page_document).fragments())
-        self.page_cards += page_cards(page, page_document.concepts())
+        self._add_cards(page_cards(page, page_document.concepts()))
+
+    def _add_cards(self, cards):
+        self.flow.end_page([Fragment(card_links(cards))] if cards else [])
+        self.page_cards += cards
 
     def title(self):
         return self.info.get("tr") or self.info.get("en") or ""
