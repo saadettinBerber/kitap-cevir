@@ -36,12 +36,13 @@ class BookSettings:
 
     def concepts(self):
         """Kavram kartı ayarları: izinli kart türleri, kod örneği dilleri, kod yorum dili."""
-        merged = {"kinds": list(CARD_KINDS),
-                  "code_langs": [self.extraction()["default_code_language"]],
-                  "code_comment_lang": DEFAULT_CODE_COMMENT_LANG,
-                  **self._configured_concepts()}
+        merged = {**self._default_concepts(), **self._configured_concepts()}
         _check_card_kinds(merged["kinds"])
         return merged
+
+    def _default_concepts(self):
+        return {"kinds": list(CARD_KINDS), "code_langs": [self.extraction()["default_code_language"]],
+                "code_comment_lang": DEFAULT_CODE_COMMENT_LANG}
 
     def _configured_concepts(self):
         """progress.json -> concepts; eski tek `mode` anahtarı izinli tür listesine çevrilir."""
