@@ -4,6 +4,7 @@
 from collections import Counter
 
 from page_blocks import Block
+from progress import UNKNOWN_CHAPTER
 
 
 class PageDocument:
@@ -11,6 +12,15 @@ class PageDocument:
 
     def __init__(self, data):
         self.data = data
+
+    def number(self):
+        return self.data["page"]
+
+    def chapter(self):
+        return self.data.get("chapter", dict(UNKNOWN_CHAPTER))
+
+    def concepts(self):
+        return self.data.get("concepts", [])
 
     def blocks(self):
         return [Block.of(data) for data in self.data["blocks"]]
