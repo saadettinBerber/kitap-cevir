@@ -50,8 +50,10 @@ class PageImages:
                 previous_text = _plain(block.anchor_text())[:ANCHOR_CHARS] or previous_text
         return found
 
-    def copy(self, src, target_dir):
-        self._folder.copy([src], target_dir)
+    def copy(self, sources, target_dir):
+        """Eklenen görseller sayfanın görsel klasörüne kopyalanır; eklenen yoksa klasöre dokunulmaz."""
+        if sources:
+            self._folder.copy(sources, target_dir)
 
     def _is_real(self, src):
         return self._folder.has(src) and min(self._folder.size(src)) >= MIN_IMAGE_SIDE_PX
@@ -63,8 +65,17 @@ class ImagePlacement:
     def __init__(self, blocks):
         self._blocks = blocks
 
-    def has(self, src):
-        return any(src in block.image_sources() for block in self._views())
+    def missing(self, anchored):
+        """(görsel src, çapa) çiftlerinden sayfada olmayanlar; PDF'te tekrar eden görsel bir kez."""
+        present = {src for block in self._views() for src in block.image_sources()}
+        first_anchors = {}
+        for src, anchor in anchored:
+            first_anchors.setdefault(src, anchor)
+        return [(src, anchor) for src, anchor in first_anchors.items() if src not in present]
+
+    def add_all(self, anchored):
+        for src, anchor in anchored:
+            self.add(src, anchor)
 
     def add(self, src, anchor):
         self._blocks.insert(self._index_after(anchor), {"type": "image", "src": src})
@@ -116,22 +127,14 @@ class ImageBackfiller:
     def backfill_page(self, page):
         """Eklenen görsel sayısı; sayfa yalnız görsel eklendiyse yeniden yazılır."""
         images = self._extracted.of(page)
-        page_document = self._pages.get(page)
-        added = self._place(images, ImagePlacement(page_document.data["blocks"]), self._pages.images_dir(page))
-        if added:
-            self._pages.save(page_document)
-        return added
-
-    @staticmethod
-    def _place(images, placement, target_dir):
-        """Sayfada henüz olmayan görselleri yerleştirip target_dir'e kopyalar; eklenen sayısı."""
-        added = 0
-        for src, anchor in images.anchored():
-            if not placement.has(src):
-                placement.add(src, anchor)
-                images.copy(src, target_dir)
-                added += 1
-        return added
+        document = self._pages.get(page)
+        placement = ImagePlacement(document.data["blocks"])
+        missing = placement.missing(images.anchored())
+        placement.add_all(missing)
+        images.copy([src for src, _ in missing], self._pages.images_dir(page))
+        if missing:
+            self._pages.save(document)
+        return len(missing)
 
 
 def main():

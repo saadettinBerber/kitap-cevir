@@ -1,8 +1,10 @@
+import os
 import tempfile
 import unittest
 
 import _paths  # noqa: F401
 from backfill_images import ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ImageBackfiller, ImagePlacement, PageImages
+from image_folder import ImageFolder
 from page_document import PageDocument
 from project import Project
 from translated_pages import TranslatedPages
@@ -77,6 +79,14 @@ class PageImagesTest(unittest.TestCase):
         self.assertEqual(anchor, "x" * ANCHOR_CHARS)
 
 
+class PageImagesCopyTest(unittest.TestCase):
+    def test_nothing_to_add_leaves_the_page_without_an_image_folder(self):
+        with tempfile.TemporaryDirectory() as root:
+            target = os.path.join(root, "page-5_images")
+            PageImages([], ImageFolder(root)).copy([], target)
+            self.assertFalse(os.path.exists(target))
+
+
 class ImagePlacementTest(unittest.TestCase):
     def setUp(self):
         self.blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"},
@@ -91,10 +101,18 @@ class ImagePlacementTest(unittest.TestCase):
         self.placement.add("fig.png", "")
         self.assertEqual(self.blocks[1], _image("fig.png"))
 
-    def test_has_sees_only_images_already_on_the_page(self):
-        self.assertFalse(self.placement.has("fig.png"))
-        self.placement.add("fig.png", "")
-        self.assertTrue(self.placement.has("fig.png"))
+    def test_image_not_on_the_page_is_missing(self):
+        self.assertEqual(self.placement.missing([("fig.png", ANCHOR)]), [("fig.png", ANCHOR)])
+
+    def test_image_on_the_page_is_not_missing(self):
+        self.assertEqual(ImagePlacement(self.blocks + [_image("fig.png")]).missing([("fig.png", ANCHOR)]), [])
+
+    def test_repeated_image_keeps_its_first_anchor(self):
+        self.assertEqual(self.placement.missing([("fig.png", ANCHOR), ("fig.png", "")]), [("fig.png", ANCHOR)])
+
+    def test_unanchored_images_each_go_right_below_the_headings(self):
+        self.placement.add_all([("fig.png", ""), ("fig-2.png", "")])
+        self.assertEqual(self.blocks[1:3], [_image("fig-2.png"), _image("fig.png")])
 
 
 
