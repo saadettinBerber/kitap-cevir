@@ -81,6 +81,9 @@ class BlockTest(unittest.TestCase):
     def test_para_anchor_text_joins_its_sentences(self):
         self.assertEqual(Block.of(PARA).anchor_text(), "One. Two.")
 
+    def test_list_anchor_text_joins_its_items(self):
+        self.assertEqual(Block.of({"type": "list", "items": [_unit("x"), _unit("y")]}).anchor_text(), "x y")
+
     def test_table_has_no_anchor_text(self):
         self.assertEqual(Block.of(TABLE).anchor_text(), "")
 
