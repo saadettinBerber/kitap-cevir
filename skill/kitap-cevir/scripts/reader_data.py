@@ -69,11 +69,10 @@ def _page_summary(info):
 
 
 class Glossary:
-    """glossary.md: önsöz satırları + terim tablosu (alfabetik); okuyucu için data/glossary.js."""
+    """glossary.md: önsöz satırlarının altında alfabetik terim tablosu."""
 
-    def __init__(self, project):
-        self.path = project.glossary_md()
-        self.script = ReaderScript(project.glossary_js(), "GLOSSARY")
+    def __init__(self, path):
+        self.path = path
         self.preamble, self.terms = self._read()
 
     def _read(self):
@@ -118,8 +117,9 @@ class Glossary:
         with open(self.path, "w", encoding="utf-8") as handle:
             handle.write("\n".join(self.preamble).rstrip("\n") + "\n" + rows)
 
-    def write_js(self):
-        return self.script.write(sorted(self.terms, key=self._key))
+    def entries(self):
+        """Okuyucunun sözlüğü: terimler alfabetik sırayla."""
+        return sorted(self.terms, key=self._key)
 
 
 class ReaderData:
@@ -130,11 +130,15 @@ class ReaderData:
 
     def rebuild(self):
         """Yazılan yollar: önce toc.js, sonra glossary.js."""
-        return self.write_toc(self._project.load_progress()), Glossary(self._project).write_js()
+        toc_js = self.write_toc(self._project.load_progress())
+        return toc_js, self.write_glossary(Glossary(self._project.glossary_md()))
 
     def write_toc(self, progress):
         toc = TableOfContents(self._project.load_settings(), progress)
         return ReaderScript(self._project.toc_js(), "TOC").write(toc.payload())
+
+    def write_glossary(self, glossary):
+        return ReaderScript(self._project.glossary_js(), "GLOSSARY").write(glossary.entries())
 
 
 def main():
