@@ -15,14 +15,16 @@ CODE = {"type": "code", "lang": "python", "code": "x = 1"}
 
 
 class _RecordingFiller:
-    def __init__(self):
-        self.paths = []
+    """Doldurduğu birimlerin yollarını testin verdiği listeye yazar; cümleleri ilkine indirir."""
+
+    def __init__(self, paths):
+        self._paths = paths
 
     def fill_unit(self, unit, path):
-        self.paths.append(path)
+        self._paths.append(path)
 
     def fill_sentences(self, sentences, path):
-        self.paths.append(f"{path}:sentences")
+        self._paths.append(f"{path}:sentences")
         return sentences[:1]
 
 
@@ -58,13 +60,13 @@ class BlockTest(unittest.TestCase):
             self.assertEqual(Block.of(data).units(), [], data["type"])
 
     def test_list_fill_uses_item_paths(self):
-        filler = _RecordingFiller()
-        Block.of({"type": "list", "items": [_unit("x"), _unit("y")]}).fill(filler, "blocks[2]")
-        self.assertEqual(filler.paths, ["blocks[2].items[0]", "blocks[2].items[1]"])
+        paths = []
+        Block.of({"type": "list", "items": [_unit("x"), _unit("y")]}).fill(_RecordingFiller(paths), "blocks[2]")
+        self.assertEqual(paths, ["blocks[2].items[0]", "blocks[2].items[1]"])
 
     def test_para_fill_replaces_sentences_with_merged_ones(self):
         para = {"type": "para", "sentences": [_unit("a"), _unit("b")]}
-        Block.of(para).fill(_RecordingFiller(), "blocks[0]")
+        Block.of(para).fill(_RecordingFiller([]), "blocks[0]")
         self.assertEqual(para["sentences"], [_unit("a")])
 
     def test_card_unit_joins_text_and_keeps_code_as_is(self):
