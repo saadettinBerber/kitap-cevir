@@ -59,10 +59,19 @@ Bu depodaki karşılıkları:
   - finalize, regen, taşıma ve görsel ekleme akışları
 
   Bu karşılaştırma test değildir; yeniden düzenleme sırasında elle koşulan iskeledir ve test takımına girmez. Fark bulursa önce o farkı gösteren birim testi yazılır, sonra kod düzeltilir (T6).
-- Yazdıktan sonra, commit'ten önce kod zihin haritasına göre bir daha ele alınır. Kalıp ihtiyacı çoğu zaman ancak yazılmış kodda görünür (Bl.3 · How Do You Write Functions Like This?, Bl.12 kural 2-4). Üç düzeyde bakılır:
-  - fonksiyon (Bl.3): boyut, tek iş, argüman, CQS
-  - sınıf (Bl.10, Bl.6): tek değişme nedeni, uyum, melez, elden ele taşınan değişken
-  - sistem ve kalıp (Bl.11, Bl.12, haritanın "Bağlantılar" dalı): kurulum/kullanım ayrımı, tekrar, ihtiyaç → kalıp
-  Bulgular haritadaki başlık adıyla yazılır; tereddütte kitaba bakılır. `clean-code-reviewer` ajanı kullanılmaz.
+- Yazdıktan sonra, commit'ten önce kod bir daha ele alınır. Kimse ilk seferde istediği gibi yazamaz; kalıp ihtiyacı çoğu zaman ancak yazılmış kodda görünür (Bl.3 · How Do You Write Functions Like This?, Bl.12 kural 2-4). Önce `olc.py` ile ölçülür, sonra tamam tanımına göre okunur. Bulgular haritadaki başlık adıyla yazılır; tereddütte kitaba bakılır. `clean-code-reviewer` ajanı kullanılmaz.
 - Commit'ler atomiktir: tek değişiklik, tek cümlelik mesaj, gövde yok. Mesaja "ve" giriyorsa commit bölünür.
-- Commit mesajları Türkçedir, yapay zeka imzası ya da `Co-Authored-By` satırı eklenmez. Commit yalnız istenince atılır.
+- Commit mesajları Türkçedir, yapay zeka imzası ya da `Co-Authored-By` satırı eklenmez.
+
+## Tamam tanımı
+
+Kitap bir standarttır: kural dile ya da alışkanlığa göre gevşetilmez. Bir görevin ne zaman bittiğini `~/Desktop/clean code felsefesi/tamam-tanimi.md` söyler. Liste kitabın her bölümünü başlık adıyla kapsar; kalıpların hangi ihtiyaçla geleceği de oradadır.
+
+1. Bütün testler geçer.
+2. `python3 ~/Desktop/"clean code felsefesi"/olc.py <değişen dosyalar>` çalışır. Her ALARM "gerçek, düzeltildi" ya da "yanlış pozitif, çünkü…" diye karara bağlanır. Eşik alarmdır; asıl ölçü sorumluluk ve niyettir.
+3. Listenin okuma maddeleri üç düzeyde işaretlenir: fonksiyon, sınıf, sistem ve kalıp.
+4. Davranış değiştiyse gerçek kitap çıktısı üretilip görülür. Yeniden düzenlemeyse eski kodla karşılaştırılır.
+
+Hepsi sağlanınca atomik commit atılır ve bu depo push edilir; ayrıca sorulmaz. Kullanıcıya her maddenin kanıtıyla kısa bir rapor verilir.
+
+Bir madde sağlanamıyorsa, bir alarm için karar verilemiyorsa ya da kullanıcının vermesi gereken bir tasarım kararı çıktıysa commit atılmaz, sorulur. Kitap depolarında alt modül güncellemesi ve push ayrıca istenir.
