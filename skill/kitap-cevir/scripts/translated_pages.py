@@ -14,23 +14,23 @@ class TranslatedPages:
     """Çevrilmiş sayfaların diskteki deposu; her kayda sayfa numarasıyla erişilir."""
 
     def __init__(self, project):
-        self.project = project
+        self._project = project
 
     def get(self, page):
-        with open(self.project.page_js(page), encoding="utf-8") as handle:
+        with open(self._project.page_js(page), encoding="utf-8") as handle:
             source = handle.read()
         return PageDocument(json.loads(source[source.index("(") + 1:source.rindex(")")]))
 
     def save(self, document):
         """Sayfa numarası belgenin page alanından gelir; yazılan dosyanın yolu döner."""
-        path = self.project.page_js(document.data["page"])
+        path = self._project.page_js(document.data["page"])
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as handle:
             handle.write("window.PAGE(" + json.dumps(_reader_fields(document.data), ensure_ascii=False) + ");\n")
         return path
 
     def images_dir(self, page):
-        return self.project.page_images(page)
+        return self._project.page_images(page)
 
 
 def _reader_fields(data):
