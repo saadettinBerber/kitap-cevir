@@ -42,7 +42,8 @@ class PageLines:
 
     def __init__(self, page):
         self._height = page.height
-        self._lines = sorted(page.text_lines(), key=lambda spans: (round(spans[0].line_y), min(s.box.x0 for s in spans)))
+        self._lines = sorted(page.text_lines(),
+                             key=lambda spans: (round(spans[0].line_y), min(s.box.x0 for s in spans)))
 
     def infos(self):
         return [LineInfo.of(spans, self._height) for spans in self._lines]
@@ -90,7 +91,8 @@ class FolioOffsets:
 
 @dataclass(frozen=True)
 class LineInfo:
-    """Bir satırın dökümü: üst kenarı, sayfanın altından yüksekliği (odlY), ilk parçanın puntosu ile fontu, metni."""
+    """Bir satırın dökümü: üst kenarı, sayfanın altından yüksekliği (odlY), ilk parçanın
+    puntosu ile fontu, metni."""
     y: float
     odl_y: float
     size: float

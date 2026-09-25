@@ -167,7 +167,8 @@ class TableGrid:
         return [index for index, (left, right) in enumerate(self.columns) if left <= center <= right]
 
     def cells_of(self, row, main_size):
-        """Satırın parçaları sütunlarının hücrelerine dağılmış olarak; her parça bir sütuna düşmelidir."""
+        """Satırın parçaları sütunlarının hücrelerine dağılmış olarak; her parça bir
+        sütuna düşmelidir."""
         columns = [self.column_of(span) for span in row]
         return [TableCell([span for span, column in zip(row, columns) if column == index], bounds, main_size)
                 for index, bounds in enumerate(self.columns)]

@@ -50,7 +50,8 @@ class _EchoExtractor:
 
 
 def _opens_once(document):
-    """İkinci açılışta StopIteration fırlatan açıcı: belgenin tek açılışla okunduğunu testler böyle görür."""
+    """İkinci açılışta StopIteration fırlatan açıcı: belgenin tek açılışla okunduğunu
+    testler böyle görür."""
     return iter([document]).__next__
 
 

@@ -85,10 +85,12 @@ class InspectionReportTest(unittest.TestCase):
     def test_info_prints_page_count_size_and_filled_metadata(self):
         document = FakePdfDocument([_text_page(("x", TOP))], metadata={"title": "Book", "author": ""})
         self.assertEqual(self._report(lambda report: report.info(), document),
-                         f"PDF sayfa sayısı: 1\nSayfa boyutu (pt): {PAGE_WIDTH:.1f} x {PAGE_HEIGHT:.1f}\n  title: Book\n")
+                         f"PDF sayfa sayısı: 1\nSayfa boyutu (pt): {PAGE_WIDTH:.1f} x {PAGE_HEIGHT:.1f}\n"
+                         "  title: Book\n")
 
     def test_text_prints_each_page_under_its_number(self):
-        self.assertEqual(self._report(lambda report: report.text(str(OFFSET))), f"===== PDF sayfa {OFFSET} =====\nPreface\n")
+        self.assertEqual(self._report(lambda report: report.text(str(OFFSET))),
+                         f"===== PDF sayfa {OFFSET} =====\nPreface\n")
 
     def test_only_the_top_candidates_are_printed(self):
         """Her sayfa kendini kitabın ilk sayfası sayar, yani başka bir ofset önerir;

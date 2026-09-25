@@ -141,7 +141,8 @@ class DisplayBlockTest(ScanCase):
 
 
 class AdjacentLinesTest(ScanCase):
-    """Ardışık denklem satırları, aradaki boşluk satır yüksekliğinin bir oranını aşmıyorsa tek denklemdir."""
+    """Ardışık denklem satırları, aradaki boşluk satır yüksekliğinin bir oranını
+    aşmıyorsa tek denklemdir."""
 
     def test_line_at_the_merge_gap_joins_the_equation(self):
         page = _display_page(_display_line_at(DISPLAY_BOTTOM + LINE_HEIGHT * LINE_MERGE_RATIO))
@@ -209,7 +210,8 @@ class InlineEquationTest(ScanCase):
         self.assertEqual(png, FAKE_PNG)
 
     def test_single_size_short_run_becomes_plain_text(self):
-        line = (span("area ", (72, 90, 100, 102)), _math("πr", (100, 90, 112, 102)), span(" grows", (112, 90, 150, 102)))
+        line = (span("area ", (72, 90, 100, 102)), _math("πr", (100, 90, 112, 102)),
+                span(" grows", (112, 90, 150, 102)))
         [item] = self._scan(FakePdfPage(lines=[line]))["inline"]
         self.assertEqual((item["kind"], item["text"]), ("text", "πr"))
 
