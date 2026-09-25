@@ -57,6 +57,10 @@ class CardProblemsTest(unittest.TestCase):
         card = _card("tradeoff", id="tek", options=[_option("A")])
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["tek: options sayısı 1 (2-3 olmalı)"])
 
+    def test_every_option_needs_gains(self):
+        card = _card("tradeoff", id="eksik", options=[_option("A"), {"name": _pair("B"), "costs": _pair()}])
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["eksik: options[2].gains yok"])
+
     def test_explain_card_carries_no_samples(self):
         card = _card("explain", id="fazla", bad={"text": _pair()})
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["fazla: explain kartında `bad` olmamalı"])
