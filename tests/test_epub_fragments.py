@@ -4,6 +4,7 @@ import _paths  # noqa: F401
 from epub.fragments import Fragment, Heading, ParaPassage, Passage, PassageList, notes_section
 
 MARK = "<span/>"
+FIRST_NOTE = 1
 
 
 def _para(en, tr="Tr.", css_class="para"):
@@ -46,13 +47,17 @@ class ParaPassageJoinTest(unittest.TestCase):
     def test_non_paragraph_does_not_continue(self):
         self.assertFalse(_para("of a").continues_into(Passage("caption", "Şekil", "Figure")))
 
-    def test_join_keeps_both_languages_and_marks_the_page(self):
+    def test_join_keeps_the_english_of_both(self):
         joined = _para("of a masked", "Maskeli bir").join(_para("model.", "model."), MARK)
-        self.assertEqual((joined.en_html, joined.tr_html), ("of a masked model.", f"Maskeli bir {MARK}model."))
+        self.assertEqual(joined.english(), ["of a masked model."])
+
+    def test_join_marks_the_page_inside_the_turkish(self):
+        joined = _para("of a masked", "Maskeli bir").join(_para("model.", "model."), MARK)
+        self.assertTrue(joined.render(FIRST_NOTE).startswith(f'<p class="para">Maskeli bir {MARK}model. <a'))
 
     def test_join_drops_continuation_mark(self):
         joined = _para("of a", "Bir").join(_para("model. Next.", "… Sonraki."), MARK)
-        self.assertEqual(joined.tr_html, f"Bir {MARK}Sonraki.")
+        self.assertTrue(joined.render(FIRST_NOTE).startswith(f'<p class="para">Bir {MARK}Sonraki. <a'))
 
 
 class PassageNoteTest(unittest.TestCase):
