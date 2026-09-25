@@ -1,0 +1,42 @@
+/* Kindle (Paperwhite) için sade stil: yazı tipi ve boyutu okurun ayarında kalır. */
+
+header.chapter { margin: 2em 0 1.5em; text-align: center; page-break-before: always; }
+p.chapter-num { margin: 0; font-size: 0.85em; letter-spacing: 0.1em; text-transform: uppercase; }
+h1.chapter-title { margin: 0.3em 0 0; font-size: 1.5em; }
+h2 { margin: 1.4em 0 0.5em; font-size: 1.25em; }
+h3 { margin: 1.2em 0 0.4em; font-size: 1.1em; }
+h4 { margin: 1em 0 0.3em; font-size: 1em; font-style: italic; }
+
+p { margin: 0; }
+p.para { text-indent: 1.2em; }
+h2 + p.para, h3 + p.para, h4 + p.para, header + p.para { text-indent: 0; }
+p.para.quote { margin: 0.6em 1.5em; text-indent: 0; font-style: italic; }
+p.para.reference { margin-left: 1.2em; text-indent: -1.2em; font-size: 0.9em; }
+p.caption { margin: 0.3em 0 1em; font-size: 0.85em; text-align: center; }
+p.footnote { margin-top: 0.4em; font-size: 0.8em; }
+
+a.en-ref { font-size: 0.6em; vertical-align: super; line-height: 0; text-decoration: none; }
+section.notes { margin-top: 2em; font-size: 0.9em; }
+section.notes a.back { text-decoration: none; }
+
+ul.list, ol.list { margin: 0.6em 0 0.6em 1.2em; padding: 0; }
+
+pre.code { margin: 0.8em 0; padding: 0.3em 0 0.3em 0.5em; border-left: 2px solid #888;
+           font-family: monospace; font-size: 0.7em; white-space: pre-wrap; }
+code { font-family: monospace; font-size: 0.9em; }
+
+div.figure, div.math { margin: 1em 0; text-align: center; }
+div.figure img, div.math img { max-width: 100%; }
+img.math-inline { height: 1.2em; vertical-align: middle; }
+
+table.book-table { margin: 1em 0; border-collapse: collapse; font-size: 0.8em; }
+table.book-table th, table.book-table td { padding: 0.2em 0.3em; border: 1px solid #999; vertical-align: top; }
+
+section.cards { page-break-before: always; }
+div.card { margin: 1.4em 0 0; padding-top: 0.6em; border-top: 1px solid #999; }
+div.card h3 { margin-top: 0; }
+div.card p { margin: 0.3em 0; }
+p.card-page { font-size: 0.8em; }
+p.label { margin-top: 0.6em; font-weight: bold; }
+div.option { margin: 0.5em 0 0 0.8em; }
+p.tip { margin-top: 0.6em; }
