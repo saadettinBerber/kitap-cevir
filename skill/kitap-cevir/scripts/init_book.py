@@ -103,13 +103,7 @@ class BookSetup:
 
     def _fill_placeholders(self, mapping):
         for name in PLACEHOLDER_FILES:
-            path = os.path.join(self._target, name)
-            with open(path, encoding="utf-8") as handle:
-                text = handle.read()
-            for key, value in mapping.items():
-                text = text.replace("{{" + key + "}}", value)
-            with open(path, "w", encoding="utf-8") as handle:
-                handle.write(text)
+            _fill_file(os.path.join(self._target, name), mapping)
 
     def _place_pdf(self):
         """PDF'i projeye kopyalar; zaten proje içindeyse yalnız göreli adını verir."""
@@ -141,6 +135,20 @@ class BookSetup:
         if not self._args.chapters:
             return []
         return read_json(self._args.chapters)
+
+
+def _fill_file(path, mapping):
+    """Şablondaki {{AD}} yer tutucuları mapping'deki değerlerle doldurulur."""
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(_filled(text, mapping))
+
+
+def _filled(text, mapping):
+    for key, value in mapping.items():
+        text = text.replace("{{" + key + "}}", value)
+    return text
 
 
 def report(root, project):
