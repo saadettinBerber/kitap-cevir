@@ -29,32 +29,32 @@ class PageMigration:
     kartlarını ve denklem LaTeX'ini taşır."""
 
     def __init__(self, document, old):
-        self.document = document
-        self.old = old
+        self._document = document
+        self._old = old
 
     def run(self, fixes):
         """(pending, latex_items): çevirisi bulunamayan birimler ve LaTeX'i olmayan denklemler."""
-        filler = TranslationFiller(Translations.of_page(self.old, fixes))
-        for index, block in enumerate(self.document["blocks"]):
+        filler = TranslationFiller(Translations.of_page(self._old, fixes))
+        for index, block in enumerate(self._document["blocks"]):
             filler.fill_block(block, f"blocks[{index}]")
         for field in _COPY_FIELDS:
-            self.document[field] = self.old.get(field, self.document.get(field))
+            self._document[field] = self._old.get(field, self._document.get(field))
         self._carry_latex()
-        if not self.document.get("chapter", {}).get("tr"):
-            self.document["chapter"] = self.old.get("chapter", self.document["chapter"])
-        self.document["glossary_new"] = []
+        if not self._document.get("chapter", {}).get("tr"):
+            self._document["chapter"] = self._old.get("chapter", self._document["chapter"])
+        self._document["glossary_new"] = []
         return filler.pending(), self._missing_latex()
 
     def _carry_latex(self):
         """Eski sayfada aynı PNG için LaTeX yazılmışsa yeni yapıya taşınır; ayrı
         satır denkleminin LaTeX'i satır içindekinden önceliklidir."""
-        old, new = PageDocument(self.old), PageDocument(self.document)
+        old, new = PageDocument(self._old), PageDocument(self._document)
         known = {item["src"]: item.get("latex", "") for item in old.inline_math() + old.display_math()}
         for item in new.display_math() + new.inline_math():
             item["latex"] = item.get("latex") or known.get(item["src"], "")
 
     def _missing_latex(self):
-        page = PageDocument(self.document)
+        page = PageDocument(self._document)
         blocks = [{"path": f"blocks[{i}]", "src": equation["src"]} for i, block in enumerate(page.blocks())
                   for equation in block.equations() if not equation["latex"]]
         return blocks + [{"path": f"math[{i}]", "src": m["src"]}
