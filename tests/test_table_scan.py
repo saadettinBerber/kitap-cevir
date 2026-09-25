@@ -52,6 +52,51 @@ class TableScanTest(unittest.TestCase):
 
 
 
+BACKGROUND_ROWS = ROWS + [["Delta", "4", "40%"], ["Epsilon", "5", "50%"]]
+BACKGROUND_MARGIN = 5
+
+
+def _background_page():
+    """Yalnız başlığı ile son satırı dolgulu, hepsi tek arka planın üstünde duran tablo: iki dolgu
+    öbeği arasındaki boşluk onları ayrı tablo sayacak kadar büyük. Arka planın hemen altında sütunlara
+    oturan bir satır daha var."""
+    tops = [TABLE_TOP + ROW_HEIGHT * index for index in range(len(BACKGROUND_ROWS) + 1)]
+    lines = [_row(tops[0], HEADER, is_bold=True)]
+    lines += [_row(top, row, is_bold=False) for top, row in zip(tops[1:], BACKGROUND_ROWS)]
+    bottom = tops[-1] + ROW_HEIGHT
+    lines += [_row(bottom + BACKGROUND_MARGIN * 2, ["Zeta", "6", "60%"], is_bold=False)]
+    background = fill(COLUMNS[0][0] - BACKGROUND_MARGIN, TABLE_TOP - BACKGROUND_MARGIN,
+                      COLUMNS[-1][1] + BACKGROUND_MARGIN, bottom + BACKGROUND_MARGIN)
+    return FakePdfPage(lines=lines, shapes=[background] + _shading(tops[0]) + _shading(tops[-1]))
+
+
+class BackgroundTableTest(unittest.TestCase):
+    """Arka plan dolgusu varsa tablo odur: üstündeki hücreler tek tablodur, tablo arka planın kenarında biter."""
+
+    def setUp(self):
+        self.tables = TableScanner(with_defaults({})).scan(_background_page())
+
+    def test_cells_on_one_background_are_one_table(self):
+        self.assertEqual(len(self.tables), 1)
+
+    def test_table_ends_at_the_background_edge(self):
+        rows = self.tables[0]["block"]["rows"]
+        self.assertEqual([[c["en"] for c in row] for row in rows], [HEADER] + BACKGROUND_ROWS)
+
+
+class FullWidthFillTest(unittest.TestCase):
+    """Bütün sütunları boydan boya kaplayan dolgu satır bandı değildir; altındaki satırlar ayrı kalır."""
+
+    def test_rows_under_a_full_width_fill_stay_apart(self):
+        body_tops = [TABLE_TOP + ROW_HEIGHT * (index + 1) for index in range(len(ROWS))]
+        lines = [_row(TABLE_TOP, HEADER, is_bold=True)]
+        lines += [_row(top, row, is_bold=False) for top, row in zip(body_tops, ROWS)]
+        full_width = fill(COLUMNS[0][0], body_tops[0], COLUMNS[-1][1], body_tops[-1] + ROW_HEIGHT)
+        page = FakePdfPage(lines=lines + [(BODY,)], shapes=_shading(TABLE_TOP) + [full_width])
+        [table] = TableScanner(with_defaults({})).scan(page)
+        self.assertEqual([[c["en"] for c in row] for row in table["block"]["rows"]], [HEADER] + ROWS)
+
+
 TERM_COLUMNS = [(72, 140), (140, 432)]
 CELL_HEIGHT = 14
 SECOND_TABLE_TOP = 400
@@ -147,6 +192,32 @@ class TableGroupTest(unittest.TestCase):
 
     def test_fills_further_apart_are_two_tables(self):
         self.assertEqual(len(self._groups(CELL_HEIGHT * MAX_BAND_GAP_RATIO + STEP)), 2)
+
+
+class ShortTableTest(unittest.TestCase):
+    def test_header_without_body_rows_is_not_a_table(self):
+        lines, shapes, _ = _header_only_table(TABLE_TOP, [])
+        self.assertEqual(_tables(lines, shapes), [])
+
+
+class SingleColumnEdgeTest(unittest.TestCase):
+    """Tablonun başında ya da sonunda tek sütunu dolu satır tablo dışı metindir (başlık, kaynak notu)."""
+
+    ROW = ("Availability", "How long the system is available")
+
+    def test_single_column_band_above_the_header_is_left_out(self):
+        title = _cell_lines(TABLE_TOP - CELL_HEIGHT, ("Characteristics",), "Helvetica-Bold")
+        lines, shapes, _ = _header_only_table(TABLE_TOP, [self.ROW])
+        title_fill = fill(TERM_COLUMNS[0][0], TABLE_TOP - CELL_HEIGHT, TERM_COLUMNS[0][1], TABLE_TOP)
+        [table] = _tables(title + lines, shapes + [title_fill])
+        self.assertEqual([[cell["en"] for cell in row] for row in table["block"]["rows"]],
+                         [["Term", "Definition"], list(self.ROW)])
+
+    def test_single_column_line_after_the_last_row_is_left_out(self):
+        lines, shapes, _ = _header_only_table(TABLE_TOP, [self.ROW, ("a Estimated.",)])
+        [table] = _tables(lines, shapes)
+        self.assertEqual([[cell["en"] for cell in row] for row in table["block"]["rows"]],
+                         [["Term", "Definition"], list(self.ROW)])
 
 
 class TableEndTest(unittest.TestCase):
