@@ -12,12 +12,10 @@ PAGE = {"id": "page-7", "page": 7, "blocks": [{"type": "heading", "en": "H", "tr
 
 class TranslatedPagesTest(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.project = Project(self.tmp.name)
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.project = Project(tmp.name)
         self.pages = TranslatedPages(self.project)
-
-    def tearDown(self):
-        self.tmp.cleanup()
 
     def test_saved_page_is_read_back_by_its_number(self):
         self.pages.save(PageDocument(PAGE))
