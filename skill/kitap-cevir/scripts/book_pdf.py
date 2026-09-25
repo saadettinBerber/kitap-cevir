@@ -16,7 +16,7 @@ def _page_text(document, pdf_page):
     """İlk sayfanın öncesi ve son sayfanın sonrası boş metindir."""
     if not 1 <= pdf_page <= document.page_count:
         return ""
-    return normalize_spaces(document.page(pdf_page).text())
+    return normalize_spaces(document.page_text(pdf_page))
 
 
 def context_snippets(document, pdf_page):

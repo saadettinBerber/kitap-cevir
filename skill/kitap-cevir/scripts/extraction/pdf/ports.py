@@ -35,6 +35,9 @@ class PdfDocument(Protocol):
     def page(self, number: int) -> PdfPage:
         """1'den başlayan numarasıyla sayfa."""
 
+    def page_text(self, number: int) -> str:
+        """Sayfanın düz metni; bkz. PdfPage.text."""
+
 
 class LayoutReader(Protocol):
     """Sayfanın düzenini (başlık, paragraf, liste, tablo, görsel) okuyan motor."""

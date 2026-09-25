@@ -117,7 +117,7 @@ class PdfInspector:
 
     def page_texts(self, pages):
         """[(PDF sayfası, düz metin)]; pages '5' ya da '5-9'."""
-        return [(number, self.document.page(number).text()) for number in _page_range(pages, self.page_count())]
+        return [(number, self.document.page_text(number)) for number in _page_range(pages, self.page_count())]
 
     def lines(self, number):
         page = self.document.page(number)

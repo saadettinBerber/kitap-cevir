@@ -79,6 +79,9 @@ class FakePdfDocument:
     def page(self, number):
         return self.pages[number - 1]
 
+    def page_text(self, number):
+        return self.pages[number - 1].text()
+
 
 @dataclass
 class FakeLayoutReader:

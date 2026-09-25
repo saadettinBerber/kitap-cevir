@@ -35,6 +35,9 @@ class PyMuPdfDocument:
     def page(self, number):
         return PyMuPdfPage(self._document[number - FIRST_PAGE_NUMBER])
 
+    def page_text(self, number):
+        return self.page(number).text()
+
 
 class PyMuPdfPage:
     def __init__(self, page):

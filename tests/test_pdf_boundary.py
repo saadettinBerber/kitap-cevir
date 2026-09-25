@@ -88,6 +88,10 @@ class PyMuPdfAdapterTest(unittest.TestCase):
         with PyMuPdfDocument.open(self.pdf) as document:
             self.assertEqual(document.page_count, 1)
 
+    def test_document_reads_the_plain_text_of_a_page(self):
+        with PyMuPdfDocument.open(self.pdf) as document:
+            self.assertEqual(document.page_text(1).split(), ["Top", "line", "Bottom", "line"])
+
     def test_document_metadata_is_a_dict_even_when_empty(self):
         with PyMuPdfDocument.open(self.pdf) as document:
             self.assertIsInstance(document.metadata, dict)
