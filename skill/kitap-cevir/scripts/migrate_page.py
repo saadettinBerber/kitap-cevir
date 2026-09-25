@@ -37,13 +37,18 @@ class PageMigration:
         filler = TranslationFiller(Translations.of_page(self._old, fixes))
         for index, block in enumerate(self._document["blocks"]):
             filler.fill_block(block, f"blocks[{index}]")
+        self._carry_fields()
+        self._carry_latex()
+        return filler.pending(), self._missing_latex()
+
+    def _carry_fields(self):
+        """Başlık, kesit ve kartlar eski sayfadan gelir; bölümün Türkçesi yoksa bölüm de. Eski sayfanın
+        terimleri sözlükte olduğundan yeni terim listesi boşalır."""
         for field in _COPY_FIELDS:
             self._document[field] = self._old.get(field, self._document.get(field))
-        self._carry_latex()
         if not self._document.get("chapter", {}).get("tr"):
             self._document["chapter"] = self._old.get("chapter", self._document["chapter"])
         self._document["glossary_new"] = []
-        return filler.pending(), self._missing_latex()
 
     def _carry_latex(self):
         """Eski sayfada aynı PNG için LaTeX yazılmışsa yeni yapıya taşınır; ayrı
