@@ -1,8 +1,9 @@
 """Kavram kartlarını (concepts) kitabın kart ayarlarına göre denetler.
 
-Sorunlar metin listesi olarak döner; boş liste = kartlar geçerli. Kart türleri
-ve alanları: references/FORMAT.md → Kavram kartları. finalize_page.py ve
-regen_concepts.py kullanır.
+Sorunlar metin listesi olarak döner; boş liste = kartlar geçerli. Kart türleri ve alanları:
+references/FORMAT.md → Kavram kartları. Kart bir veri yapısıdır: türü Card.of'ta bulunur, türe
+özgü kurallar CardRules ziyaretçisindedir. Kart türleri sabit, kart üzerindeki işlemler (denetim,
+çizim) çoğalıyor; bu yüzden ortak kurallar sözlük üzerinde çalışan fonksiyonlardır (Bl.6).
 """
 from concept_cards import Card
 
