@@ -129,11 +129,12 @@ class CardChecker:
         self._rules = CardRules(spec["code_langs"])
 
     def problems(self, cards):
-        problems = CARD_LIMIT.problems(cards)
-        for index, card in enumerate(cards, 1):
-            label = card.get("id") or f"#{index}"
-            problems += [f"{label}: {problem}" for problem in self._card_problems(card)]
-        return problems + _duplicate_ids(cards)
+        return CARD_LIMIT.problems(cards) + self._named_card_problems(cards) + _duplicate_ids(cards)
+
+    def _named_card_problems(self, cards):
+        """Her sorun kartın kimliğiyle başlar; kimliği olmayan kart sırasıyla anılır."""
+        names = [card.get("id") or f"#{index}" for index, card in enumerate(cards, 1)]
+        return [f"{name}: {problem}" for name, card in zip(names, cards) for problem in self._card_problems(card)]
 
     def _card_problems(self, card):
         typed = Card.of(card)
