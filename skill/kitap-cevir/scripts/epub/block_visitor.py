@@ -51,8 +51,8 @@ class EpubBlockVisitor:
         return [BodyParagraph(css_class, self._joined_passage(block.units()))]
 
     def visit_list(self, block):
-        items = [self._passage(unit) for unit in block.units()]
-        return [PassageList(block.data.get("ordered", False), items)]
+        tag = "ol" if block.data.get("ordered") else "ul"
+        return [PassageList(tag, [self._passage(unit) for unit in block.units()])]
 
     def visit_table(self, block):
         rows, header_rows = block.data["rows"], block.data.get("header_rows", 0)

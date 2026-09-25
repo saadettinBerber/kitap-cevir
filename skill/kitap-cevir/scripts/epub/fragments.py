@@ -117,9 +117,9 @@ class BodyParagraph(Paragraph):
 class PassageList(Fragment):
     """Madde listesi; her madde kendi açılır notunu taşır."""
 
-    def __init__(self, ordered, passages):
+    def __init__(self, tag, passages):
         super().__init__()
-        self._tag = "ol" if ordered else "ul"
+        self._tag = tag
         self._passages = passages
 
     def english(self):

@@ -83,16 +83,16 @@ class PassageNoteTest(unittest.TestCase):
 class PassageListTest(unittest.TestCase):
     def test_items_are_numbered_from_first_note_skipping_untranslated(self):
         items = [Passage("Bir", "One"), Passage("Two", "Two"), Passage("Üç", "Three")]
-        html = PassageList(False, items).render(LATER_NOTE)
+        html = PassageList("ul", items).render(LATER_NOTE)
         numbers = [int(number) for number in re.findall(r'href="#note-(\d+)"', html)]
         self.assertEqual(numbers, [LATER_NOTE, LATER_NOTE + 1])
 
     def test_english_lists_each_item(self):
         items = [Passage("Bir", "One"), Passage("İki", "Two")]
-        self.assertEqual(PassageList(True, items).english(), ["One", "Two"])
+        self.assertEqual(PassageList("ol", items).english(), ["One", "Two"])
 
     def test_ordered_list_uses_ol(self):
-        self.assertTrue(PassageList(True, []).render(1).startswith('<ol class="list">'))
+        self.assertTrue(PassageList("ol", []).render(FIRST_NOTE).startswith('<ol class="list">'))
 
 
 class HeadingTest(unittest.TestCase):
