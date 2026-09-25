@@ -40,18 +40,19 @@ class PdfPathTest(unittest.TestCase):
 
 
 class ProgressFileTest(unittest.TestCase):
-    RECORD = {"pages": {"3": {"pdf_page": 22, "section_en": "Shelf", "section_tr": "Kitaplık"}}}
+    PAGE = 3
+    RECORD = {"pages": {str(PAGE): {"pdf_page": 22, "section_en": "Shelf", "section_tr": "Kitaplık"}}}
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.project = Project(self.tmp.name)
-        self.project.save_progress(Progress(self.RECORD))
+        Project(self.tmp.name).save_progress(Progress(self.RECORD))
 
     def tearDown(self):
         self.tmp.cleanup()
 
     def test_saved_progress_reads_back(self):
-        self.assertEqual(self.project.load_progress().section_of(3), {"en": "Shelf", "tr": "Kitaplık"})
+        progress = Project(self.tmp.name).load_progress()
+        self.assertEqual(progress.section_of(self.PAGE), {"en": "Shelf", "tr": "Kitaplık"})
 
     def test_saved_progress_keeps_turkish_letters_and_ends_with_a_newline(self):
         with open(os.path.join(self.tmp.name, "progress.json"), encoding="utf-8") as handle:
