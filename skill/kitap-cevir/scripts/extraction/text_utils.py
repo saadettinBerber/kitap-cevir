@@ -1,4 +1,9 @@
-"""Metin temizleme ve cümle ayırma yardımcıları (PDF çıkarımı için)."""
+"""Metin temizleme ve cümle ayırma yardımcıları (PDF çıkarımı için).
+
+Prosedürel (Bl.6): veri hep düz bir dizgedir ve yeni bir tür beklenmez; yeni kitaplar
+yeni işlemler getirir (ligatür, boşluk, cümle, liste işareti). Fonksiyonlar durum
+taşımaz ve tür üzerine dallanmaz; bu yüzden bir sınıfa sarılmaz.
+"""
 import re
 
 LIGATURES = {"ﬁ": "fi", "ﬀ": "ff", "ﬄ": "ffl", "ﬃ": "ffi", "ﬂ": "fl"}
