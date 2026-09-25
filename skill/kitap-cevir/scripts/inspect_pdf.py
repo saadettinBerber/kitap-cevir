@@ -20,6 +20,7 @@ from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 EDGE_LINES = 2                    # sayfa başı/sonu kaç satırda folyo aranır
 MAX_FOLIO = 9999
 TEXT_PREVIEW_CHARS = 70
+FONT_PREVIEW_CHARS = 22
 TOP_CANDIDATES = 3
 DEFAULT_LAST_PAGE = 400           # offset taraması varsayılan olarak bu PDF sayfasında durur
 _EDGE_NUMBER = re.compile(r"^(\d{1,4})\b|\b(\d{1,4})$")
@@ -164,7 +165,7 @@ class InspectionReport:
     def layout(self, number):
         for line in self._inspector.lines(number):
             print(f"y={line.y:6.1f}  odlY={line.odl_y:6.1f}  size={line.size:5.2f}  "
-                  f"{line.font[:22]:22}  {line.text[:TEXT_PREVIEW_CHARS]}")
+                  f"{line.font[:FONT_PREVIEW_CHARS]:{FONT_PREVIEW_CHARS}}  {line.text[:TEXT_PREVIEW_CHARS]}")
         print("\nFont / boyut / karakter sayısı:")
         for (font, size), count in self._inspector.font_usage(number):
             print(f"  {font:28} {size:5.1f}  {count}")
