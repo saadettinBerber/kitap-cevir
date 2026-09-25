@@ -39,6 +39,44 @@ class PdfPathTest(unittest.TestCase):
             self.assertEqual(project.pdf_path(), "/x/y.pdf")
 
 
+class LayoutTest(unittest.TestCase):
+    """Okuyucu, ajanlar ve kullanıcı dosyaları bu yollarda arar; yollar proje köküne göredir."""
+
+    PAGE = 7
+
+    def setUp(self):
+        self.project = Project("/kitap")
+
+    def _relative(self, path):
+        return self.project.relative_to_root(path)
+
+    def test_reader_data_files(self):
+        self.assertEqual([self._relative(path) for path in (self.project.toc_js, self.project.glossary_js)],
+                         ["data/toc.js", "data/glossary.js"])
+
+    def test_glossary_source(self):
+        self.assertEqual(self._relative(self.project.glossary_md), "glossary.md")
+
+    def test_translated_page_files(self):
+        paths = (self.project.page_js(self.PAGE), self.project.page_images(self.PAGE))
+        self.assertEqual([self._relative(path) for path in paths], ["data/pages/page-7.js", "data/pages/page-7_images"])
+
+    def test_translator_work_files(self):
+        paths = (self.project.work_input(self.PAGE), self.project.work_images(self.PAGE),
+                 self.project.work_output(self.PAGE))
+        self.assertEqual([self._relative(path) for path in paths],
+                         ["_work/in/page-7.json", "_work/in/page-7_images", "_work/out/page-7.json"])
+
+    def test_card_work_files(self):
+        self.assertEqual(self._relative(self.project.work_cards_file("in", self.PAGE)), "_work/cards/in/page-7.json")
+
+    def test_migration_work_folder(self):
+        self.assertEqual(self._relative(self.project.work_migrate), "_work/migrate")
+
+    def test_epub_file(self):
+        self.assertEqual(self._relative(self.project.epub_file("demo")), "dist/demo.epub")
+
+
 class ProgressFileTest(unittest.TestCase):
     PAGE = 3
     RECORD = {"pages": {str(PAGE): {"pdf_page": 22, "section_en": "Shelf", "section_tr": "Kitaplık"}}}
