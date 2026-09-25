@@ -17,5 +17,4 @@ def layout_reader_for(settings):
     name = settings["layout_reader"]
     if name not in READERS:
         raise InvalidLayoutReader(f"layout_reader '{name}' geçersiz; {' | '.join(READERS)} olmalı")
-    adapter = importlib.import_module(READERS[name])
-    return adapter.layout_reader()
+    return importlib.import_module(READERS[name]).layout_reader()
