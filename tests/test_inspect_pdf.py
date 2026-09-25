@@ -6,6 +6,7 @@ from pdf_fakes import PAGE_HEIGHT, PAGE_WIDTH, FakePdfDocument, FakePdfPage, spa
 from inspect_pdf import FolioOffsets, InspectionReport, PdfInspector
 
 OFFSET = 2
+LINE_BOX = (72, 62, 120, 72)
 BODY_PAGES = 4
 
 
@@ -44,6 +45,10 @@ class PdfInspectorTest(unittest.TestCase):
 
     def test_font_usage_counts_characters(self):
         self.assertEqual(PdfInspector(_book()).font_usage(OFFSET + 1), [(("Helvetica", 10.0), 25)])
+
+    def test_most_used_font_comes_first(self):
+        page = FakePdfPage(lines=[(span("a", LINE_BOX, "Small"), span("bigger", LINE_BOX, "Large"))])
+        self.assertEqual([font for (font, _), _ in PdfInspector(FakePdfDocument([page])).font_usage(1)], ["Large", "Small"])
 
     def test_page_texts_follow_the_asked_range(self):
         texts = PdfInspector(_book()).page_texts("1-2")
