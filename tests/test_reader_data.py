@@ -8,9 +8,9 @@ from progress import Progress
 from project import Project
 from reader_data import Glossary, TableOfContents
 
-GLOSSARY_TEMPLATE = ("# Sözlük\n\nAçıklama.\n\n| İngilizce Terim | Türkçe Karşılığı | Açıklama/Not |\n"
-                     "|----------------|-----------------|-------------|\n"
-                     "| Refactoring | Yeniden Düzenleme (Refactoring) | |\n")
+GLOSSARY_PREAMBLE = ("# Sözlük\n\nAçıklama.\n\n| İngilizce Terim | Türkçe Karşılığı | Açıklama/Not |\n"
+                     "|----------------|-----------------|-------------|\n")
+GLOSSARY_TEMPLATE = GLOSSARY_PREAMBLE + "| Refactoring | Yeniden Düzenleme (Refactoring) | |\n"
 PDF_OFFSET = 5
 BOOK_TOTAL_PAGES = 30
 LAST_TRANSLATED_PAGE = 2
@@ -99,6 +99,19 @@ class GlossaryTest(_ProjectTestCase):
     def test_glossary_skips_terms_without_english(self):
         self.assertEqual(Glossary(self.project).add([{"en": "", "tr": "boş"}, {"tr": "yok"}]), 0)
         self.assertEqual(len(Glossary(self.project).terms), 1)
+
+    def test_markdown_keeps_the_preamble_and_lists_rows_alphabetically(self):
+        Glossary(self.project).add([{"en": "Abstraction", "tr": "Soyutlama", "note": "Not"}])
+        with open(self.project.glossary_md(), encoding="utf-8") as handle:
+            self.assertEqual(handle.read(), GLOSSARY_PREAMBLE + "| Abstraction | Soyutlama | Not |\n"
+                                                                "| Refactoring | Yeniden Düzenleme (Refactoring) |  |\n")
+
+    def test_reader_glossary_is_alphabetical(self):
+        with open(self.project.glossary_md(), "a", encoding="utf-8") as handle:
+            handle.write("| Coupling | Bağlılık | |\n| Abstraction | Soyutlama | |\n")
+        Glossary(self.project).write_js()
+        entries = self._js_payload(self.project.glossary_js(), "window.GLOSSARY = ")
+        self.assertEqual([entry["en"] for entry in entries], ["Abstraction", "Coupling", "Refactoring"])
 
     def test_glossary_js_is_generated(self):
         Glossary(self.project).write_js()
