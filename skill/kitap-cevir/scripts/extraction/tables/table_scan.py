@@ -47,10 +47,16 @@ class TableRow:
     def filled_columns(self):
         return self._grid.filled_columns(self._spans)
 
-    def cells(self, is_header):
-        cells = self._grid.cells_of(self._spans, self._main_size)
-        keeps_breaks = not is_header and self._has_aligned_sublines(cells)
+    def header_cells(self):
+        return [cell.unit(row_keeps_breaks=False) for cell in self._cells()]
+
+    def body_cells(self):
+        cells = self._cells()
+        keeps_breaks = self._has_aligned_sublines(cells)
         return [cell.unit(keeps_breaks) for cell in cells]
+
+    def _cells(self):
+        return self._grid.cells_of(self._spans, self._main_size)
 
     @staticmethod
     def _has_aligned_sublines(cells):
@@ -77,7 +83,8 @@ class TableBuilder:
             return []
         header_rows = self._header_count(rows)
         block = {"type": "table", "header_rows": header_rows,
-                 "rows": [row.cells(index < header_rows) for index, row in enumerate(rows)]}
+                 "rows": [row.header_cells() if index < header_rows else row.body_cells()
+                          for index, row in enumerate(rows)]}
         return [{"y0": min(row.top for row in rows), "y1": max(row.bottom for row in rows), "block": block}]
 
     def _spans_within(self, area):
