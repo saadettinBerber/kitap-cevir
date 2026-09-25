@@ -99,16 +99,23 @@ class TableGridTest(unittest.TestCase):
 
 
 class TableCellTest(unittest.TestCase):
-    @staticmethod
-    def _span(text, line_y, size=10.0, x1=160.0):
-        return span(text, (72, line_y, x1, line_y + size), size=size)
+    COLUMN = (70, 170)
+    BODY_SIZE = 10.0
+    SUPERSCRIPT_SIZE = 6
+    LINE = (72, 100, 160, 110)
+    SUPERSCRIPT = (72, 100, 160, 106)
+    SHORT_LINE = (72, 100, 90, 110)
+    SHORT_NEXT_LINE = (72, 112, 90, 122)
+
+    def _cell(self, *spans):
+        return TableCell(list(spans), self.COLUMN, self.BODY_SIZE)
 
     def test_small_trailing_span_becomes_superscript(self):
-        cell = TableCell([self._span("Latency", 100), self._span("a", 100, size=6)], (70, 170), 10.0)
+        cell = self._cell(span("Latency", self.LINE), span("a", self.SUPERSCRIPT, size=self.SUPERSCRIPT_SIZE))
         self.assertEqual(cell.unit(row_keeps_breaks=False), {"en": "Latency<sup>a</sup>", "html": True})
 
     def test_short_lines_keep_breaks_when_row_asks(self):
-        cell = TableCell([self._span("one", 100, x1=90), self._span("two", 112, x1=90)], (70, 170), 10.0)
+        cell = self._cell(span("one", self.SHORT_LINE), span("two", self.SHORT_NEXT_LINE))
         self.assertEqual(cell.unit(row_keeps_breaks=True), {"en": "one<br>two", "html": True})
 
 
