@@ -180,6 +180,15 @@ class InlineCodeTest(unittest.TestCase):
     def test_repeated_token_is_marked_once(self):
         self.assertEqual(_tokens("getUser", "setUser", "getUser"), ["getUser", "setUser"])
 
+    def test_code_line_gives_no_inline_code(self):
+        self.assertEqual(_scan((CODE.at("int total = 0;", (LEFT, TOP)),))["inline_code"], [])
+
+    def test_prose_line_with_a_code_formula_is_marked_whole(self):
+        host = BODY.at("Energy ", (LEFT, TOP))
+        code = CODE.after(host, "10")
+        exponent = Pen(CODE_FONT, SCRIPT_SIZE).on_baseline("23", _end_of(code, SCRIPT_RISE))
+        self.assertEqual(_scan((host, code, exponent))["inline_code"], ["Energy 10^23"])
+
 
 def _code_block(*corners):
     """Her köşede bir kod satırı ('line0', 'line1', ...); tek kod bloğu beklenir."""
