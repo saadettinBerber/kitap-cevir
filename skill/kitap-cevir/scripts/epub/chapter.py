@@ -1,11 +1,13 @@
 """Bir bölümün EPUB dosyası: sayfaların tek akışı, sonunda kavram kartları ve açılır notlar."""
 from html import escape
+from itertools import accumulate
 
 from epub.block_visitor import EpubBlockVisitor
 from epub.cards import ChapterCards, PageCards
 from epub.fragments import Fragment, notes_section
 from epub.xhtml import document
 
+FIRST_NOTE = 1
 PAGE_ANCHOR = "page-{n}"
 PAGE_MARK = '<span epub:type="pagebreak" role="doc-pagebreak" id="' + PAGE_ANCHOR + '" title="{n}"/>'
 
@@ -60,11 +62,9 @@ class ChapterFlow:
         self._fragments += [*self._page_end, Fragment(page_mark(page)), *fragments]
 
     def _first_note_numbers(self):
-        numbers, next_note = [], 1
-        for fragment in self._flow():
-            numbers.append(next_note)
-            next_note += len(fragment.english())
-        return numbers
+        """Her parçanın ilk not numarası; numaralar bölüm boyunca sürer."""
+        note_counts = [len(fragment.english()) for fragment in self._flow()]
+        return list(accumulate(note_counts[:-1], initial=FIRST_NOTE))
 
 
 class Chapter:
