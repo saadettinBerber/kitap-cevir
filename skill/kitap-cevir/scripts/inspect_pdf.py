@@ -30,33 +30,36 @@ def _page_range(spec, total):
     return range(int(spec), int(spec) + 1)
 
 
-def _lines(page):
-    """page: PdfPage → satırlar (Span demetleri), yukarıdan aşağı, soldan sağa."""
-    return sorted(page.text_lines(), key=lambda spans: (round(spans[0].line_y), min(s.box.x0 for s in spans)))
-
-
 def _line_text(spans):
     return "".join(span.text for span in spans).strip()
 
 
-def _font_usage(lines):
-    """(font, boyut) -> karakter sayısı."""
-    usage = Counter()
-    for span in (span for spans in lines for span in spans):
-        usage[(span.font, round(span.size, 1))] += len(span.text)
-    return usage
+class PageLines:
+    """Bir sayfanın satırları (Span demetleri), yukarıdan aşağı, soldan sağa."""
 
+    def __init__(self, page):
+        self._height = page.height
+        self._lines = sorted(page.text_lines(), key=lambda spans: (round(spans[0].line_y), min(s.box.x0 for s in spans)))
 
-def _edge_lines(lines):
-    """Sayfanın ilk ve son satırları; kısa sayfada bir satır iki kez alınmaz."""
-    return lines[:EDGE_LINES] + lines[EDGE_LINES:][-EDGE_LINES:]
+    def infos(self):
+        return [LineInfo.of(spans, self._height) for spans in self._lines]
 
+    def font_usage(self):
+        """[((font, boyut), karakter sayısı)], en çok kullanılan önce."""
+        usage = Counter()
+        for span in (span for spans in self._lines for span in spans):
+            usage[(span.font, round(span.size, 1))] += len(span.text)
+        return usage.most_common()
 
-def _folio_candidates(lines):
-    """Sayfanın ilk ve son satırlarındaki basılı sayfa numarası adayları."""
-    matches = (_EDGE_NUMBER.search(_line_text(spans)) for spans in _edge_lines(lines))
-    numbers = [int(match.group(1) or match.group(2)) for match in matches if match]
-    return [number for number in numbers if 0 < number <= MAX_FOLIO]
+    def folio_candidates(self):
+        """Sayfanın ilk ve son satırlarındaki basılı sayfa numarası adayları."""
+        matches = (_EDGE_NUMBER.search(_line_text(spans)) for spans in self._edge_lines())
+        numbers = [int(match.group(1) or match.group(2)) for match in matches if match]
+        return [number for number in numbers if 0 < number <= MAX_FOLIO]
+
+    def _edge_lines(self):
+        """Sayfanın ilk ve son satırları; kısa sayfada bir satır iki kez alınmaz."""
+        return self._lines[:EDGE_LINES] + self._lines[EDGE_LINES:][-EDGE_LINES:]
 
 
 class FolioOffsets:
@@ -120,12 +123,13 @@ class PdfInspector:
         return [(number, self.document.page_text(number)) for number in _page_range(pages, self.page_count())]
 
     def lines(self, number):
-        page = self.document.page(number)
-        return [LineInfo.of(spans, page.height) for spans in _lines(page)]
+        return self._page_lines(number).infos()
 
     def font_usage(self, number):
-        """[((font, boyut), karakter sayısı)], en çok kullanılan önce."""
-        return _font_usage(_lines(self.document.page(number))).most_common()
+        return self._page_lines(number).font_usage()
+
+    def _page_lines(self, number):
+        return PageLines(self.document.page(number))
 
     def offsets(self, first, last):
         return FolioOffsets.of_folios(self._folios(first, last))
@@ -133,7 +137,7 @@ class PdfInspector:
     def _folios(self, first, last):
         """(PDF sayfası, basılı sayfa numarası) adayları."""
         numbers = range(first, min(last, self.page_count()) + 1)
-        return [(number, folio) for number in numbers for folio in _folio_candidates(_lines(self.document.page(number)))]
+        return [(number, folio) for number in numbers for folio in self._page_lines(number).folio_candidates()]
 
 
 class InspectionReport:
