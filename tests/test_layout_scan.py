@@ -146,6 +146,16 @@ class CodeScriptTest(unittest.TestCase):
     def test_superscript_in_code_gives_no_prose_word_fix(self):
         self.assertEqual(_scan(self._exponent_line())["script_fixes"], {})
 
+    def test_lowered_small_piece_is_a_subscript(self):
+        head = CODE.at("x = K", (LEFT, TOP))
+        [line] = _lines((head, self.EXPONENT.on_baseline("i", _end_of(head, -self.RISE))))
+        self.assertEqual(line.text, "x = K_i")
+
+    def test_small_piece_raised_more_than_a_line_is_no_superscript(self):
+        head = CODE.at("(3 x 10", (LEFT, TOP))
+        far = self.EXPONENT.on_baseline("23", _end_of(head, SIZE + STEP))
+        self.assertEqual([line.text for line in _lines((head, far))], ["23", "(3 x 10"])
+
     def test_far_fragment_joins_the_code_line_after_its_superscript(self):
         [line] = _lines(self._exponent_line(), (CODE.at("236 days", (self.FAR_LEFT, TOP)),))
         self.assertRegex(line.text, r"^\(3 x 10\^23\) =.*236 days$")

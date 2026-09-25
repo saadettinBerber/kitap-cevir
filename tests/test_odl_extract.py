@@ -1,8 +1,9 @@
 import unittest
 
-from pdf_fakes import PAGE_HEIGHT, element
+from pdf_fakes import PAGE_HEIGHT, FakeLayoutReader, FakePdfPage, element, span
 from extraction.block_builder import BlockBuilder
 from extraction.layout_elements import LayoutFixer
+from extraction.page_extractor import PageExtractor
 from extraction.page_regions import PageRegions, Region
 from extraction.pdf.model import PageLayout
 from extraction.page_zones import InvalidRunningHeader, PageZones
@@ -204,6 +205,16 @@ class CodeImageLinkPlacementTest(unittest.TestCase):
         glued = _element(f"{self.LINK} // Two classes", (70, 60, 430, 90))
         body = LayoutFixer([], [self.SLOT]).fixed([glued])
         self.assertEqual(regions.place(body, _builder(DEFAULTS).blocks_of), [code])
+
+
+
+class PageExtractorTest(unittest.TestCase):
+    """Satır sonunda bölünen özel isim, metin katmanından onarılır ('McGraw-' + 'Hill')."""
+
+    def test_hyphen_fixes_come_from_the_text_layer(self):
+        page = FakePdfPage(lines=[(span("published by McGraw-", PAGE_TOP_Y),), (span("Hill in 2019.", BODY_Y),)])
+        fixes = PageExtractor(DEFAULTS, FakeLayoutReader()).hyphen_fixes(page)
+        self.assertEqual(fixes, {"McGrawHill": "McGraw-Hill"})
 
 
 if __name__ == "__main__":

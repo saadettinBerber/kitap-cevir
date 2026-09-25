@@ -141,6 +141,10 @@ class ListTest(unittest.TestCase):
         self.assertEqual(_blocks("2. If the shop offers more.", kind="list item")[0]["sentences"][0]["en"],
                          "2. If the shop offers more.")
 
+    def test_list_item_without_a_number_keeps_its_text(self):
+        [block] = _blocks("An unnumbered item.", kind="list item")
+        self.assertEqual(block["sentences"], [{"en": "An unnumbered item."}])
+
     def test_list_item_in_chapter_title_size_stays_a_list_item(self):
         [block] = _blocks("2. Big item", kind="list item", font_size=CHAPTER_TITLE)
         self.assertEqual(block["sentences"], [{"en": "2. Big item"}])
