@@ -8,6 +8,7 @@ Kod fontu ve boyut eşiği progress.json -> extraction ayarlarından gelir.
 """
 import re
 
+from extraction.settings import optional_pattern
 from extraction.text_layer.code_lines import CodeFont, PageLineReader
 from extraction.text_layer.script_marks import ScriptFixes
 
@@ -103,7 +104,7 @@ class CodeImageLinkLines:
 
     def __init__(self, lines, pattern):
         self.lines = lines
-        self.pattern = re.compile(pattern) if pattern else None
+        self.pattern = optional_pattern(pattern)
 
     def slots(self):
         """{text, y0, y1}: bağlantı satırı, komşu satırlara kadarki boşluğuyla.
@@ -112,7 +113,7 @@ class CodeImageLinkLines:
         return [self._slot(line) for line in self.lines if self._is_link(line)]
 
     def _is_link(self, line):
-        return bool(self.pattern and self.pattern.fullmatch(line.text.strip()))
+        return bool(self.pattern.fullmatch(line.text.strip()))
 
     def _slot(self, link):
         slot_top = max((line.bottom for line in self.lines if line.bottom <= link.top), default=link.top)
