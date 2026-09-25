@@ -89,28 +89,28 @@ class Project:
         return os.path.join(self._dist_dir, f"{slug}.epub")
 
     def page_js(self, page):
-        return _page_path(self._pages_dir, page, ".js")
+        return os.path.join(self._pages_dir, _page_name(page, ".js"))
 
     def page_images(self, page):
-        return _page_path(self._pages_dir, page, "_images")
+        return os.path.join(self._pages_dir, _page_name(page, "_images"))
 
     def work_input(self, page):
-        return _page_path(self._work_in, page, ".json")
+        return os.path.join(self._work_in, _page_name(page, ".json"))
 
     def work_images(self, page):
-        return _page_path(self._work_in, page, "_images")
+        return os.path.join(self._work_in, _page_name(page, "_images"))
 
     def work_output(self, page):
-        return _page_path(self._work_out, page, ".json")
+        return os.path.join(self._work_out, _page_name(page, ".json"))
 
     def work_cards_file(self, stage, page):
-        return _page_path(os.path.join(self._work_cards, stage), page, ".json")
+        return os.path.join(self._work_cards, stage, _page_name(page, ".json"))
 
     def work_migration_file(self, stage, page):
         """Taşımada çevirisi bekleyen (pending) ve ajanın doldurduğu (done) birimler: pending-N.json, done-N.json."""
         return os.path.join(self._work_migrate, f"{stage}-{page}.json")
 
 
-def _page_path(directory, page, suffix):
+def _page_name(page, suffix):
     """Sayfa dosyalarının ad kuralı: page-N.js, page-N.json, page-N_images."""
-    return os.path.join(directory, f"page-{page}{suffix}")
+    return f"page-{page}{suffix}"
