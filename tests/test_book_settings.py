@@ -36,6 +36,10 @@ class BookSettingsTest(unittest.TestCase):
         self.assertEqual(BookSettings({"concepts": {"mode": "code"}}).concepts()["kinds"], ["code"])
         self.assertNotIn("mode", BookSettings({"concepts": {"mode": "contrast"}}).concepts())
 
+    def test_explicit_kinds_win_over_legacy_mode(self):
+        merged = BookSettings({"concepts": {"mode": "code", "kinds": ["tradeoff"]}}).concepts()
+        self.assertEqual(merged["kinds"], ["tradeoff"])
+
     def test_unknown_mode_or_kind_raises(self):
         for concepts in ({"mode": "kod"}, {"kinds": ["kod"]}, {"kinds": []}):
             with self.assertRaises(InvalidConceptSettings):
