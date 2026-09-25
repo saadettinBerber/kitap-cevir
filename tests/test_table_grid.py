@@ -57,6 +57,11 @@ class ColumnTilingTest(unittest.TestCase):
         grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
         self.assertTrue(grid.is_table_row([_span_at(SECOND_LEFT)]))
 
+    def test_column_of_a_span_outside_every_column_is_an_error(self):
+        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT - GAP_HALF_WIDTH), _cell(SECOND_LEFT + GAP_HALF_WIDTH, SECOND_RIGHT))
+        with self.assertRaises(ValueError):
+            grid.column_of(_span_at(SECOND_LEFT))
+
 
 class BandTest(unittest.TestCase):
     def test_spans_outside_every_band_are_not_in_the_same_band(self):

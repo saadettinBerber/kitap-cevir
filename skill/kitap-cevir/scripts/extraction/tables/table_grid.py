@@ -147,12 +147,19 @@ class TableGrid:
         return bool(self._bands)
 
     def column_of(self, span):
-        center = span.box.center_x
-        return next((i for i, (left, right) in enumerate(self.columns) if left <= center <= right), None)
+        """Parçanın ortasının düştüğü sütun; iki sütunun ortak kenarındaki orta soldakindedir."""
+        holding = self._columns_holding(span)
+        if not holding:
+            raise ValueError(f"parçanın ortası hiçbir sütuna düşmüyor: {span.text!r}")
+        return holding[0]
 
     def is_table_row(self, row):
         widest = max(right - left for left, right in self.columns) * WIDE_SPAN_RATIO
-        return all(s.box.width <= widest and self.column_of(s) is not None for s in row)
+        return all(s.box.width <= widest and self._columns_holding(s) for s in row)
+
+    def _columns_holding(self, span):
+        center = span.box.center_x
+        return [index for index, (left, right) in enumerate(self.columns) if left <= center <= right]
 
     def filled_columns(self, row):
         return len({self.column_of(span) for span in row})
