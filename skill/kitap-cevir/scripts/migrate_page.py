@@ -21,6 +21,7 @@ from project import Project
 from translated_pages import TranslatedPages
 
 _COPY_FIELDS = ("title", "section", "concepts")
+FINALIZED = "sonlandırıldı"
 _PATH_STEP = re.compile(r"(\w+)|\[(\d+)\]")
 
 
@@ -142,27 +143,45 @@ def _apply_done(finisher, pages):
         print(f"✓ sayfa {page} uygulandı ve sonlandırıldı (boş tr: {result['untranslated']})")
 
 
-def _status(result):
-    if result["finalized"]:
-        return "sonlandırıldı"
+def _migrate_only(project, args):
+    """--no-finalize: eksiksiz sayfa da sonlandırılmadan bekler."""
+    for result in _migrated(project, args):
+        _print_result(result, _waiting(result))
+
+
+def _migrate_and_finalize(project, args):
+    finisher = MigrationFinisher.for_project(project)
+    for result in _migrated(project, args):
+        if result["complete"]:
+            finisher.finalize(result["page"])
+        _print_result(result, FINALIZED if result["complete"] else _waiting(result))
+
+
+def _migrated(project, args):
+    """Sayfalar sırayla, istendikçe taşınır; her sonuç sonlandırılıp basıldıktan sonra sıradaki taşınır."""
+    progress = project.load_progress()
+    migrator = Migrator.for_progress(project, progress)
+    pages = progress.translated_pages() if args == ["all"] else [int(a) for a in args]
+    return (migrator.run(page) for page in pages)
+
+
+def _waiting(result):
     return f"bekliyor (pending {result['pending']}, latex {result['latex']})"
+
+
+def _print_result(result, status):
+    print(f"sayfa {result['page']}: {result['units']} birim, {status}")
 
 
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     project = Project.discover()
-    finisher = MigrationFinisher.for_project(project)
     if args[:1] == ["apply"]:
-        _apply_done(finisher, args[1:])
-        return
-    migrator = Migrator.for_progress(project, project.load_progress())
-    finalizes_complete = "--no-finalize" not in sys.argv
-    for page in project.load_progress().translated_pages() if args == ["all"] else [int(a) for a in args]:
-        result = migrator.run(page)
-        result["finalized"] = result["complete"] and finalizes_complete
-        if result["finalized"]:
-            finisher.finalize(page)
-        print(f"sayfa {result['page']}: {result['units']} birim, {_status(result)}")
+        _apply_done(MigrationFinisher.for_project(project), args[1:])
+    elif "--no-finalize" in sys.argv:
+        _migrate_only(project, args)
+    else:
+        _migrate_and_finalize(project, args)
 
 
 if __name__ == "__main__":
