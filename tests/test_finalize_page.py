@@ -118,6 +118,10 @@ class PageImagesTest(_FinalizeTestCase):
     def test_image_missing_from_the_work_folder_is_skipped(self):
         self.assertEqual(self._finalize(WITH_FIGURE)["images"], 0)
 
+    def test_page_naming_images_gets_an_image_folder_even_if_none_is_copied(self):
+        self._finalize(WITH_FIGURE)
+        self.assertEqual(os.listdir(self.project.page_images(PAGE)), [])
+
     def test_page_without_images_gets_no_image_folder(self):
         self._finalize(DOCUMENT)
         self.assertFalse(os.path.exists(self.project.page_images(PAGE)))
