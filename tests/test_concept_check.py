@@ -12,8 +12,9 @@ def _pair(text="x"):
     return {"en": text, "tr": text}
 
 
-def _card(card_id, kind, **fields):
-    return {"id": card_id, "kind": kind, "title": _pair(), "summary": _pair(), "tip": _pair(), **fields}
+def _card(kind, **fields):
+    """Kimlik `id=` ile verilir; verilmezse kart kimliksizdir."""
+    return {"kind": kind, "title": _pair(), "summary": _pair(), "tip": _pair(), **fields}
 
 
 def _option(name):
@@ -24,11 +25,11 @@ def _code(lang="python"):
     return {"lang": lang, "code": "x = 1", "why": _pair()}
 
 
-EXPLAIN = _card("tanim", "explain")
-TRADEOFF = _card("secim", "tradeoff", options=[_option("A"), _option("B")])
-CONTRAST = _card("karsit", "contrast", bad={"text": _pair(), "why": _pair()},
+EXPLAIN = _card("explain", id="tanim")
+TRADEOFF = _card("tradeoff", id="secim", options=[_option("A"), _option("B")])
+CONTRAST = _card("contrast", id="karsit", bad={"text": _pair(), "why": _pair()},
                  good={"text": _pair(), "why": _pair()})
-CODE = _card("kod", "code", bad=_code(), good=_code("py"))
+CODE = _card("code", id="kod", bad=_code(), good=_code("py"))
 
 
 class CardProblemsTest(unittest.TestCase):
@@ -44,24 +45,24 @@ class CardProblemsTest(unittest.TestCase):
         self.assertEqual(problems, ["kod: tür 'code' bu kitapta izinli değil (explain, tradeoff)"])
 
     def test_missing_translation_is_reported(self):
-        card = _card("bos", "explain", tip={"en": "x", "tr": " "})
+        card = _card("explain", id="bos", tip={"en": "x", "tr": " "})
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["bos: tip.tr boş"])
 
     def test_code_language_must_be_allowed(self):
-        card = _card("java", "code", bad=_code("java"), good=_code())
+        card = _card("code", id="java", bad=_code("java"), good=_code())
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]),
                          ["java: bad.lang 'java' izinli değil (python)"])
 
     def test_tradeoff_needs_two_or_three_options(self):
-        card = _card("tek", "tradeoff", options=[_option("A")])
+        card = _card("tradeoff", id="tek", options=[_option("A")])
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["tek: options sayısı 1 (2-3 olmalı)"])
 
     def test_explain_card_carries_no_samples(self):
-        card = _card("fazla", "explain", bad={"text": _pair()})
+        card = _card("explain", id="fazla", bad={"text": _pair()})
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["fazla: explain kartında `bad` olmamalı"])
 
     def test_contrast_side_needs_text_and_why(self):
-        card = _card("yarim", "contrast", bad={}, good={"text": _pair(), "why": _pair()})
+        card = _card("contrast", id="yarim", bad={}, good={"text": _pair(), "why": _pair()})
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["yarim: bad.text yok", "yarim: bad.why yok"])
 
     def test_duplicate_ids_are_reported(self):
