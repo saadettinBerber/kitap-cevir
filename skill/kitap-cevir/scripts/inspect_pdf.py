@@ -66,8 +66,8 @@ class FolioOffsets:
     """Basılı sayfa numaralarından ofset oyları (PDF sayfası - kitap sayfası)."""
 
     def __init__(self, votes, examples):
-        self.votes = votes
-        self.examples = examples
+        self._votes = votes
+        self._examples = examples
 
     @classmethod
     def of_folios(cls, folios):
@@ -82,7 +82,7 @@ class FolioOffsets:
 
     def most_likely(self, count):
         """[(ofset, oy, ilk örnek)], en çok oy alan önce."""
-        return [(offset, votes, self.examples[offset]) for offset, votes in self.votes.most_common(count)]
+        return [(offset, votes, self._examples[offset]) for offset, votes in self._votes.most_common(count)]
 
 
 @dataclass(frozen=True)
@@ -105,22 +105,22 @@ class PdfInspector:
     """Açık bir PDF'in (PdfDocument) tanıma bilgileri; okur, basmaz."""
 
     def __init__(self, document):
-        self.document = document
+        self._document = document
 
     def page_count(self):
-        return self.document.page_count
+        return self._document.page_count
 
     def page_size(self):
-        first = self.document.page(1)
+        first = self._document.page(1)
         return first.width, first.height
 
     def metadata(self):
         """Boş olmayan metadata alanları."""
-        return {key: value for key, value in self.document.metadata.items() if value}
+        return {key: value for key, value in self._document.metadata.items() if value}
 
     def page_texts(self, pages):
         """[(PDF sayfası, düz metin)]; pages '5' ya da '5-9'."""
-        return [(number, self.document.page_text(number)) for number in _page_range(pages, self.page_count())]
+        return [(number, self._document.page_text(number)) for number in _page_range(pages, self.page_count())]
 
     def lines(self, number):
         return self._page_lines(number).infos()
@@ -129,7 +129,7 @@ class PdfInspector:
         return self._page_lines(number).font_usage()
 
     def _page_lines(self, number):
-        return PageLines(self.document.page(number))
+        return PageLines(self._document.page(number))
 
     def offsets(self, first, last):
         return FolioOffsets.of_folios(self._folios(first, last))
@@ -144,30 +144,30 @@ class InspectionReport:
     """PdfInspector'ın okuduklarını ekrana basar: info, text, layout, offset."""
 
     def __init__(self, inspector):
-        self.inspector = inspector
+        self._inspector = inspector
 
     def info(self):
-        width, height = self.inspector.page_size()
-        print(f"PDF sayfa sayısı: {self.inspector.page_count()}")
+        width, height = self._inspector.page_size()
+        print(f"PDF sayfa sayısı: {self._inspector.page_count()}")
         print(f"Sayfa boyutu (pt): {width:.1f} x {height:.1f}")
-        for key, value in self.inspector.metadata().items():
+        for key, value in self._inspector.metadata().items():
             print(f"  {key}: {value}")
 
     def text(self, pages):
-        for number, text in self.inspector.page_texts(pages):
+        for number, text in self._inspector.page_texts(pages):
             print(f"===== PDF sayfa {number} =====")
             print(text)
 
     def layout(self, number):
-        for line in self.inspector.lines(number):
+        for line in self._inspector.lines(number):
             print(f"y={line.y:6.1f}  odlY={line.odl_y:6.1f}  size={line.size:5.2f}  "
                   f"{line.font[:22]:22}  {line.text[:TEXT_PREVIEW_CHARS]}")
         print("\nFont / boyut / karakter sayısı:")
-        for (font, size), count in self.inspector.font_usage(number):
+        for (font, size), count in self._inspector.font_usage(number):
             print(f"  {font:28} {size:5.1f}  {count}")
 
     def offset(self, first, last):
-        candidates = self.inspector.offsets(first, last).most_likely(TOP_CANDIDATES)
+        candidates = self._inspector.offsets(first, last).most_likely(TOP_CANDIDATES)
         if not candidates:
             print("Basılı sayfa numarası bulunamadı; ofseti elle belirleyin.")
             return
