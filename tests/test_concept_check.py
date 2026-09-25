@@ -96,6 +96,10 @@ class CardProblemsTest(unittest.TestCase):
     def test_duplicate_ids_are_reported(self):
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, EXPLAIN]), ["tanim: id tekrar ediyor"])
 
+    def test_duplicate_is_reported_at_its_repetition(self):
+        cards = [_card("explain", id="a"), _card("explain", id="b"), _card("explain", id="b"), _card("explain", id="a")]
+        self.assertEqual(CardChecker(SPEC).problems(cards), ["b: id tekrar ediyor", "a: id tekrar ediyor"])
+
 
 class CardRulesTest(unittest.TestCase):
     def test_every_card_kind_has_rules(self):
