@@ -3,7 +3,7 @@ import io
 import unittest
 
 from pdf_fakes import PAGE_HEIGHT, PAGE_WIDTH, FakePdfDocument, FakePdfPage, span
-from inspect_pdf import FolioOffsets, InspectionReport, PdfInspector
+from inspect_pdf import TOP_CANDIDATES, FolioOffsets, InspectionReport, PdfInspector
 
 OFFSET = 2
 LINE_BOX = (72, 62, 120, 72)
@@ -84,6 +84,13 @@ class InspectionReportTest(unittest.TestCase):
 
     def test_text_prints_each_page_under_its_number(self):
         self.assertEqual(self._report(lambda report: report.text(str(OFFSET))), f"===== PDF sayfa {OFFSET} =====\nPreface\n")
+
+    def test_only_the_top_candidates_are_printed(self):
+        """Her sayfa kendini kitabın ilk sayfası sayar, yani başka bir ofset önerir;
+        başlık satırının altında yalnız en olası adaylar kalır."""
+        pages = [_text_page(("Body", 62), ("1", 790)) for _ in range(TOP_CANDIDATES + 1)]
+        printed = self._report(lambda report: report.offset(1, len(pages)), FakePdfDocument(pages))
+        self.assertEqual(len(printed.splitlines()) - 1, TOP_CANDIDATES)
 
     def test_missing_page_numbers_are_reported(self):
         document = FakePdfDocument([_text_page(("No numbers here", 62))])
