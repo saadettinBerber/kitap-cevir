@@ -23,14 +23,31 @@ OLD_PAGE = {
 }
 
 
-class MatchTest(unittest.TestCase):
+def _pending(filler):
+    return filler.pending
+
+
+class TranslationKeyTest(unittest.TestCase):
     def test_normalize_ignores_case_quotes_tags_and_placeholders(self):
         self.assertEqual(Translations.key("The “Code” <sup>1</sup> ⟦eq-2⟧."), Translations.key('the "code" 1'))
 
-    def test_old_units_flatten_in_page_order(self):
+    def test_normalize_ignores_curly_apostrophes_and_backticks(self):
+        self.assertEqual(Translations.key("don’t `run`"), Translations.key("don't run"))
+
+
+class TranslationsTest(unittest.TestCase):
+    def test_old_units_are_found_one_by_one(self):
         translations = Translations.of_page(OLD_PAGE, {})
-        self.assertEqual(list(translations.single.values()),
-                         ["Bağlılık", "İlk kısım", "ikinci kısım.", "Sonra bölünen tüm cümle."])
+        self.assertEqual([translations.lookup_single(en) for en in ("Coupling", "First part", "second part.")],
+                         ["Bağlılık", "İlk kısım", "ikinci kısım."])
+
+    def test_first_translation_of_a_repeated_unit_wins(self):
+        translations = Translations([_unit("A.", "bir"), _unit("A.", "iki")])
+        self.assertEqual(translations.lookup_single("A."), "bir")
+
+    def test_first_translation_of_a_repeated_join_wins(self):
+        translations = Translations([_unit("A", "1"), _unit("B", "2"), _unit("A", "3"), _unit("B", "4")])
+        self.assertEqual(translations.lookup("A B"), "1 2")
 
     def test_fixes_apply_to_both_sides(self):
         old = {"blocks": [{"type": "caption", "en": "10 x", "tr": "10 x"}]}
@@ -41,27 +58,70 @@ class MatchTest(unittest.TestCase):
         translations = Translations.of_page(OLD_PAGE, {})
         self.assertEqual(translations.lookup("First part second part."), "İlk kısım ikinci kısım.")
 
-    def test_new_split_sentences_are_merged_back(self):
-        filler = TranslationFiller(Translations.of_page(OLD_PAGE, {}))
-        sentences = [{"en": "Whole sentence"}, {"en": "split later."}]
-        merged = filler.fill_sentences(sentences, "blocks[0]")
-        self.assertEqual(merged, [_unit("Whole sentence split later.", "Sonra bölünen tüm cümle.")])
+    def test_up_to_four_old_units_join(self):
+        translations = Translations([_unit(letter, letter.lower()) for letter in "ABCD"])
+        self.assertEqual(translations.lookup("A B C D"), "a b c d")
+
+    def test_five_old_units_do_not_join(self):
+        translations = Translations([_unit(letter, letter.lower()) for letter in "ABCDE"])
+        self.assertEqual(translations.lookup("A B C D E"), "")
+
+    def test_single_unit_wins_over_a_join(self):
+        translations = Translations([_unit("A B", "tek"), _unit("A", "1"), _unit("B", "2")])
+        self.assertEqual(translations.lookup("A B"), "tek")
+
+    def test_text_without_words_has_no_translation(self):
+        self.assertEqual(Translations([_unit(" .", "nokta")]).lookup("."), "")
+
+
+class TranslationFillerTest(unittest.TestCase):
+    def test_found_translation_is_written(self):
+        unit, filler = {"en": "Coupling"}, TranslationFiller(Translations.of_page(OLD_PAGE, {}))
+        filler.fill_unit(unit, "p")
+        self.assertEqual(unit["tr"], "Bağlılık")
+
+    def test_blank_unit_gets_an_empty_translation(self):
+        unit, filler = {"en": "  "}, TranslationFiller(Translations([]))
+        filler.fill_unit(unit, "p")
+        self.assertEqual((unit["tr"], _pending(filler)), ("", []))
 
     def test_numeric_cell_copies_english(self):
         unit, filler = {"en": "42 %"}, TranslationFiller(Translations([]))
-        self.assertTrue(filler.fill_unit(unit, "p"))
-        self.assertEqual((unit["tr"], filler.pending), ("42 %", []))
+        filler.fill_unit(unit, "p")
+        self.assertEqual((unit["tr"], _pending(filler)), ("42 %", []))
 
     def test_unmatched_unit_goes_to_pending(self):
         unit, filler = {"en": "Brand new."}, TranslationFiller(Translations([]))
-        self.assertFalse(filler.fill_unit(unit, "blocks[3]"))
-        self.assertEqual(filler.pending, [{"path": "blocks[3]", "en": "Brand new.", "tr_hint": ""}])
+        filler.fill_unit(unit, "blocks[3]")
+        self.assertEqual((unit["tr"], _pending(filler)),
+                         ("", [{"path": "blocks[3]", "en": "Brand new.", "tr_hint": ""}]))
 
     def test_translation_missing_placeholder_goes_to_pending(self):
         filler = TranslationFiller(Translations([_unit("Loss is ⟦eq-1⟧.", "Kayıp budur.")]))
-        unit = {"en": "Loss is ⟦eq-1⟧."}
-        self.assertFalse(filler.fill_unit(unit, "p"))
-        self.assertEqual(filler.pending[0]["tr_hint"], "Kayıp budur.")
+        filler.fill_unit({"en": "Loss is ⟦eq-1⟧."}, "p")
+        self.assertEqual(_pending(filler)[0]["tr_hint"], "Kayıp budur.")
+
+
+class SentenceMergeTest(unittest.TestCase):
+    def test_new_split_sentences_are_merged_back(self):
+        filler = TranslationFiller(Translations.of_page(OLD_PAGE, {}))
+        merged = filler.fill_sentences([{"en": "Whole sentence"}, {"en": "split later."}], "blocks[0]")
+        self.assertEqual(merged, [_unit("Whole sentence split later.", "Sonra bölünen tüm cümle.")])
+
+    def test_sentence_found_alone_is_not_merged(self):
+        filler = TranslationFiller(Translations([_unit("A.", "bir"), _unit("A. B.", "bir iki")]))
+        merged = filler.fill_sentences([{"en": "A."}, {"en": "B."}], "blocks[0]")
+        self.assertEqual([sentence["en"] for sentence in merged], ["A.", "B."])
+
+    def test_longest_join_is_tried_first(self):
+        filler = TranslationFiller(Translations([_unit("A B", "ab"), _unit("A B C", "abc")]))
+        merged = filler.fill_sentences([{"en": "A"}, {"en": "B"}, {"en": "C"}], "blocks[0]")
+        self.assertEqual(merged, [_unit("A B C", "abc")])
+
+    def test_merged_sentences_are_numbered_again(self):
+        filler = TranslationFiller(Translations([_unit("A B", "ab")]))
+        filler.fill_sentences([{"en": "A"}, {"en": "B"}, {"en": "Yeni."}], "blocks[0]")
+        self.assertEqual(_pending(filler)[0]["path"], "blocks[0].sentences[1]")
 
 
 class MigrateTest(unittest.TestCase):
