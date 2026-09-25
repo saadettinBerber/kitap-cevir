@@ -36,13 +36,13 @@ class PageImages:
     """PDF'ten yeniden çıkarılan sayfanın görselleri ve PDF'te önlerindeki metin."""
 
     def __init__(self, blocks, folder):
-        self.blocks = [Block.of(block) for block in blocks]
-        self.folder = folder
+        self._blocks = [Block.of(block) for block in blocks]
+        self._folder = folder
 
     def anchored(self):
         """PDF sırasına göre (görsel src, önündeki metin) çiftleri; süs görseller atlanır."""
         found, previous_text = [], ""
-        for block in self.blocks:
+        for block in self._blocks:
             sources = block.image_sources()
             if sources:
                 found += [(src, previous_text) for src in sources if self._is_real(src)]
@@ -51,26 +51,26 @@ class PageImages:
         return found
 
     def copy(self, src, target_dir):
-        self.folder.copy([src], target_dir)
+        self._folder.copy([src], target_dir)
 
     def _is_real(self, src):
-        return self.folder.has(src) and min(self.folder.size(src)) >= MIN_IMAGE_SIDE_PX
+        return self._folder.has(src) and min(self._folder.size(src)) >= MIN_IMAGE_SIDE_PX
 
 
 class ImagePlacement:
     """Çevrilmiş sayfanın blokları; görsel, PDF'te önünde gelen metnin karşılığının altına girer."""
 
     def __init__(self, blocks):
-        self.blocks = blocks
+        self._blocks = blocks
 
     def has(self, src):
         return any(src in block.image_sources() for block in self._views())
 
     def add(self, src, anchor):
-        self.blocks.insert(self._index_after(anchor), {"type": "image", "src": src})
+        self._blocks.insert(self._index_after(anchor), {"type": "image", "src": src})
 
     def _views(self):
-        return [Block.of(block) for block in self.blocks]
+        return [Block.of(block) for block in self._blocks]
 
     def _index_after(self, anchor):
         """Çapaya en çok benzeyen bloğun hemen sonrası; eşleşme yoksa sayfa başı
@@ -78,7 +78,7 @@ class ImagePlacement:
         score, index = self._best_match(anchor)
         if score >= MATCH_THRESHOLD:
             return index + 1
-        return next((i for i, block in enumerate(self._views()) if not block.leads_page()), len(self.blocks))
+        return next((i for i, block in enumerate(self._views()) if not block.leads_page()), len(self._blocks))
 
     def _best_match(self, anchor):
         """(benzerlik, blok sırası); çapa boşsa hiçbir blok eşleşmez."""
@@ -93,20 +93,20 @@ class ExtractedImages:
     """Sayfayı PDF'ten yeniden çıkarır; blokları ve görsel klasörünü PageImages olarak verir."""
 
     def __init__(self, builder, project):
-        self.builder = builder
-        self.project = project
+        self._builder = builder
+        self._project = project
 
     def of(self, page):
-        image_dir = self.project.work_images(page)
-        return PageImages(self.builder.build(page, image_dir)["blocks"], ImageFolder(image_dir))
+        image_dir = self._project.work_images(page)
+        return PageImages(self._builder.build(page, image_dir)["blocks"], ImageFolder(image_dir))
 
 
 class ImageBackfiller:
     """Çevrilmiş sayfalara PDF'teki görselleri ekler; metin bloklarına dokunmaz."""
 
     def __init__(self, pages, extracted):
-        self.pages = pages
-        self.extracted = extracted
+        self._pages = pages
+        self._extracted = extracted
 
     @classmethod
     def for_project(cls, project):
@@ -115,11 +115,11 @@ class ImageBackfiller:
 
     def backfill_page(self, page):
         """Eklenen görsel sayısı; sayfa yalnız görsel eklendiyse yeniden yazılır."""
-        images = self.extracted.of(page)
-        page_document = self.pages.get(page)
-        added = self._place(images, ImagePlacement(page_document.data["blocks"]), self.pages.images_dir(page))
+        images = self._extracted.of(page)
+        page_document = self._pages.get(page)
+        added = self._place(images, ImagePlacement(page_document.data["blocks"]), self._pages.images_dir(page))
         if added:
-            self.pages.save(page_document)
+            self._pages.save(page_document)
         return added
 
     @staticmethod
