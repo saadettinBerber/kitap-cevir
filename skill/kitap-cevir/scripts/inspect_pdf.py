@@ -20,6 +20,7 @@ EDGE_LINES = 2                    # sayfa başı/sonu kaç satırda folyo aranı
 MAX_FOLIO = 9999
 TEXT_PREVIEW_CHARS = 70
 TOP_CANDIDATES = 3
+DEFAULT_LAST_PAGE = 400           # offset taraması varsayılan olarak bu PDF sayfasında durur
 _EDGE_NUMBER = re.compile(r"^(\d{1,4})\b|\b(\d{1,4})$")
 
 
@@ -190,7 +191,7 @@ def parse_args():
     layout.set_defaults(run=lambda report, args: report.layout(args.page))
     offset = commands.add_parser("offset")
     offset.add_argument("--from", dest="first", type=int, default=1)
-    offset.add_argument("--to", dest="last", type=int, default=400)
+    offset.add_argument("--to", dest="last", type=int, default=DEFAULT_LAST_PAGE)
     offset.set_defaults(run=lambda report, args: report.offset(args.first, args.last))
     return parser.parse_args()
 
