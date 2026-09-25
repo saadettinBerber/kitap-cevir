@@ -21,6 +21,7 @@ LEFT = 72.0
 STEP = 0.1
 SCRIPT_SIZE = SIZE * 0.8      # dipnot işaretinden büyük, simge oranının altında
 SCRIPT_RISE = 3.0
+CHAR_WIDTH = SIZE * MONO_CHAR_WIDTH_RATIO
 
 
 def _piece(text, left, top, font=BODY, size=SIZE):
@@ -116,6 +117,15 @@ class CodeScriptTest(unittest.TestCase):
         [line] = _lines(self._exponent_line())
         self.assertEqual((line.is_code, line.text), (True, "(3 x 10^23) ="))
 
+    def test_piece_closer_than_a_character_after_the_superscript_is_not_spaced(self):
+        head, script, _ = self._exponent_line()
+        tail = _code(") =", script.box.x1 + CHAR_WIDTH * 0.75, 100)
+        [line] = _lines((head, script, tail))
+        self.assertEqual(line.text, "(3 x 10^23) =")
+
+    def test_superscript_in_code_gives_no_prose_word_fix(self):
+        self.assertEqual(_scan(self._exponent_line())["script_fixes"], {})
+
     def test_far_fragment_joins_the_code_line_after_its_superscript(self):
         [line] = _lines(self._exponent_line(), (_code("236 days", 200, 100),))
         self.assertTrue(line.text.startswith("(3 x 10^23) ="))
@@ -207,6 +217,9 @@ class ProseScriptTest(unittest.TestCase):
 
     def test_mark_after_punctuation_is_a_footnote(self):
         self.assertEqual(self._script_fixes("m.", "2", SCRIPT_SIZE), {})
+
+    def test_blank_raised_piece_gives_no_word_fix(self):
+        self.assertEqual(self._script_fixes("m", " ", SCRIPT_SIZE), {})
 
     def test_two_scripts_in_one_sentence_stay_separate(self):
         """PyMuPDF aynı taban çizgisindeki iki simgeyi tek satırda verir: 'cᵉ and cᵃ'."""
