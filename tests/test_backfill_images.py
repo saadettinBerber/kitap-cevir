@@ -21,7 +21,7 @@ def _image(src):
 
 
 class FakeImageFolder:
-    """ImageFolder gibi; dosyalar {src: (genişlik, yükseklik)} olarak verilir."""
+    """ImageFolder gibi; dosyalar {src: (genişlik, yükseklik)} olarak verilir, kopyalar kaydedilir."""
 
     def __init__(self, sizes):
         self._sizes = sizes
@@ -34,6 +34,10 @@ class FakeImageFolder:
         return self._sizes[src]
 
     def copy(self, sources, target_dir):
+        """Gerçek klasör gibi, klasörde olmayan görseli kopyalayamaz."""
+        missing = [src for src in sources if not self.has(src)]
+        if missing:
+            raise FileNotFoundError(missing)
         self._copies += [(src, target_dir) for src in sources]
 
     def copied(self):
