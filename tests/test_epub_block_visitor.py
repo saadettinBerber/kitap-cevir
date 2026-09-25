@@ -52,6 +52,9 @@ class TextBlockTest(unittest.TestCase):
     def test_ordered_list_is_numbered(self):
         self.assertTrue(_html({"type": "list", "ordered": True, "items": []}).startswith('<ol class="list">'))
 
+    def test_unordered_list_is_bulleted(self):
+        self.assertTrue(_html({"type": "list", "items": []}).startswith('<ul class="list">'))
+
     def test_list_items_carry_their_english_notes(self):
         fragment = _only({"type": "list", "items": [{"en": "a", "tr": "b"}]})
         self.assertEqual(fragment.english(), ["a"])
