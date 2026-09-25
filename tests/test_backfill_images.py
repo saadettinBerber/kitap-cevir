@@ -33,8 +33,8 @@ class FakeImageFolder:
     def size(self, src):
         return self.sizes[src]
 
-    def copy(self, src, target_dir):
-        self.copied.append((src, target_dir))
+    def copy(self, sources, target_dir):
+        self.copied += [(src, target_dir) for src in sources]
 
 
 def _anchored(blocks, sizes):

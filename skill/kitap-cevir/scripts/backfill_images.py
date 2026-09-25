@@ -51,7 +51,7 @@ class PageImages:
         return found
 
     def copy(self, src, target_dir):
-        self.folder.copy(src, target_dir)
+        self.folder.copy([src], target_dir)
 
     def _is_real(self, src):
         return self.folder.has(src) and min(self.folder.size(src)) >= MIN_IMAGE_SIDE_PX

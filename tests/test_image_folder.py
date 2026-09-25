@@ -25,7 +25,7 @@ class ImageFolderTest(unittest.TestCase):
 
     def test_copy_creates_the_target_folder(self):
         target = os.path.join(self.tmp.name, "pages", "page-5_images")
-        ImageFolder(self.source).copy("fig.png", target)
+        ImageFolder(self.source).copy(["fig.png"], target)
         self.assertEqual(os.listdir(target), ["fig.png"])
 
 

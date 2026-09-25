@@ -19,9 +19,11 @@ class ImageFolder:
         """(genişlik, yükseklik) piksel."""
         return image_size(self._file(src))
 
-    def copy(self, src, target_dir):
+    def copy(self, sources, target_dir):
+        """Görseller aynı adla target_dir'e kopyalanır; klasör kopya olmasa da kurulur."""
         os.makedirs(target_dir, exist_ok=True)
-        shutil.copy2(self._file(src), os.path.join(target_dir, src))
+        for src in sources:
+            shutil.copy2(self._file(src), os.path.join(target_dir, src))
 
     def _file(self, src):
         return os.path.join(self._path, src)
