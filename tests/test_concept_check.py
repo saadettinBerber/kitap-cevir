@@ -70,6 +70,18 @@ class CardProblemsTest(unittest.TestCase):
         card = _card("contrast", id="yarim", bad={}, good={"text": _pair(), "why": _pair()})
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["yarim: bad.text yok", "yarim: bad.why yok"])
 
+    def test_three_options_are_allowed(self):
+        card = _card("tradeoff", id="uc", options=[_option("A"), _option("B"), _option("C")])
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), [])
+
+    def test_four_options_are_too_many(self):
+        card = _card("tradeoff", id="dort", options=[_option(name) for name in "ABCD"])
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["dort: options sayısı 4 (2-3 olmalı)"])
+
+    def test_five_cards_are_too_many(self):
+        cards = [EXPLAIN, TRADEOFF, CONTRAST, CODE, _card("explain", id="fazla")]
+        self.assertEqual(CardChecker(SPEC).problems(cards), ["kart sayısı 5 (2-4 olmalı)"])
+
     def test_duplicate_ids_are_reported(self):
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, EXPLAIN]), ["tanim: id tekrar ediyor"])
 
