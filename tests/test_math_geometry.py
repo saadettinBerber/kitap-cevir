@@ -4,7 +4,9 @@ import tempfile
 import unittest
 
 from pdf_fakes import FakePdfPage, span, stroke
-from extraction.equations.math_geometry import BAR_GROUP_MAX_SPAN_RATIO, COLUMN_EDGE_TOLERANCE, Rule, TextColumn
+from extraction.equations.math_geometry import (
+    BAR_GROUP_MAX_SPAN_RATIO, BAR_GROUP_Y_TOLERANCE, BAR_MAX_HEIGHT, BAR_MIN_WIDTH, COLUMN_EDGE_TOLERANCE,
+    EQUATION_LINE_GAP, MAX_GROWTH_PASSES, FractionEquationFinder, Rule, TextColumn)
 from extraction.equations.math_scan import MathScanner
 from extraction.pdf.geometry import Box
 from extraction.settings import with_defaults
@@ -119,6 +121,97 @@ class TextColumnTest(unittest.TestCase):
     def test_segmented_full_width_rule_is_not_a_fraction(self):
         rule = _rule((SEGMENT_LEFT, SEGMENT_SPLIT), (SEGMENT_SPLIT, SEGMENT_RIGHT))
         self.assertFalse(self.column.holds_fraction(rule))
+
+
+BAR_Y = 207
+LINE_HEIGHT = 12
+BODY = Box(COLUMN_LEFT, 500, COLUMN_RIGHT, 512)
+SECOND_BAR_LEFT = 260
+
+
+def _regions(*drawings):
+    """Gövde satırı sütunu belirler; kesir çizgisinin çevresinde metin yok."""
+    return FractionEquationFinder([BODY]).regions(list(drawings))
+
+
+def _bar(width, height):
+    return stroke(FRACTION_LEFT, BAR_Y, FRACTION_LEFT + width, BAR_Y + height)
+
+
+def _line_below(top):
+    return Box(FRACTION_LEFT, top, FRACTION_RIGHT, top + LINE_HEIGHT)
+
+
+def _grown_bottom(*lines):
+    """Kesir çizgisi ile altındaki satırlardan büyüyen tek bölgenin alt kenarı."""
+    [region] = FractionEquationFinder([BODY, *lines]).regions([_bar(FRACTION_RIGHT - FRACTION_LEFT, 0)])
+    return region.y1
+
+
+def _chain_below(count):
+    """Çizginin altında, her biri bir öncekinden tam en büyük boşluk kadar uzak satırlar."""
+    pitch = LINE_HEIGHT + EQUATION_LINE_GAP
+    return [_line_below(BAR_Y + EQUATION_LINE_GAP + index * pitch) for index in range(count)]
+
+
+class BarShapeTest(unittest.TestCase):
+    """Kesir çizgisi ince ve kısa bir yatay çizgidir; kalını dolgu, çok kısası nokta ya da imdir."""
+
+    def test_bar_as_thick_as_the_limit_is_a_bar(self):
+        self.assertEqual(len(_regions(_bar(SHORT_BAR, BAR_MAX_HEIGHT))), 1)
+
+    def test_bar_thicker_than_the_limit_is_a_fill(self):
+        self.assertEqual(_regions(_bar(SHORT_BAR, BAR_MAX_HEIGHT + STEP)), [])
+
+    def test_bar_as_short_as_the_limit_is_a_bar(self):
+        self.assertEqual(len(_regions(_bar(BAR_MIN_WIDTH, 0))), 1)
+
+    def test_bar_shorter_than_the_limit_is_not_a_bar(self):
+        self.assertEqual(_regions(_bar(BAR_MIN_WIDTH - STEP, 0)), [])
+
+    def test_page_without_text_lines_has_no_equations(self):
+        self.assertEqual(FractionEquationFinder([]).regions([_bar(SHORT_BAR, 0)]), [])
+
+
+def _edge_segment_and(segment_y):
+    """Sütun kenarından başlayan tablo kenarlığı parçası ve ondan sonra çizilen kısa bir parça."""
+    return (stroke(COLUMN_LEFT, BAR_Y, SEGMENT_RIGHT, BAR_Y),
+            stroke(SECOND_BAR_LEFT, segment_y, SECOND_BAR_LEFT + SHORT_BAR, segment_y))
+
+
+class RuleLevelTest(unittest.TestCase):
+    def test_segment_within_the_tolerance_belongs_to_the_edge_rule(self):
+        self.assertEqual(_regions(*_edge_segment_and(BAR_Y + BAR_GROUP_Y_TOLERANCE)), [])
+
+    def test_segment_past_the_tolerance_is_a_bar_of_its_own(self):
+        self.assertEqual(len(_regions(*_edge_segment_and(BAR_Y + BAR_GROUP_Y_TOLERANCE + STEP))), 1)
+
+    def test_segments_are_grouped_in_vertical_order_not_drawing_order(self):
+        edge, segment = _edge_segment_and(BAR_Y)
+        lower_bar = stroke(FRACTION_LEFT, TABLE_RULE_Y, FRACTION_RIGHT, TABLE_RULE_Y)
+        self.assertEqual(len(_regions(edge, lower_bar, segment)), 1)
+
+
+class GrowthTest(unittest.TestCase):
+    """Bölge, kesir çizgisinden başlayıp en büyük boşluk kadar yakın satırları toplayarak büyür."""
+
+    def test_line_at_the_gap_joins_the_equation(self):
+        line = _line_below(BAR_Y + EQUATION_LINE_GAP)
+        self.assertEqual(_grown_bottom(line), line.y1)
+
+    def test_line_past_the_gap_stays_out(self):
+        self.assertEqual(_grown_bottom(_line_below(BAR_Y + EQUATION_LINE_GAP + STEP)), BAR_Y)
+
+    def test_growth_stops_after_the_last_pass(self):
+        """Her geçiş bir komşu satır ekler; son geçişin satırı girer, sonrakiler dışarıda kalır."""
+        chain = _chain_below(MAX_GROWTH_PASSES + 1)
+        self.assertEqual(_grown_bottom(*chain), chain[MAX_GROWTH_PASSES - 1].y1)
+
+    def test_two_bars_of_one_equation_make_one_region(self):
+        second_bar = stroke(SECOND_BAR_LEFT, BAR_Y, SECOND_BAR_LEFT + SHORT_BAR, BAR_Y)
+        shared_line = Box(FRACTION_LEFT, BAR_Y + EQUATION_LINE_GAP, SECOND_BAR_LEFT + SHORT_BAR, BAR_Y + LINE_HEIGHT)
+        regions = FractionEquationFinder([BODY, shared_line]).regions([_bar(SHORT_BAR, 0), second_bar])
+        self.assertEqual(len(regions), 1)
 
 
 if __name__ == "__main__":
