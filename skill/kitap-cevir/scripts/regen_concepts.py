@@ -36,15 +36,14 @@ def _expand(spec):
 class CardInputs:
     """Çevrilmiş sayfalardan kart agent'ının girdisini (_work/cards/in) hazırlar."""
 
-    def __init__(self, project, spec):
-        """spec = BookSettings.concepts(); agent'a gider, kart türlerini buna göre seçer."""
+    def __init__(self, project, settings):
         self.project = project
         self.pages = TranslatedPages(project)
-        self.spec = spec
+        self.spec = settings.concepts()
 
     @classmethod
     def for_project(cls, project):
-        return cls(project, project.load_settings().concepts())
+        return cls(project, project.load_settings())
 
     def prepare(self, pages):
         """Yazılan girdilerin proje köküne göre yolları."""
@@ -56,6 +55,7 @@ class CardInputs:
         return self.project.relative_to_root(path)
 
     def card_input(self, document):
+        """Kart agent'ının girdisi; kitabın kart ayarı (concepts_spec) da gider, agent kart türlerini ona göre seçer."""
         page_data = document.data
         content = [unit for unit in (block.card_unit() for block in document.blocks()) if unit]
         return {"id": page_data["id"], "page": page_data["page"],
