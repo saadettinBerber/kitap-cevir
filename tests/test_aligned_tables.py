@@ -1,3 +1,4 @@
+import dataclasses
 import unittest
 
 from pdf_fakes import FakePdfPage, fill, span
@@ -9,6 +10,7 @@ BOLD, REGULAR = "Helvetica-Bold", "Helvetica"
 COLUMN_X = (72, 200)
 ROW_GAP = 14
 FIRST_ROW_Y = 100
+SHIFT = 3
 
 
 A4_HEIGHT = 842
@@ -89,6 +91,14 @@ class AlignedTableFinderTest(unittest.TestCase):
         after = _row(("tail",), FIRST_ROW_Y + ROW_GAP * 5)
         rows = AlignedTableFinder.of_spans(_table_spans(3) + after).tables()[0]["block"]["rows"]
         self.assertEqual(len(rows), 4)
+
+    def test_table_reaches_from_the_highest_to_the_lowest_span(self):
+        """Satır parçaları aynı satırda olsa da kutuları kayabilir: üst simge yukarı, alt simge aşağı taşar."""
+        last_y = FIRST_ROW_Y + ROW_GAP * 3
+        raised = dataclasses.replace(span("a", (300, FIRST_ROW_Y - SHIFT, 306, FIRST_ROW_Y + 7), BOLD), line_y=FIRST_ROW_Y)
+        lowered = dataclasses.replace(span("i", (260, last_y + SHIFT, 266, last_y + 13)), line_y=last_y)
+        [table] = AlignedTableFinder.of_spans(_table_spans(3) + [raised, lowered]).tables()
+        self.assertEqual((table["y0"], table["y1"]), (FIRST_ROW_Y - SHIFT, last_y + 13))
 
 
 class SplitTableTest(unittest.TestCase):
