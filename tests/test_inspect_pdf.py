@@ -50,6 +50,10 @@ class PdfInspectorTest(unittest.TestCase):
         page = FakePdfPage(lines=[(span("a", LINE_BOX, "Small"), span("bigger", LINE_BOX, "Large"))])
         self.assertEqual([font for (font, _), _ in PdfInspector(FakePdfDocument([page])).font_usage(1)], ["Large", "Small"])
 
+    def test_zero_at_the_page_edge_is_not_a_page_number(self):
+        document = FakePdfDocument([_text_page(("Body", 62), ("0", 790))])
+        self.assertEqual(PdfInspector(document).offsets(1, 1).most_likely(1), [])
+
     def test_page_texts_follow_the_asked_range(self):
         texts = PdfInspector(_book()).page_texts("1-2")
         self.assertEqual([number for number, _ in texts], [1, 2])
