@@ -35,11 +35,14 @@ def is_numeric_only(text):
 
 
 def split_sentences(paragraph):
-    protected = paragraph
-    for abbreviation, placeholder in ABBREVIATIONS.items():
-        protected = protected.replace(abbreviation, placeholder)
-    parts = _SENTENCE_BOUNDARY.split(protected)
+    parts = _SENTENCE_BOUNDARY.split(_with_protected_abbreviations(paragraph))
     return [part.replace("<DOT>", ".").strip() for part in parts if part.strip()]
+
+
+def _with_protected_abbreviations(paragraph):
+    for abbreviation, placeholder in ABBREVIATIONS.items():
+        paragraph = paragraph.replace(abbreviation, placeholder)
+    return paragraph
 
 
 def strip_list_marker(text):
