@@ -92,22 +92,27 @@ class PageEndTest(unittest.TestCase):
     """Sayfa sonu eki (kart satırı) bölünen paragrafı kırmaz; birleşik paragrafın arkasına düşer."""
 
     def test_page_end_follows_the_page(self):
-        html = _flow_across_page_end(CLOSED_PAGE, NEXT_PAGE_PARAS).render()
+        flow = _flow_across_page_end(CLOSED_PAGE, NEXT_PAGE_PARAS)
+        html = flow.render()
         self.assertLess(html.index(PAGE_END), html.index(page_mark(NEXT_PAGE)))
 
     def test_open_paragraph_still_joins_across_a_page_end(self):
-        self.assertIn("of a model.", _flow_across_page_end(OPEN_PAGE, CONTINUATION).english())
+        flow = _flow_across_page_end(OPEN_PAGE, CONTINUATION)
+        self.assertIn("of a model.", flow.english())
 
     def test_page_end_sits_after_the_joined_paragraph(self):
-        html = _flow_across_page_end(OPEN_PAGE, CONTINUATION).render()
+        flow = _flow_across_page_end(OPEN_PAGE, CONTINUATION)
+        html = flow.render()
         positions = [html.index("model."), html.index(PAGE_END), html.index("Sonraki.")]
         self.assertEqual(positions, sorted(positions))
 
     def test_last_page_end_closes_the_chapter(self):
-        self.assertTrue(_flow_ending_with_page_end(CLOSED_PAGE).render().endswith(PAGE_END))
+        flow = _flow_ending_with_page_end(CLOSED_PAGE)
+        self.assertTrue(flow.render().endswith(PAGE_END))
 
     def test_page_end_is_used_once(self):
-        self.assertEqual(_flow_across_page_end(CLOSED_PAGE, NEXT_PAGE_PARAS).render().count(PAGE_END), 1)
+        flow = _flow_across_page_end(CLOSED_PAGE, NEXT_PAGE_PARAS)
+        self.assertEqual(flow.render().count(PAGE_END), 1)
 
 
 class ChapterTest(unittest.TestCase):
