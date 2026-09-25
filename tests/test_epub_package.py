@@ -103,6 +103,10 @@ class ManifestTest(unittest.TestCase):
         opf = content_opf(EpubMetadata.for_book(BOOK, MODIFIED), [], ["images/page-5/a.unknownext"])
         self.assertIn('href="images/page-5/a.unknownext" media-type="application/octet-stream"', opf)
 
+    def test_images_are_numbered_from_one(self):
+        opf = content_opf(EpubMetadata.for_book(BOOK, MODIFIED), [], ["images/page-5/a.png"])
+        self.assertIn('<item id="img-1" href="images/page-5/a.png"', opf)
+
     def test_opf_escapes_author(self):
         self.assertIn("Yazar &amp; Ortak", content_opf(EpubMetadata.for_book(BOOK, MODIFIED), [], []))
 
