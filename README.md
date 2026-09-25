@@ -31,6 +31,7 @@ Claude Code'u yeniden başlatınca `/kitap-cevir` görünür.
 /kitap-cevir cards all     çevrilmiş sayfaların kavram kartlarını yeniden üret
 /kitap-cevir migrate all   çevrilmiş sayfaları yeni çıkarıma taşı (yeniden çeviri yok)
 /kitap-cevir backfill      çevrilmiş sayfalara PDF görsellerini geriye dönük ekle
+/kitap-cevir epub          Kindle için dist/<slug>.epub üret (Send to Kindle ile gönderilir)
 ```
 
 "sıradaki sayfa", "devam et" gibi doğal ifadeler de aynı akışı tetikler.
@@ -40,7 +41,7 @@ Okuyucuyu açmak için proje dizininde `python3 -m http.server 8000`.
 
 ```
 skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
-├── SKILL.md                  akış: A kurulum / B çeviri / C kavram kartları (en son) / D taşıma
+├── SKILL.md                  akış: A kurulum / B çeviri / C kavram kartları (en son) / D taşıma / E Kindle
 ├── scripts/
 │   │   # SKILL.md'nin çağırdığı betikler
 │   ├── init_book.py          yeni proje: iskelet + progress.json + glossary.md
@@ -50,19 +51,28 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │   ├── regen_concepts.py     kavram kartlarını çeviriden sonra ürettirir (metne dokunmaz)
 │   ├── migrate_page.py       çevrilmiş sayfaları yeni çıkarıma taşır (yeniden çeviri yok)
 │   ├── backfill_images.py    görselleri geriye dönük ekler
+│   ├── export_epub.py        BookExport: çevrilmiş sayfalar → dist/<slug>.epub (diskle tek sınır)
 │   │   # proje durumu
 │   ├── project.py            Project: proje kökü ve dosya yolları, progress.json okuma/yazma
 │   ├── progress.py           Progress: ilerleme kaydı (sayfalar, bölümler, son çevrilen sayfa)
 │   ├── book_settings.py      BookSettings: kitap ayarları varsayılanlarla (PDF, çıkarım, kartlar)
 │   ├── page_document.py      PageDocument: çevrilecek metin birimleri, görseller, denklemler
 │   ├── translated_pages.py   TranslatedPages: page-N.js ve görsel klasörünün deposu
-│   ├── page_blocks.py        Block.of: blok türüne göre davranış (birimler, kart girdisi, çapa)
+│   ├── page_blocks.py        Block.of: blok türüne göre davranış (birimler, kart girdisi, çapa); accept → VISITOR
 │   ├── page_input.py         PageInputBuilder: sayfanın çevirmen girdisi (bloklar, bölüm, bağlam)
 │   ├── book_pdf.py           BookPdf: kitap PDF'i tek açılışta; sayfa çıkarımı + komşu sayfa bağlamı
 │   ├── json_file.py          JSON okuma/yazma (UTF-8, kaçışsız, girintili)
 │   ├── reader_data.py        TableOfContents (data/toc.js), Glossary (glossary.md + data/glossary.js)
 │   ├── concept_check.py      kart denetimi: tür, zorunlu alanlar, kod dili
 │   ├── migrate_match.py      eski en→tr eşleşmelerini yeni birimlere bulur
+│   ├── epub/                 Kindle için EPUB 3 (disk bilmez; BookExport besler)
+│   │   ├── block_visitor.py  EpubBlockVisitor: blok → akış parçası (Block.accept ziyaretçisi)
+│   │   ├── fragments.py      Passage, ParaPassage, PassageList, Heading: Türkçe akış + EN açılır not
+│   │   ├── chapter.py        ChapterFlow, Chapter: sayfalar tek akış, bölünen paragraf birleşir
+│   │   ├── cards.py          kavram kartları → bölüm sonu XHTML (veri yapısı + fonksiyon)
+│   │   ├── manifest.py       EpubMetadata, content.opf, nav.xhtml (içindekiler, sayfa listesi)
+│   │   ├── package.py        EpubPackage: zip arşivi, XHTML iyi biçim denetimi
+│   │   └── xhtml.py          metin birimi → XHTML (kaçış, güvenli satır içi etiketler)
 │   └── extraction/           PDF sayfası → blok şeması
 │       ├── page_extractor.py PageExtractor: düzen okuyucusu + metin katmanı orkestrasyonu
 │       ├── pdf/              PDF kütüphaneleri sınırı: akışlar yalnız bunları görür
@@ -90,6 +100,7 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │   ├── FORMAT.md             sayfa veri formatı, kavram kartları, agent sözleşmesi
 │   ├── translation-style.md  çeviri kuralları
 │   └── extraction.md         çıkarım ayarları ve akort rehberi
+├── templates/epub/kindle.css Kindle stil dosyası (export_epub.py okur)
 └── templates/project/        init ile kopyalanan okuyucu iskeleti
     ├── index.html, css/, js/, data/pages/
     ├── CLAUDE.md, glossary.md, .gitignore, .claude/launch.json

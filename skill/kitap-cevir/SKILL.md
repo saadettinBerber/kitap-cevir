@@ -28,6 +28,7 @@ SKILL="${CLAUDE_SKILL_DIR}"
 | `cards 5-40`, `cards all`, "kartları yenile" | **C. Kavram kartları** |
 | `migrate 5 13`, `migrate all`, "sayfaları yeni çıkarıma taşı" | **D. Taşıma** |
 | `backfill` | Çevrilmiş sayfalara PDF görsellerini geriye dönük ekle: `python3 $SKILL/scripts/backfill_images.py [N ...]` |
+| `epub`, "Kindle", "Kindle'da oku" | **E. Kindle (EPUB)** |
 
 ## Görevler ve kimin yürüttüğü
 
@@ -238,6 +239,26 @@ denklem LaTeX'i aynen kalır.
    yerine yazılır, sayfa sonlandırılır.
 4. Birkaç taşınan sayfayı okuyucuda kontrol et, commit: `Sayfa A-B yeni çıkarıma taşındı`.
 
+## E. Kindle (`epub`)
+
+Çevrilmiş sayfalardan Kindle için akışkan bir EPUB 3 üretir; okuyucuya
+dokunmaz, aynı sayfa verisini okur.
+
+```bash
+python3 $SKILL/scripts/export_epub.py      # → dist/<slug>.epub
+```
+
+- Bölüm başına bir dosya; PDF sayfa sınırında bölünen paragraf birleşir,
+  basılı sayfa numarası Kindle'ın sayfa listesinde durur.
+- Metin Türkçe akar; paragraf, madde, altyazı ve dipnot sonundaki **EN**
+  bağlantısı İngilizce aslını açılır pencerede gösterir.
+- Denklemler PNG'dir (KaTeX yok); kavram kartları bölüm sonunda,
+  "Kavram kartları" kesitindedir; tablo hücreleri yalnız Türkçedir.
+- Kullanıcıya dosyayı Send to Kindle ile (e-posta, web ya da uygulama)
+  göndermesini söyle; kitap kimliği slug'dan türediği için yeni sürüm aynı kitabın
+  yerine geçer. Gönderimi agent yapmaz.
+- `dist/` git'e girmez (`.gitignore`).
+
 ## Sorun giderme
 
 | Belirti | Yapılacak |
@@ -255,6 +276,7 @@ denklem LaTeX'i aynen kalır.
 | Çıkarım düzeldi ama eski sayfalar eski yapıda | **D. Taşıma** (yeniden çeviri gerekmez) |
 | Okuyucu eski veriyi gösteriyor | `index.html`'deki `?v=N` sürüm ekini artır |
 | Kavram kartları sayfanın konusuyla ilgisiz kod örneğine dönüşüyor | `progress.json → concepts.kinds` listesini kitaba göre daralt (A.4 tablosu), sonra **C. Kavram kartları** |
+| `MalformedXhtml: text/chapter-NN.xhtml` | Bir sayfanın HTML birimi bozuk; hata satırındaki sayfayı düzelt, EPUB'ı yeniden üret |
 | `! KART: tür 'code' bu kitapta izinli değil` | Agent izinsiz tür seçmiş; çıktıyı düzelt ya da `concepts.kinds`'ı gözden geçir |
 
 ## Ayrıntılı referanslar (gerektiğinde oku)
