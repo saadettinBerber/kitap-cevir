@@ -94,7 +94,7 @@ class TableBuilder:
         """Bantlar varsa ilk bant öncesi (caption) atılır; tablo ilk tablo dışı
         satırda (gövde metni, dipnot) biter. Baştaki/sondaki tek sütunlu satırlar
         tablo dışı metindir (kaynak notu vb.)."""
-        if grid.bands:
+        if grid.has_bands():
             rows = list(itertools.dropwhile(lambda row: not grid.in_band(row.spans), rows))
         kept = list(itertools.takewhile(lambda row: grid.is_table_row(row.spans), rows))
         return TableBuilder._without_single_column_edges(kept, grid)

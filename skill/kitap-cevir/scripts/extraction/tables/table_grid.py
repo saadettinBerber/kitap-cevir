@@ -112,19 +112,16 @@ class TableGrid:
 
     def __init__(self, columns, bands):
         self.columns = columns
-        self.bands = bands
+        self._bands = bands
 
     @classmethod
     def from_cells(cls, cells, page_rects):
         columns = ColumnTiling(cells).columns()
-        bands = cls._bands(page_rects, columns) if len(columns) >= MIN_COLUMNS else []
+        bands = cls._row_bands(page_rects, columns) if len(columns) >= MIN_COLUMNS else []
         return cls(columns, bands)
 
-    def has_columns(self):
-        return len(self.columns) >= MIN_COLUMNS
-
     @classmethod
-    def _bands(cls, rects, columns):
+    def _row_bands(cls, rects, columns):
         """Sütun kenarlarına oturan (tüm tabloyu kaplamayan) dolguların y aralıkları
         satır bantlarıdır; içindeki metin tek satıra aittir."""
         full_width = [(columns[0][0], columns[-1][1])]
@@ -143,13 +140,19 @@ class TableGrid:
         return (any(abs(rect.x0 - left) <= EDGE_TOLERANCE for left, _ in columns)
                 and any(abs(rect.x1 - right) <= EDGE_TOLERANCE for _, right in columns))
 
+    def has_columns(self):
+        return len(self.columns) >= MIN_COLUMNS
+
+    def has_bands(self):
+        return bool(self._bands)
+
     def column_of(self, span):
         center = span.box.center_x
         return next((i for i, (left, right) in enumerate(self.columns) if left <= center <= right), None)
 
     def band_of(self, span):
         center = span.box.center_y
-        return next((i for i, (top, bottom) in enumerate(self.bands) if top <= center <= bottom), None)
+        return next((i for i, (top, bottom) in enumerate(self._bands) if top <= center <= bottom), None)
 
     def is_table_row(self, row):
         widest = max(right - left for left, right in self.columns) * WIDE_SPAN_RATIO
