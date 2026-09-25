@@ -1,7 +1,7 @@
 import unittest
 
 import _paths  # noqa: F401
-from epub.cards import CARDS_ANCHOR, card_html, cards_section
+from epub.cards import CARDS_ANCHOR, card_html, cards_section, is_drawable
 
 
 def _pair(tr):
@@ -52,6 +52,14 @@ class KindTest(unittest.TestCase):
     def test_card_without_tip_has_no_tip(self):
         card = {"id": "c", "kind": "explain", "title": _pair("t"), "summary": _pair("s")}
         self.assertNotIn('class="tip"', card_html(1, card))
+
+
+class DrawableTest(unittest.TestCase):
+    def test_card_with_summary_is_drawable(self):
+        self.assertTrue(is_drawable(_card("explain")))
+
+    def test_card_without_summary_is_not_drawable(self):
+        self.assertFalse(is_drawable({"id": "e", "title": _pair("boş"), "body_html": "<p/>"}))
 
 
 class SectionTest(unittest.TestCase):

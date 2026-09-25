@@ -13,6 +13,11 @@ DEFAULT_TIP_LABEL = "Pratik ipucu"
 OPTION_LABELS = (("gains", "Kazandırır"), ("costs", "Bedeli"))
 
 
+def is_drawable(card):
+    """Özeti (FORMAT.md'de zorunlu) olmayan kart çizilmez; başlıktan ibaret kart kitapta gürültüdür."""
+    return bool(card.get("summary"))
+
+
 def cards_section(page_cards):
     """(sayfa, kart) çiftlerinden bölüm sonu kesiti; kart yoksa boş."""
     if not page_cards:

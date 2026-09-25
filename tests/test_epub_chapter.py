@@ -72,8 +72,14 @@ class ChapterTest(unittest.TestCase):
         self.assertEqual(Chapter("c.xhtml", {"num": 1, "en": "Intro", "tr": ""}).title(), "Intro")
 
     def test_cards_add_a_toc_entry(self):
-        self.chapter.add(_page(5, [], concepts=[{"kind": "explain", "title": {"en": "A", "tr": "B"}}]))
+        card = {"kind": "explain", "title": {"en": "A", "tr": "B"}, "summary": {"en": "S", "tr": "Ö"}}
+        self.chapter.add(_page(5, [], concepts=[card]))
         self.assertEqual(self.chapter.toc_entries()[-1][0], "Kavram kartları")
+
+    def test_card_without_summary_is_left_out_of_the_chapter(self):
+        empty = {"kind": "explain", "title": {"en": "A", "tr": "B"}}
+        self.chapter.add(_page(5, [_para_block("A.", "B.")], concepts=[empty]))
+        self.assertEqual((self.chapter.page_cards, self.chapter.toc_entries()), ([], []))
 
     def test_chapter_without_cards_has_no_cards_entry(self):
         self.chapter.add(_page(5, [_para_block("A.", "B.")]))
