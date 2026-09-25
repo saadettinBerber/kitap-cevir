@@ -96,7 +96,8 @@ def _chapter_id(chapter):
 def nav_xhtml(chapters):
     """İçindekiler, başlangıç yeri ve basılı sayfa listesi."""
     toc = "".join(_toc_item(chapter) for chapter in chapters)
-    pages = "".join(_page_items(chapter) for chapter in chapters)
+    pages = "".join(f'<li><a href="{href}">{page}</a></li>'
+                    for chapter in chapters for page, href in chapter.page_links())
     start = f'<li><a epub:type="bodymatter" href="{chapters[0].href()}">Başla</a></li>' if chapters else ""
     return document("İçindekiler", (
         f'<nav epub:type="toc" id="toc"><h1>İçindekiler</h1><ol>{toc}</ol></nav>\n'
@@ -110,7 +111,3 @@ def _toc_item(chapter):
                       for text, anchor in chapter.toc_entries())
     nested = f"<ol>{entries}</ol>" if entries else ""
     return f'<li><a href="{chapter.href()}">{escape(chapter.title())}</a>{nested}</li>'
-
-
-def _page_items(chapter):
-    return "".join(f'<li><a href="{href}">{page}</a></li>' for page, href in chapter.page_links())
