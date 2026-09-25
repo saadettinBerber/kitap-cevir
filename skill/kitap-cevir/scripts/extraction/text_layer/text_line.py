@@ -3,6 +3,7 @@ düz metin mi, kendisine bağlanmış alt/üst simgeler ve çıkarımda kullanı
 metni. Koordinatlar üst orijinlidir.
 """
 from dataclasses import dataclass, fields
+from typing import NamedTuple
 
 from extraction.pdf.geometry import Box
 from extraction.pdf.model import Span
@@ -20,6 +21,14 @@ class LineSpan(Span):
     @classmethod
     def marked(cls, span, is_code):
         return cls(**{field.name: getattr(span, field.name) for field in fields(Span)}, is_code=is_code)
+
+
+class Piece(NamedTuple):
+    """Satır metnine x konumuna göre dizilen parça: span ya da alt/üst simge."""
+    left: float
+    right: float
+    text: str
+    is_script: bool = False
 
 
 def _covering(boxes):
@@ -136,8 +145,8 @@ class TextLine:
 
     def _spaced_text(self):
         """Parçaları x konumuna göre boşlukla dizer; alt/üst simgeleri araya koyar."""
-        pieces = [(span.box.x0, span.box.x1, span.text, False) for span in self.spans]
-        pieces += [(mark.x0, mark.x1, mark.text, True) for mark in self.scripts]
+        pieces = [Piece(span.box.x0, span.box.x1, span.text) for span in self.spans]
+        pieces += [mark.piece() for mark in self.scripts]
         text, cursor, after_script = "", None, False
         for x0, x1, piece, is_script in sorted(pieces):
             threshold = self.char_width if after_script else self.char_width / 2

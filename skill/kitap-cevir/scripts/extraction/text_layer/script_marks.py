@@ -3,6 +3,7 @@ olarak verir, ODL ise düz karaktere indirger. Simge ev sahibi satıra x konumun
 göre bağlanır; kodda '^23' / '_K' olarak dizilir, gövde metninde Unicode
 karşılığıyla sözcük düzeltmesine dönüşür.
 """
+from extraction.text_layer.text_line import Piece
 
 SCRIPT_SIZE_RATIO = 0.85          # ev sahibi puntosunun altındaki kaydırılmış parça = alt/üst simge
 SCRIPT_SHIFT_RATIO = 0.12         # taban çizgisi kayması / punto: bunun üstü üst (^) ya da alt (_) simge
@@ -21,20 +22,28 @@ class ScriptMark:
     """Ev sahibi satıra bağlanmış bir simge; `marker` '^' (üst) ya da '_' (alt)."""
 
     def __init__(self, part, marker):
-        self.x0, self.x1 = part.left, part.right
-        self.marker = marker
-        self.body = part.raw_text.strip()
-
-    @property
-    def text(self):
-        return self.marker + self.body
+        self._left, self._right = part.left, part.right
+        self._marker = marker
+        self._body = part.raw_text.strip()
 
     def as_unicode(self):
         """Unicode karşılığı; karşılığı olmayan karakter varsa '^' / '_' gösterimi."""
-        table = SUPERSCRIPTS if self.marker == "^" else SUBSCRIPTS
-        if self.body and all(ord(char) in table for char in self.body):
-            return self.body.translate(table)
-        return self.text
+        table = SUPERSCRIPTS if self._marker == "^" else SUBSCRIPTS
+        if self._body and all(ord(char) in table for char in self._body):
+            return self._body.translate(table)
+        return self._notation()
+
+    def piece(self):
+        """Satır metnine x konumuna göre dizilen '^23' / '_K' parçası."""
+        return Piece(self._left, self._right, self._notation(), is_script=True)
+
+    def word_fix(self, line):
+        """{düz: simgeli} sözcük düzeltmesi ('ma' -> 'mᵃ'); simgenin solunda sözcük yoksa boş."""
+        word = line.word_before(self._left, PROSE_SCRIPT_MAX_GAP)
+        return {word + self._body: word + self.as_unicode()} if word and self._body else {}
+
+    def _notation(self):
+        return self._marker + self._body
 
 
 class ScriptAttacher:
@@ -131,17 +140,5 @@ class ScriptFixes:
 
     def for_prose(self):
         """Gövde metnindeki simgeli sözcükler ('ma' -> 'mᵃ')."""
-        fixes = {}
-        for line in self._lines:
-            if not line.uses_script_layout():
-                fixes.update(self._word_fixes(line))
-        return fixes
-
-    @staticmethod
-    def _word_fixes(line):
-        fixes = {}
-        for mark in line.scripts:
-            word = line.word_before(mark.x0, PROSE_SCRIPT_MAX_GAP)
-            if word and mark.body:
-                fixes[word + mark.body] = word + mark.as_unicode()
-        return fixes
+        return {plain: scripted for line in self._lines if not line.uses_script_layout()
+                for mark in line.scripts for plain, scripted in mark.word_fix(line).items()}
