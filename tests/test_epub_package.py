@@ -91,6 +91,18 @@ class ManifestTest(unittest.TestCase):
         self.assertIn('<itemref idref="chapter-01"/>', opf)
         self.assertIn('href="images/page-5/a%20b.png" media-type="image/png"', opf)
 
+    def test_opf_types_chapters_as_xhtml(self):
+        opf = content_opf(EpubMetadata.for_book(BOOK, MODIFIED), [_Chapter("chapter-01.xhtml")], [])
+        self.assertIn('<item id="chapter-01" href="text/chapter-01.xhtml" media-type="application/xhtml+xml"/>', opf)
+
+    def test_opf_types_the_stylesheet_as_css(self):
+        opf = content_opf(EpubMetadata.for_book(BOOK, MODIFIED), [], [])
+        self.assertIn('<item id="css" href="styles/kindle.css" media-type="text/css"/>', opf)
+
+    def test_opf_types_an_unknown_image_as_bytes(self):
+        opf = content_opf(EpubMetadata.for_book(BOOK, MODIFIED), [], ["images/page-5/a.unknownext"])
+        self.assertIn('href="images/page-5/a.unknownext" media-type="application/octet-stream"', opf)
+
     def test_opf_escapes_author(self):
         self.assertIn("Yazar &amp; Ortak", content_opf(EpubMetadata.for_book(BOOK, MODIFIED), [], []))
 
