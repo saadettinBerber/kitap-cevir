@@ -10,6 +10,7 @@ TOP, BOTTOM = 100, 120
 FIRST_LEFT, SECOND_LEFT, SECOND_RIGHT = 70, 170, 270
 NEAR_EDGE = 120
 TEXT_BOTTOM = 700
+LOOSE_TOP, LOOSE_BOTTOM = 400, 420
 STEP = 0.1
 SPAN_HALF_WIDTH = 5
 GAP_HALF_WIDTH = 10
@@ -128,6 +129,16 @@ class BackgroundTest(unittest.TestCase):
         outer = fill(FIRST_LEFT, TOP, SECOND_RIGHT, BOTTOM * 2)
         inner = fill(FIRST_LEFT + GAP_HALF_WIDTH, TOP, NEAR_EDGE, BOTTOM)
         self.assertEqual(len(_groups(outer, inner)), 2)
+
+    def test_cells_outside_the_background_reach_down_to_the_text_bottom(self):
+        """Sayfada arka planlı bir tablonun yanında arka plansız hücreler de var: arka plan
+        yalnız kendi hücrelerinin sınırıdır."""
+        background = fill(FIRST_LEFT, TOP, SECOND_RIGHT, BOTTOM * 2)
+        inside = [fill(FIRST_LEFT, TOP, SECOND_LEFT, BOTTOM), fill(SECOND_LEFT, TOP, SECOND_RIGHT, BOTTOM)]
+        loose = [fill(FIRST_LEFT, LOOSE_TOP, SECOND_LEFT, LOOSE_BOTTOM),
+                 fill(SECOND_LEFT, LOOSE_TOP, SECOND_RIGHT, LOOSE_BOTTOM)]
+        fills = PageFills([background, *inside, *loose], TEXT_BOTTOM)
+        self.assertEqual(fills.extent([cell.box for cell in loose]).y1, TEXT_BOTTOM)
 
 
 if __name__ == "__main__":
