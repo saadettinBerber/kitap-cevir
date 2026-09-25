@@ -4,7 +4,7 @@ from xml.etree import ElementTree
 
 import _paths  # noqa: F401
 from epub.chapter import Chapter, ChapterFlow, page_mark
-from epub.fragments import Fragment, ParaPassage
+from epub.fragments import BodyParagraph, Fragment, Passage
 from page_document import PageDocument
 
 CHAPTER = {"num": 2, "en": "Evaluation", "tr": "Değerlendirme"}
@@ -12,15 +12,15 @@ PAGE = 5
 RETURN_LINK = re.compile(r'class="card-page"><a href="#([^"]+)"')
 NEXT_PAGE = 6
 PAGE_END = "<p>ek</p>"
-CLOSED_PAGE = [ParaPassage("para", "Bitti.", "Done.")]
-OPEN_PAGE = [ParaPassage("para", "Bir", "of a")]
-NEXT_PAGE_PARAS = [ParaPassage("para", "Sonraki.", "Next.")]
-CONTINUATION = [ParaPassage("para", "model.", "model."), ParaPassage("para", "Sonraki.", "Next.")]
+CLOSED_PAGE = [BodyParagraph("para", Passage("Bitti.", "Done."))]
+OPEN_PAGE = [BodyParagraph("para", Passage("Bir", "of a"))]
+NEXT_PAGE_PARAS = [BodyParagraph("para", Passage("Sonraki.", "Next."))]
+CONTINUATION = [BodyParagraph("para", Passage("model.", "model.")), *NEXT_PAGE_PARAS]
 CARD = {"kind": "explain", "title": {"en": "A", "tr": "B"}, "summary": {"en": "S", "tr": "Ö"}}
 
 
 def _para(en, tr):
-    return ParaPassage("para", tr, en)
+    return BodyParagraph("para", Passage(tr, en))
 
 
 def _page(number, blocks):

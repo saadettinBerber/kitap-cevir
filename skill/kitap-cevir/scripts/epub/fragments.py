@@ -55,40 +55,60 @@ class Heading(Fragment):
         return [(visible_text(self._tr_html), self._anchor)] if self._level == 1 else []
 
 
-class Passage(Fragment):
-    """İki dilli metin birimi: altyazı, dipnot ya da liste maddesi."""
+class Passage:
+    """İki dilli satır içi metin: Türkçesi akışta durur, İngilizcesi EN bağlantısıyla açılan nottur."""
 
-    def __init__(self, css_class, tr_html, en_html):
-        super().__init__()
-        self._css_class, self._tr_html, self._en_html = css_class, tr_html, en_html
+    def __init__(self, tr_html, en_html):
+        self._tr_html = tr_html
+        self._en_html = en_html
 
     def english(self):
-        """Çevrilmemiş (İngilizcesine düşmüş) birimin açılır notu olmaz."""
+        """Çevrilmemiş (İngilizcesine düşmüş) metnin açılır notu olmaz."""
         return [self._en_html] if self._en_html and self._en_html != self._tr_html else []
-
-    def render(self, first_note):
-        return f'<p class="{self._css_class}">{self.inline(first_note)}</p>'
 
     def inline(self, first_note):
         if not self.english():
             return self._tr_html
         return f"{self._tr_html} {NOTE_REF.format(n=first_note)}"
 
-
-class ParaPassage(Passage):
-    """Gövde paragrafı; sayfa sonunda yarım kalan cümle sonraki sayfada sürer."""
-
     def is_open(self):
+        """İngilizcesi cümle sonu işaretiyle bitmeyen metin sayfa sonunda yarım kalmıştır."""
         text = visible_text(_FOOTNOTE_MARK.sub("", self._en_html)).rstrip()
         return bool(text) and not text.endswith(SENTENCE_ENDINGS)
 
+    def join(self, continuation, page_mark):
+        """Devam metni bu metne katılır; sayfa işareti birleşme noktasında durur."""
+        tr = continuation._tr_html.removeprefix(CONTINUATION_MARK).lstrip()
+        return Passage(f"{self._tr_html} {page_mark}{tr}", f"{self._en_html} {continuation._en_html}")
+
+
+class Paragraph(Fragment):
+    """Sınıfıyla çizilen paragraf: altyazı ya da dipnot."""
+
+    def __init__(self, css_class, passage):
+        super().__init__()
+        self._css_class = css_class
+        self._passage = passage
+
+    def english(self):
+        return self._passage.english()
+
+    def render(self, first_note):
+        return f'<p class="{self._css_class}">{self._passage.inline(first_note)}</p>'
+
+
+class BodyParagraph(Paragraph):
+    """Gövde paragrafı; sayfa sonunda yarım kalan cümle sonraki sayfada sürer."""
+
     def continues_into(self, other):
-        return self.is_open() and isinstance(other, ParaPassage) and other._css_class == self._css_class
+        return self._passage.is_open() and self._has_style_of(other)
+
+    def _has_style_of(self, other):
+        return isinstance(other, BodyParagraph) and other._css_class == self._css_class
 
     def join(self, other, page_mark):
-        """Devam paragrafı bu paragrafa katılır; sayfa işareti birleşme noktasında durur."""
-        tr = other._tr_html.removeprefix(CONTINUATION_MARK).lstrip()
-        return ParaPassage(self._css_class, f"{self._tr_html} {page_mark}{tr}", f"{self._en_html} {other._en_html}")
+        """Devam paragrafı bu paragrafa katılır."""
+        return BodyParagraph(self._css_class, self._passage.join(other._passage, page_mark))
 
 
 class PassageList(Fragment):

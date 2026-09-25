@@ -1,40 +1,45 @@
 import unittest
 
 import _paths  # noqa: F401
-from epub.fragments import Fragment, Heading, ParaPassage, Passage, PassageList, notes_section
+from epub.fragments import BodyParagraph, Fragment, Heading, Paragraph, Passage, PassageList, notes_section
 
 MARK = "<span/>"
 FIRST_NOTE = 1
+QUOTE_STYLE = "para quote"
 
 
-def _para(en, tr="Tr.", css_class="para"):
-    return ParaPassage(css_class, tr, en)
+def _passage(en):
+    return Passage("Tr.", en)
 
 
-class ParaPassageOpenEndTest(unittest.TestCase):
+def _para(en, tr="Tr."):
+    return BodyParagraph("para", Passage(tr, en))
+
+
+class PassageOpenEndTest(unittest.TestCase):
     def test_sentence_without_ending_is_open(self):
-        self.assertTrue(_para("A well-known example of a masked language").is_open())
+        self.assertTrue(_passage("A well-known example of a masked language").is_open())
 
     def test_sentence_with_full_stop_is_closed(self):
-        self.assertFalse(_para("The model is BERT.").is_open())
+        self.assertFalse(_passage("The model is BERT.").is_open())
 
     def test_closing_quote_ends_a_sentence(self):
-        self.assertFalse(_para("He said “stop.”").is_open())
+        self.assertFalse(_passage("He said “stop.”").is_open())
 
     def test_closing_parenthesis_ends_a_sentence(self):
-        self.assertFalse(_para("See the paper (Devlin et al., 2018)").is_open())
+        self.assertFalse(_passage("See the paper (Devlin et al., 2018)").is_open())
 
     def test_footnote_mark_after_full_stop_does_not_open_it(self):
-        self.assertFalse(_para("The model is BERT.<sup>3</sup>").is_open())
+        self.assertFalse(_passage("The model is BERT.<sup>3</sup>").is_open())
 
     def test_trailing_space_is_ignored(self):
-        self.assertFalse(_para("Done.  ").is_open())
+        self.assertFalse(_passage("Done.  ").is_open())
 
     def test_empty_paragraph_is_not_open(self):
-        self.assertFalse(_para("").is_open())
+        self.assertFalse(_passage("").is_open())
 
 
-class ParaPassageJoinTest(unittest.TestCase):
+class BodyParagraphJoinTest(unittest.TestCase):
     def test_open_paragraph_continues_into_next_paragraph(self):
         self.assertTrue(_para("of a masked").continues_into(_para("model is BERT.")))
 
@@ -42,10 +47,10 @@ class ParaPassageJoinTest(unittest.TestCase):
         self.assertFalse(_para("Done.").continues_into(_para("next")))
 
     def test_different_styles_do_not_continue(self):
-        self.assertFalse(_para("of a").continues_into(_para("quote.", css_class="para quote")))
+        self.assertFalse(_para("of a").continues_into(BodyParagraph(QUOTE_STYLE, _passage("quote."))))
 
     def test_only_a_body_paragraph_continues(self):
-        self.assertFalse(_para("of a").continues_into(Passage("para", "Şekil", "Figure")))
+        self.assertFalse(_para("of a").continues_into(Paragraph("para", Passage("Şekil", "Figure"))))
 
     def test_join_keeps_the_english_of_both(self):
         joined = _para("of a masked", "Maskeli bir").join(_para("model.", "model."), MARK)
@@ -62,25 +67,25 @@ class ParaPassageJoinTest(unittest.TestCase):
 
 class PassageNoteTest(unittest.TestCase):
     def test_translated_passage_links_its_note(self):
-        html = Passage("caption", "Şekil", "Figure").render(4)
+        html = Paragraph("caption", Passage("Şekil", "Figure")).render(4)
         self.assertEqual(html, '<p class="caption">Şekil <a epub:type="noteref" id="ref-4" '
                                'href="#note-4" class="en-ref">EN</a></p>')
 
     def test_untranslated_passage_has_no_note(self):
-        self.assertEqual(Passage("caption", "Figure", "Figure").english(), [])
+        self.assertEqual(Passage("Figure", "Figure").english(), [])
 
     def test_passage_without_english_has_no_note(self):
-        self.assertEqual(Passage("caption", "Şekil", "").english(), [])
+        self.assertEqual(Passage("Şekil", "").english(), [])
 
 
 class PassageListTest(unittest.TestCase):
     def test_items_are_numbered_from_first_note_skipping_untranslated(self):
-        items = [Passage("item", "Bir", "One"), Passage("item", "Two", "Two"), Passage("item", "Üç", "Three")]
+        items = [Passage("Bir", "One"), Passage("Two", "Two"), Passage("Üç", "Three")]
         html = PassageList(False, items).render(7)
         self.assertEqual((html.count('href="#note-7"'), html.count('href="#note-8"')), (1, 1))
 
     def test_english_lists_each_item(self):
-        items = [Passage("item", "Bir", "One"), Passage("item", "İki", "Two")]
+        items = [Passage("Bir", "One"), Passage("İki", "Two")]
         self.assertEqual(PassageList(True, items).english(), ["One", "Two"])
 
     def test_ordered_list_uses_ol(self):

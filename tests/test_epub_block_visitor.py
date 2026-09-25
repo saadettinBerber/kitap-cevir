@@ -2,7 +2,7 @@ import unittest
 
 import _paths  # noqa: F401
 from epub.block_visitor import EpubBlockVisitor, image_href
-from epub.fragments import Heading, ParaPassage, PassageList
+from epub.fragments import BodyParagraph, Heading, PassageList
 from page_document import PageDocument
 
 PAGE = 12
@@ -36,8 +36,8 @@ class TextBlockTest(unittest.TestCase):
         passage = _only(_para(("One.", "Bir."), ("Two.", "İki.")))
         self.assertEqual(passage.english(), ["One. Two."])
 
-    def test_para_is_a_para_passage(self):
-        self.assertIsInstance(_only(_para(("One.", "Bir."))), ParaPassage)
+    def test_para_is_a_body_paragraph(self):
+        self.assertIsInstance(_only(_para(("One.", "Bir."))), BodyParagraph)
 
     def test_para_style_joins_its_class(self):
         self.assertTrue(_html(_para(("A.", "B."), style="quote")).startswith('<p class="para quote">'))

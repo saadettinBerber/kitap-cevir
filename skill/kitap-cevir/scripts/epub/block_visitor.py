@@ -7,7 +7,7 @@ from html import escape
 from itertools import count
 from urllib.parse import quote
 
-from epub.fragments import Fragment, Heading, ParaPassage, Passage, PassageList
+from epub.fragments import BodyParagraph, Fragment, Heading, Paragraph, Passage, PassageList
 from epub.xhtml import code_block, translated_html, unit_html
 
 MIN_HEADING_LEVEL = 1
@@ -44,15 +44,14 @@ class EpubBlockVisitor:
         return [Heading(_heading_level(block.data), self._tr(block.data), anchor)]
 
     def visit_text_unit(self, block):
-        return [Passage(block.kind, self._tr(block.data), self._en(block.data))]
+        return [Paragraph(block.kind, self._passage(block.data))]
 
     def visit_para(self, block):
         css_class = " ".join(filter(None, ("para", block.data.get("style"))))
-        units = block.units()
-        return [ParaPassage(css_class, self._joined(units, self._tr), self._joined(units, self._en))]
+        return [BodyParagraph(css_class, self._joined_passage(block.units()))]
 
     def visit_list(self, block):
-        items = [Passage("item", self._tr(unit), self._en(unit)) for unit in block.units()]
+        items = [self._passage(unit) for unit in block.units()]
         return [PassageList(block.data.get("ordered", False), items)]
 
     def visit_table(self, block):
@@ -72,6 +71,13 @@ class EpubBlockVisitor:
 
     def visit_math(self, block):
         return [Fragment(f'<div class="math">{self._equation_img(block.data, "math-display")}</div>')]
+
+    def _passage(self, unit):
+        return Passage(self._tr(unit), self._en(unit))
+
+    def _joined_passage(self, units):
+        """Paragrafın cümleleri iki dilde de tek metin olur."""
+        return Passage(self._joined(units, self._tr), self._joined(units, self._en))
 
     def _row(self, row, cell_tag):
         return "<tr>" + "".join(f"<{cell_tag}>{self._tr(cell)}</{cell_tag}>" for cell in row) + "</tr>"
