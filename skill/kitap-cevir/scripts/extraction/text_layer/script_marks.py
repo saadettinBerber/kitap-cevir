@@ -3,7 +3,7 @@ olarak verir, ODL ise düz karaktere indirger. Simge ev sahibi satıra x konumun
 göre bağlanır; kodda '^23' / '_K' olarak dizilir, gövde metninde Unicode
 karşılığıyla sözcük düzeltmesine dönüşür.
 """
-from extraction.text_layer.text_line import Piece
+from extraction.text_layer.text_line import Piece, TextLine, uses_script_layout
 
 SCRIPT_SIZE_RATIO = 0.85          # ev sahibi puntosunun altındaki kaydırılmış parça = alt/üst simge
 SCRIPT_SHIFT_RATIO = 0.12         # taban çizgisi kayması / punto: bunun üstü üst (^) ya da alt (_) simge
@@ -39,11 +39,17 @@ class ScriptMark:
 
     def word_fix(self, line):
         """{düz: simgeli} sözcük düzeltmesi ('ma' -> 'mᵃ'); simgenin solunda sözcük yoksa boş."""
-        word = line.word_before(self._left, PROSE_SCRIPT_MAX_GAP)
+        word = _word_before(line, self._left)
         return {word + self._body: word + self.as_unicode()} if word and self._body else {}
 
     def _notation(self):
         return self._marker + self._body
+
+
+def _word_before(line, left):
+    """Satırda verilen konumun solunda kalan son sözcük; simge sembole bu kadar yakın başlar."""
+    head = "".join(span.text for span in line.spans if span.box.x1 <= left + PROSE_SCRIPT_MAX_GAP).split()
+    return head[-1] if head else ""
 
 
 class ScriptAttacher:
@@ -63,13 +69,13 @@ class ScriptAttacher:
             return [line]
         if not orphans:
             return []
-        rest = line.with_spans(orphans)
+        rest = TextLine(orphans, line.is_code)
         rest.scripts = line.scripts
         return [rest]
 
     def _attach_or_keep(self, run, line):
         """Parça bir ev sahibine bağlanırsa boş liste, bağlanamazsa kendi span'ları."""
-        part = line.with_spans(run)
+        part = TextLine(run, line.is_code)
         host, marker = self._host_of(part, line)
         if host is None:
             return run
@@ -122,7 +128,7 @@ class ScriptAttacher:
         if host.is_code:
             return host.left <= part.left <= host.right + host.char_width
         touches = any(abs(span.box.x1 - part.left) <= PROSE_SCRIPT_MAX_GAP for span in host.spans)
-        token = host.word_before(part.left, PROSE_SCRIPT_MAX_GAP)
+        token = _word_before(host, part.left)
         return touches and 0 < len(token) <= PROSE_SCRIPT_MAX_HOST_CHARS and token.isalnum()
 
 
@@ -136,9 +142,9 @@ class ScriptFixes:
         """Düz metne düşürülen simgeli kod parçaları ('3.14 × 10' -> '3.14 × 10^23');
         TextFixer.plain uygular."""
         return {line.raw_text.strip(): line.text.strip()
-                for line in self._lines if not line.is_code and line.uses_script_layout()}
+                for line in self._lines if not line.is_code and uses_script_layout(line)}
 
     def for_prose(self):
         """Gövde metnindeki simgeli sözcükler ('ma' -> 'mᵃ')."""
-        return {plain: scripted for line in self._lines if not line.uses_script_layout()
+        return {plain: scripted for line in self._lines if not uses_script_layout(line)
                 for mark in line.scripts for plain, scripted in mark.word_fix(line).items()}

@@ -39,15 +39,6 @@ class TextLineTest(unittest.TestCase):
         line = TextLine.of_spans(_code(("int x", LEFT), (" = 1;", _end("int x"))))
         self.assertEqual((line.left, line.top, line.right), (LEFT, BASELINE - SIZE, _end("int x = 1;")))
 
-    def test_long_leading_code_is_split_from_prose(self):
-        line = TextLine.of_spans(_code(("count(items) + 1", LEFT)) + _prose((", or more", _end("count(items) + 1"))))
-        parts = [(part.is_code, part.raw_text) for part in line.split_leading_code()]
-        self.assertEqual(parts, [(True, "count(items) + 1"), (False, ", or more")])
-
-    def test_short_leading_code_stays_inline(self):
-        line = TextLine.of_spans(_code(("W", LEFT)) + _prose((" is the key", _end("W"))))
-        self.assertEqual(line.split_leading_code(), [line])
-
     def test_absorb_merges_fragments_on_one_baseline(self):
         line = TextLine.of_spans(_code(("a = ", LEFT)))
         line.absorb(TextLine.of_spans(_code(("b", _end("a = ")))))

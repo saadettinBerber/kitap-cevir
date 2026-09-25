@@ -12,6 +12,7 @@ import re
 from extraction.settings import optional_pattern
 from extraction.text_layer.code_lines import CodeFont, PageLineReader
 from extraction.text_layer.script_marks import ScriptFixes
+from extraction.text_layer.text_line import uses_script_layout
 
 BLANK_LINE_GAP_RATIO = 1.6        # bu oranın üstündeki dikey boşluk = boş satır
 MIN_INLINE_TOKEN_LENGTH = 2
@@ -68,7 +69,7 @@ class ProseRepairs:
 
     def _tokens_of(self, line):
         """Kod formüllü satır bütünüyle tek parçadır; düz metin satırında kod fontlu parçalar."""
-        if line.uses_script_layout():
+        if uses_script_layout(line):
             return [line.text.strip()]
         code = (_clean_token(span.text) for span in line.spans if span.is_code)
         return [token for token in code if self._is_markable(token)]

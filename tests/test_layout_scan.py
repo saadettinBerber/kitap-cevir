@@ -7,11 +7,11 @@ import unittest
 
 from pdf_fakes import PAGE_HEIGHT, FakePdfPage, span
 from extraction.settings import with_defaults
-from extraction.text_layer.code_lines import CodeFont, PageLineReader
+from extraction.text_layer.code_lines import SAME_BASELINE_TOLERANCE, CodeFont, PageLineReader
 from extraction.text_layer.script_marks import (PROSE_SCRIPT_MAX_GAP, PROSE_SCRIPT_MIN_SIZE_RATIO, SCRIPT_RUN_MAX_GAP,
                                                 SCRIPT_SIZE_RATIO)
 from extraction.text_layer.layout_scan import BLANK_LINE_GAP_RATIO, LayoutScanner
-from extraction.text_layer.text_line import MONO_CHAR_WIDTH_RATIO, SAME_BASELINE_TOLERANCE
+from extraction.text_layer.text_line import MONO_CHAR_WIDTH_RATIO
 
 CODE_FONT = "Courier"
 CODE_MAX_SIZE = 12.0
