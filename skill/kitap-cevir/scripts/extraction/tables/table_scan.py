@@ -78,7 +78,8 @@ class TableBuilder:
         grid = self.fills.grid_of(cells)
         if not grid.has_columns():
             return []
-        rows = self._table_rows(self._group_rows(self._spans_within(self.fills.extent(cells)), grid), grid)
+        spans = self._spans_within(self.fills.extent(cells))
+        rows = self._table_rows(RowSplitter(grid, self.row_gap_ratio).rows(spans), grid)
         if len(rows) < MIN_ROWS:
             return []
         header_rows = self._header_count(rows)
@@ -89,25 +90,6 @@ class TableBuilder:
 
     def _spans_within(self, area):
         return [s for s in self.page_spans if area.contains_point(s.box.x0 + CORNER_TOLERANCE, s.box.y0 + CORNER_TOLERANCE)]
-
-    def _group_rows(self, spans, grid):
-        rows, previous = [], None
-        for span in spans:
-            if self._starts_row(span, previous, grid):
-                rows.append([])
-            rows[-1].append(span)
-            previous = span
-        return [TableRow(row, grid) for row in rows]
-
-    def _starts_row(self, span, previous, grid):
-        """Bant varsa satırı bant belirler; bantsız gövdede satır arası boşluk satır
-        içi sarma boşluğundan büyüktür. Eşik kitaba göre değişir: bir kitapta satır
-        içi 1.2 / satırlar arası 1.6, başkasında 0.93 / 1.26 ölçüldü."""
-        if previous is None:
-            return True
-        if grid.is_in_band(span) or grid.is_in_band(previous):
-            return not grid.same_band(span, previous)
-        return span.box.y0 - previous.box.y0 > previous.box.height * self.row_gap_ratio
 
     @staticmethod
     def _table_rows(rows, grid):
@@ -132,6 +114,30 @@ class TableBuilder:
         while count < len(rows) and rows[count].is_bold():
             count += 1
         return count
+
+
+class RowSplitter:
+    """Parçaları tablo satırlarına böler: bant varsa satırı bant belirler; bantsız gövdede satır
+    arası boşluk satır içi sarma boşluğundan büyüktür."""
+
+    def __init__(self, grid, row_gap_ratio):
+        self._grid = grid
+        self._row_gap_ratio = row_gap_ratio
+
+    def rows(self, spans):
+        rows = [[span] for span in spans[:1]]
+        for previous, span in zip(spans, spans[1:]):
+            if self._starts_row(span, previous):
+                rows.append([])
+            rows[-1].append(span)
+        return [TableRow(row, self._grid) for row in rows]
+
+    def _starts_row(self, span, previous):
+        """Eşik kitaba göre değişir: bir kitapta satır içi 1.2 / satırlar arası 1.6, başkasında
+        0.93 / 1.26 ölçüldü."""
+        if self._grid.is_in_band(span) or self._grid.is_in_band(previous):
+            return not self._grid.same_band(span, previous)
+        return span.box.y0 - previous.box.y0 > previous.box.height * self._row_gap_ratio
 
 
 class TableScanner:
