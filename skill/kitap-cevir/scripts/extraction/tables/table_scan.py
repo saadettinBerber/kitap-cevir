@@ -21,16 +21,34 @@ class TableRow:
     """Tablonun bir satırındaki parçalar; ızgaraya göre hücrelere dağıtılır."""
 
     def __init__(self, spans, grid):
-        self.spans = spans
-        self.grid = grid
-        self.main_size = max(span.size for span in spans)
+        self._spans = spans
+        self._grid = grid
+        self._main_size = max(span.size for span in spans)
+
+    @property
+    def top(self):
+        return min(span.box.y0 for span in self._spans)
+
+    @property
+    def bottom(self):
+        return max(span.box.y1 for span in self._spans)
 
     def is_bold(self):
-        body = [s for s in self.spans if s.size >= self.main_size * SUPERSCRIPT_RATIO]
+        body = [s for s in self._spans if s.size >= self._main_size * SUPERSCRIPT_RATIO]
         return all("bold" in s.font.lower() for s in body)
 
+    def is_in_band(self):
+        return self._grid.in_band(self._spans)
+
+    def fits(self):
+        """Parçaların hepsi bir sütuna düşüyor ve hiçbiri sütundan belirgin geniş değil mi?"""
+        return self._grid.is_table_row(self._spans)
+
+    def filled_columns(self):
+        return self._grid.filled_columns(self._spans)
+
     def cells(self, is_header):
-        cells = self.grid.cells_of(self.spans, self.main_size)
+        cells = self._grid.cells_of(self._spans, self._main_size)
         keeps_breaks = not is_header and self._has_aligned_sublines(cells)
         return [cell.unit(keeps_breaks) for cell in cells]
 
@@ -60,8 +78,7 @@ class TableBuilder:
         header_rows = self._header_count(rows)
         block = {"type": "table", "header_rows": header_rows,
                  "rows": [row.cells(index < header_rows) for index, row in enumerate(rows)]}
-        return [{"y0": min(s.box.y0 for row in rows for s in row.spans),
-                 "y1": max(s.box.y1 for row in rows for s in row.spans), "block": block}]
+        return [{"y0": min(row.top for row in rows), "y1": max(row.bottom for row in rows), "block": block}]
 
     def _spans_within(self, area):
         return [s for s in self.page_spans if area.contains_point(s.box.x0 + CORNER_TOLERANCE, s.box.y0 + CORNER_TOLERANCE)]
@@ -91,15 +108,14 @@ class TableBuilder:
         satırda (gövde metni, dipnot) biter. Baştaki/sondaki tek sütunlu satırlar
         tablo dışı metindir (kaynak notu vb.)."""
         if grid.has_bands():
-            rows = list(itertools.dropwhile(lambda row: not grid.in_band(row.spans), rows))
-        kept = list(itertools.takewhile(lambda row: grid.is_table_row(row.spans), rows))
-        return TableBuilder._without_single_column_edges(kept, grid)
+            rows = list(itertools.dropwhile(lambda row: not row.is_in_band(), rows))
+        return TableBuilder._without_single_column_edges(list(itertools.takewhile(TableRow.fits, rows)))
 
     @staticmethod
-    def _without_single_column_edges(rows, grid):
-        while rows and grid.filled_columns(rows[0].spans) < MIN_COLUMNS:
+    def _without_single_column_edges(rows):
+        while rows and rows[0].filled_columns() < MIN_COLUMNS:
             rows = rows[1:]
-        while rows and grid.filled_columns(rows[-1].spans) < MIN_COLUMNS:
+        while rows and rows[-1].filled_columns() < MIN_COLUMNS:
             rows = rows[:-1]
         return rows
 
