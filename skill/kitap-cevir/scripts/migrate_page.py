@@ -143,22 +143,23 @@ def _apply_done(finisher, pages):
         print(f"✓ sayfa {page} uygulandı ve sonlandırıldı (boş tr: {result['untranslated']})")
 
 
-def _migrate_only(project, args):
-    """--no-finalize: eksiksiz sayfa da sonlandırılmadan bekler."""
-    for result in _migrated(project, args):
+def _report_waiting(results):
+    """--no-finalize: eksiksiz sayfa da sonlandırılmadan bekler; her sayfanın durumu basılır."""
+    for result in results:
         _print_result(result, _waiting(result))
 
 
-def _migrate_and_finalize(project, args):
-    finisher = MigrationFinisher.for_project(project)
-    for result in _migrated(project, args):
+def _finalize_complete(finisher, results):
+    """Eksiksiz taşınan sayfa hemen sonlandırılır; her sayfanın durumu basılır."""
+    for result in results:
         if result["complete"]:
             finisher.finalize(result["page"])
         _print_result(result, FINALIZED if result["complete"] else _waiting(result))
 
 
 def _migrated(project, args):
-    """Sayfalar sırayla, istendikçe taşınır; her sonuç sonlandırılıp basıldıktan sonra sıradaki taşınır."""
+    """Taşıma sonuçları; sayfalar sırayla, sonuç istendikçe taşınır ki önceki sayfa sonlandırılıp
+    basıldıktan sonra sıradaki taşınsın."""
     progress = project.load_progress()
     migrator = Migrator.for_progress(project, progress)
     pages = progress.translated_pages() if args == ["all"] else [int(a) for a in args]
@@ -179,9 +180,9 @@ def main():
     if args[:1] == ["apply"]:
         _apply_done(MigrationFinisher.for_project(project), args[1:])
     elif "--no-finalize" in sys.argv:
-        _migrate_only(project, args)
+        _report_waiting(_migrated(project, args))
     else:
-        _migrate_and_finalize(project, args)
+        _finalize_complete(MigrationFinisher.for_project(project), _migrated(project, args))
 
 
 if __name__ == "__main__":
