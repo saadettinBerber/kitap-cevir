@@ -43,11 +43,11 @@ class OdlTree:
     """ODL'nin tek sayfalık JSON ağacı; öğelerini `LayoutElement` olarak verir."""
 
     def __init__(self, tree, page_height):
-        self.tree = tree
-        self.page_height = page_height
+        self._tree = tree
+        self._page_height = page_height
 
     def layout(self):
-        return PageLayout(self.page_height, self._elements(_flatten(self.tree.get("kids", []))))
+        return PageLayout(self._page_height, self._elements(_flatten(self._tree.get("kids", []))))
 
     def _elements(self, nodes):
         return tuple(self._element(node) for node in nodes)
@@ -62,7 +62,7 @@ class OdlTree:
 
     def _box(self, node):
         x0, bottom, x1, top = node.get("bounding box") or _NO_BBOX
-        return Box(x0, self.page_height - top, x1, self.page_height - bottom)
+        return Box(x0, self._page_height - top, x1, self._page_height - bottom)
 
 
 def _flatten(node):
