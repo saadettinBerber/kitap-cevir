@@ -21,8 +21,6 @@ class PageFills:
     def __init__(self, drawings, text_bottom):
         self._rects = self._filled_rects(drawings)
         self._rules = self._horizontal_rules(drawings)
-        self._backgrounds = [rect for rect in self._rects if self._is_background(rect)]
-        self._cells = [rect for rect in self._rects if rect not in self._backgrounds]
         self._text_bottom = text_bottom
 
     @staticmethod
@@ -43,15 +41,21 @@ class PageFills:
         """Hücre kümesinin ızgarası; satır bantları sayfanın bütün dolgularından çıkar."""
         return TableGrid.from_cells(cells, self._rects)
 
-    def _is_background(self, rect):
-        return len([r for r in self._rects if r != rect and rect.contains(r)]) >= MIN_BACKGROUND_CELLS
-
     def table_groups(self):
         """Aynı arka plandaki hücreler tek tablodur; arka planı olmayanlar sütun
         kenarı paylaşımına göre kümelenir."""
-        owned = [rect for rect in self._cells if _is_on_any(rect, self._backgrounds)]
-        loose = [rect for rect in self._cells if not _is_on_any(rect, self._backgrounds)]
-        return _grouped_by_background(owned, self._backgrounds) + self._connected_groups(loose)
+        backgrounds = self._backgrounds()
+        cells = [rect for rect in self._rects if rect not in backgrounds]
+        owned = [rect for rect in cells if _is_on_any(rect, backgrounds)]
+        loose = [rect for rect in cells if not _is_on_any(rect, backgrounds)]
+        return _grouped_by_background(owned, backgrounds) + self._connected_groups(loose)
+
+    def _backgrounds(self):
+        """Başka dolguları içine alan dolgular: tablonun arka planı."""
+        return [rect for rect in self._rects if self._is_background(rect)]
+
+    def _is_background(self, rect):
+        return len([r for r in self._rects if r != rect and rect.contains(r)]) >= MIN_BACKGROUND_CELLS
 
     @classmethod
     def _connected_groups(cls, cells):
@@ -76,7 +80,7 @@ class PageFills:
         """Arka plan varsa tablo odur. Yoksa zebra dolguda ilk satır beyaz
         kalabilir (bir hücre yukarı); alt sınır altındaki ilk yatay çizgidir."""
         union = Box.enclosing(cells)
-        for background in self._backgrounds:
+        for background in self._backgrounds():
             if background.contains(union):
                 return background
         row_height = sorted(r.height for r in cells)[len(cells) // 2]
