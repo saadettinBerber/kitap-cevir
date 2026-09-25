@@ -40,7 +40,7 @@ class PagePreparationTest(unittest.TestCase):
         self.project = Project(self.tmp.name)
         self.progress = Progress(json.loads(json.dumps(PROGRESS)))
         with open(os.path.join(self.tmp.name, "progress.json"), "w", encoding="utf-8") as handle:
-            json.dump(self.progress.data, handle)
+            json.dump(self.progress.as_json(), handle)
         extractor = _FakeExtractor({2: [PARA], 3: [IMAGE], 4: [PARA], 5: [PARA]})
         book_pdf = BookPdf(lambda: _fake_document(5), extractor)
         self.builder = PageInputBuilder(self.project, self.progress, book_pdf)
@@ -48,6 +48,10 @@ class PagePreparationTest(unittest.TestCase):
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def _saved_pages(self):
+        with open(os.path.join(self.tmp.name, "progress.json"), encoding="utf-8") as handle:
+            return json.load(handle)["pages"]
 
     def test_input_carries_chapter_section_and_context(self):
         document = self.builder.build(1)
@@ -58,7 +62,7 @@ class PagePreparationTest(unittest.TestCase):
     def test_next_pages_skip_and_mark_blank_ones(self):
         prepared, blanks = self.preparer.prepare_next(None)
         self.assertEqual(([entry["page"] for entry in prepared], blanks), ([1, 3], [2]))
-        self.assertTrue(self.project.load_progress().data["pages"]["2"]["blank"])
+        self.assertTrue(self._saved_pages()["2"]["blank"])
 
     def test_next_pages_stop_at_the_asked_count(self):
         prepared, blanks = self.preparer.prepare_next(1)
@@ -66,7 +70,7 @@ class PagePreparationTest(unittest.TestCase):
 
     def test_requested_blank_page_is_not_marked(self):
         self.assertEqual(self.preparer.prepare_page(2), [])
-        self.assertNotIn("2", self.project.load_progress().data["pages"])
+        self.assertNotIn("2", self._saved_pages())
 
 
 if __name__ == "__main__":

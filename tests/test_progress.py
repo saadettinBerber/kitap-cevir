@@ -45,17 +45,17 @@ class PageRecordTest(unittest.TestCase):
 
     def test_blank_page_is_recorded_with_its_pdf_page(self):
         self.progress.mark_blank(8)
-        self.assertEqual(self.progress.data["pages"]["8"], {"blank": True, "pdf_page": 10})
-        self.assertEqual(self.progress.data["last_translated_page"], 8)
+        self.assertEqual(self.progress.as_json()["pages"]["8"], {"blank": True, "pdf_page": 10})
+        self.assertEqual(self.progress.as_json()["last_translated_page"], 8)
 
     def test_retranslating_an_earlier_page_keeps_the_last_page(self):
         self.progress.record_translation({"page": 3, "pdf_page": 5})
-        self.assertEqual(self.progress.data["last_translated_page"], 7)
+        self.assertEqual(self.progress.as_json()["last_translated_page"], 7)
 
     def test_translation_record_carries_toc_fields(self):
         self.progress.record_translation({"page": 8, "pdf_page": 10, "chapter": {"num": 2},
                                           "title": {"en": "T", "tr": "B"}, "section": {"en": "S", "tr": "K"}})
-        self.assertEqual(self.progress.data["pages"]["8"], {"pdf_page": 10, "chapter": 2, "title_en": "T",
+        self.assertEqual(self.progress.as_json()["pages"]["8"], {"pdf_page": 10, "chapter": 2, "title_en": "T",
                                                             "title_tr": "B", "section_en": "S", "section_tr": "K"})
 
     def test_pages_per_run_defaults_to_one(self):

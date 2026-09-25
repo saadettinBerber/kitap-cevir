@@ -40,13 +40,22 @@ class PdfPathTest(unittest.TestCase):
 
 
 class ProgressFileTest(unittest.TestCase):
-    def test_saved_progress_reads_back_and_ends_with_a_newline(self):
-        with tempfile.TemporaryDirectory() as root:
-            project = Project(root)
-            project.save_progress(Progress({"book": {"title": "Kitaplık"}}))
-            self.assertEqual(project.load_progress().data, {"book": {"title": "Kitaplık"}})
-            with open(project.progress_path, encoding="utf-8") as handle:
-                self.assertTrue(handle.read().endswith("}\n"))
+    RECORD = {"pages": {"3": {"pdf_page": 22, "section_en": "Shelf", "section_tr": "Kitaplık"}}}
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.project = Project(self.tmp.name)
+        self.project.save_progress(Progress(self.RECORD))
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_saved_progress_reads_back(self):
+        self.assertEqual(self.project.load_progress().section_of(3), {"en": "Shelf", "tr": "Kitaplık"})
+
+    def test_saved_progress_keeps_turkish_letters_and_ends_with_a_newline(self):
+        with open(os.path.join(self.tmp.name, "progress.json"), encoding="utf-8") as handle:
+            self.assertTrue(handle.read().endswith('"Kitaplık"\n    }\n  }\n}\n'))
 
 
 if __name__ == "__main__":
