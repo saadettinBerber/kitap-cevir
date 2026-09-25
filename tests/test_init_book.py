@@ -1,4 +1,6 @@
 import argparse
+import contextlib
+import io
 import json
 import os
 import tempfile
@@ -6,7 +8,7 @@ import unittest
 from unittest import mock
 
 from pdf_fakes import FakePdfDocument, FakePdfPage
-from init_book import BookSetup, card_kinds, parse_args, slugify
+from init_book import BookSetup, card_kinds, parse_args, report, slugify
 
 PAGE_COUNT = 3
 
@@ -45,7 +47,8 @@ class ParseArgsTest(unittest.TestCase):
         self.assertEqual(parse_args(REQUIRED).card_kinds, ["explain", "contrast", "tradeoff", "code"])
 
     def test_card_kinds_can_be_chosen(self):
-        self.assertEqual(parse_args(REQUIRED + ["--card-kinds", "tradeoff, explain"]).card_kinds, ["tradeoff", "explain"])
+        chosen = parse_args(REQUIRED + ["--card-kinds", "tradeoff, explain"]).card_kinds
+        self.assertEqual(chosen, ["tradeoff", "explain"])
 
     def test_unknown_card_kind_stops_the_command(self):
         with self.assertRaises(SystemExit), mock.patch("sys.stderr"):
@@ -63,7 +66,9 @@ class RecordingPdfOpener:
         return FakePdfDocument(pages=[FakePdfPage() for _ in range(PAGE_COUNT)], pdf_path=path)
 
 
-class BookSetupTest(unittest.TestCase):
+class _BookSetupTestCase(unittest.TestCase):
+    """Sahte PDF'le yeni bir kitap projesi kurar; testi yoktur."""
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.pdf = self._write(os.path.join(self.tmp.name, "kaynak.pdf"), "%PDF sahte")
@@ -89,6 +94,8 @@ class BookSetupTest(unittest.TestCase):
         with open(os.path.join(self.target, "progress.json"), encoding="utf-8") as handle:
             return json.load(handle)
 
+
+class BookSetupTest(_BookSetupTestCase):
     def test_creates_project_skeleton(self):
         self._run()
         for name in ("index.html", "CLAUDE.md", "glossary.md", "progress.json", "data/toc.js",
@@ -138,6 +145,23 @@ class BookSetupTest(unittest.TestCase):
         self._run()
         with self.assertRaises(SystemExit):
             self._run()
+
+
+class ReportTest(_BookSetupTestCase):
+    def _report(self):
+        project = self._run("--card-kinds", "tradeoff,explain")
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            report(self.target, project)
+        return output.getvalue().splitlines()
+
+    def test_report_names_the_project_folder(self):
+        self.assertEqual(self._report()[0], f"✓ Kitap projesi kuruldu: {self.target}")
+
+    def test_report_describes_the_book(self):
+        expected = ["  kitap: Demo Kitap — Yazar", f"  PDF: book.pdf ({PAGE_COUNT} sayfa), ofset 1, kitap 2 sayfa",
+                    "  bölüm sayısı: 0", "  kart türleri: tradeoff, explain"]
+        self.assertEqual(self._report()[1:1 + len(expected)], expected)
 
 if __name__ == "__main__":
     unittest.main()
