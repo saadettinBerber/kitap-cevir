@@ -49,7 +49,7 @@ class SpanRowTest(unittest.TestCase):
 
     def test_spans_are_grouped_into_lines_from_top_to_bottom(self):
         rows = SpanRow.lines_of([_span("b", 144, 20), _span("a", 72, 20), _span("top", 72, 0)])
-        self.assertEqual([[span.text for span in row.spans] for row in rows], [["top"], ["a", "b"]])
+        self.assertEqual([[span.text for span in row] for row in rows], [["top"], ["a", "b"]])
 
 
 class TableColumnsTest(unittest.TestCase):

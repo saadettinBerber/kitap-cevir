@@ -30,7 +30,7 @@ class SpanRow:
     """Sayfanın bir satırı: aynı üst kenardaki parçalar, soldan sağa."""
 
     def __init__(self, spans):
-        self.spans = spans
+        self._spans = spans
 
     @classmethod
     def lines_of(cls, spans):
@@ -40,17 +40,28 @@ class SpanRow:
             rows[span.line_y].append(span)
         return [cls(sorted(rows[y], key=lambda span: span.box.x0)) for y in sorted(rows)]
 
+    def __iter__(self):
+        return iter(self._spans)
+
     @property
     def left(self):
-        return min(span.box.x0 for span in self.spans)
+        return min(span.box.x0 for span in self._spans)
 
     @property
     def right(self):
-        return max(span.box.x1 for span in self.spans)
+        return max(span.box.x1 for span in self._spans)
+
+    @property
+    def top(self):
+        return min(span.box.y0 for span in self._spans)
+
+    @property
+    def bottom(self):
+        return max(span.box.y1 for span in self._spans)
 
     def is_header(self):
         """Tam kalın, en az iki sütunlu ve sütunları arası açık mı?"""
-        return len(self.spans) >= MIN_HEADER_COLUMNS and self._is_bold() and self._has_gutters()
+        return len(self._spans) >= MIN_HEADER_COLUMNS and self._is_bold() and self._has_gutters()
 
     def is_headerless(self):
         """Kalın olmayan, en az iki sütuna bölünen satır: başlıksız devamın ilk satırı olabilir."""
@@ -58,20 +69,20 @@ class SpanRow:
 
     def gutter_cells(self):
         """Parçalar, aralarındaki geniş boşluklardan bölünür."""
-        cells = [[self.spans[0]]]
-        for left, right in zip(self.spans, self.spans[1:]):
+        cells = [[self._spans[0]]]
+        for left, right in zip(self._spans, self._spans[1:]):
             if right.box.x0 - left.box.x1 >= COLUMN_GAP_MIN:
                 cells.append([])
             cells[-1].append(right)
         return cells
 
     def _is_bold(self):
-        return all("bold" in span.font.lower() for span in self.spans)
+        return all("bold" in span.font.lower() for span in self._spans)
 
     def _has_gutters(self):
         """Bitişik kalın parçalar (bölüm başlığı, cümle içi vurgu) sütun değildir;
         gerçek başlık sütunları arasında belirgin boşluk vardır."""
-        return len(self.gutter_cells()) == len(self.spans)
+        return len(self.gutter_cells()) == len(self._spans)
 
 
 class TableColumns:
@@ -84,7 +95,7 @@ class TableColumns:
     @classmethod
     def of_header(cls, header):
         """Kalın başlığın her parçası bir sütundur."""
-        return cls(sorted(round(span.box.x0, 1) for span in header.spans), header.right)
+        return cls(sorted(round(span.box.x0, 1) for span in header), header.right)
 
     @classmethod
     def of_row(cls, row):
@@ -103,7 +114,7 @@ class TableColumns:
     def buckets(self, row):
         """Her sütuna düşen parçalar. İki sütunun payına giren parça soldakine gider;
         hiçbir sütuna düşmeyen parça atılır (sahipsiz boş listeye eklenir)."""
-        buckets, unplaced = [], list(row.spans)
+        buckets, unplaced = [], list(row)
         for column in self.columns:
             buckets.append([span for span in unplaced if self._holds(column, span)])
             unplaced = [span for span in unplaced if span not in buckets[-1]]
@@ -115,9 +126,8 @@ class TableColumns:
         return column[0] - CENTER_TOLERANCE <= center <= column[1] + CENTER_TOLERANCE
 
     def table(self, rows, header_rows):
-        spans = [span for row in rows for span in row.spans]
         block = {"type": "table", "header_rows": header_rows, "rows": [self._cells(row) for row in rows]}
-        return {"y0": min(s.box.y0 for s in spans), "y1": max(s.box.y1 for s in spans), "block": block}
+        return {"y0": min(row.top for row in rows), "y1": max(row.bottom for row in rows), "block": block}
 
     def _cells(self, row):
         buckets = self.buckets(row)
