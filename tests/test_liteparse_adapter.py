@@ -135,6 +135,14 @@ class FigureTest(_ReaderTestCase):
         [image] = self._read(runner)
         self.assertEqual((image.kind, image.image_file), ("image", "img_p1_1.png"))
 
+    def test_figure_with_a_written_image_is_not_cropped(self):
+        page = FakePdfPage()
+        runner = FakeRunner([_block("figure", bbox=_rect(FIGURE_BOX), id="p1_1", format="png")],
+                            [_image("p1_1", os.path.join(self.tmp.name, "img_p1_1.png"))])
+        with mock.patch.object(page, "png", wraps=page.png) as png:
+            self._read(runner, page)
+        self.assertEqual(png.call_args_list, [])
+
     def test_figure_without_a_written_image_is_cropped_from_the_page(self):
         [image] = self._read(_unwritten_figure())
         with open(os.path.join(self.tmp.name, image.image_file), "rb") as png:
