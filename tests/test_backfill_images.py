@@ -147,17 +147,20 @@ class ImageBackfillerTest(unittest.TestCase):
     """PDF'ten çıkan görseller çevrilmiş sayfaya eklenir; tekrar çalıştırmak güvenlidir."""
 
     PAGE = 5
+    EXTRACTED = [_para("Layers separate concerns."), _image("fig.png")]
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.project = Project(self.tmp.name)
         self.folder = FakeImageFolder({"fig.png": FIGURE})
-        extracted = FakeExtractedImages([_para("Layers separate concerns."), _image("fig.png")], self.folder)
         self.pages = TranslatedPages(self.project)
-        self.backfiller = ImageBackfiller(self.pages, extracted)
+        self.backfiller = self._backfiller(self.EXTRACTED)
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def _backfiller(self, extracted_blocks):
+        return ImageBackfiller(self.pages, FakeExtractedImages(extracted_blocks, self.folder))
 
     def _write_page(self, blocks):
         self.pages.save(PageDocument({"page": self.PAGE, "blocks": blocks}))
@@ -178,6 +181,10 @@ class ImageBackfillerTest(unittest.TestCase):
         self._write_page([_para("Layers separate concerns.")])
         self.backfiller.backfill_page(self.PAGE)
         self.assertEqual(self.folder.copied(), [("fig.png", self.pages.images_dir(self.PAGE))])
+
+    def test_image_repeated_in_the_pdf_is_added_once(self):
+        self._write_page([_para("Layers separate concerns.")])
+        self.assertEqual(self._backfiller(self.EXTRACTED + [_image("fig.png")]).backfill_page(self.PAGE), 1)
 
     def test_second_run_adds_nothing(self):
         self._write_page([_para("Layers separate concerns.")])
