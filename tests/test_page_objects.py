@@ -32,12 +32,40 @@ class PageDocumentTest(unittest.TestCase):
         self.assertEqual(page.missing_translations(), 1)
 
 
+def _para(*sentences):
+    return {"type": "para", "sentences": [{"en": sentence} for sentence in sentences]}
+
+
+def _title():
+    return {"type": "chapter", "en": "Modularity"}
+
+
 class ChapterOpenerTest(unittest.TestCase):
+    NUMBER = {"type": "chapter_number", "num": 3}
+    AUTHOR = "by Jane Doe"
+
     def test_number_title_and_author_become_one_block(self):
-        blocks = [{"type": "chapter_number", "num": 3}, {"type": "chapter", "en": "Modularity"},
-                  {"type": "para", "sentences": [{"en": "by Jane Doe"}]}]
+        blocks = [self.NUMBER, _title(), _para(self.AUTHOR)]
         self.assertEqual(ChapterOpener(blocks).merged(),
-                         [{"type": "chapter", "en": "Modularity", "num": 3, "author": "by Jane Doe"}])
+                         [{"type": "chapter", "en": "Modularity", "num": 3, "author": self.AUTHOR}])
+
+    def test_title_without_a_number_has_an_empty_number(self):
+        self.assertEqual(ChapterOpener([_title()]).merged(), [{"type": "chapter", "en": "Modularity", "num": None}])
+
+    def test_number_without_a_title_is_dropped(self):
+        self.assertEqual(ChapterOpener([self.NUMBER, _para("Body.")]).merged(), [_para("Body.")])
+
+    def test_paragraph_after_the_title_that_is_no_author_stays_apart(self):
+        merged = ChapterOpener([_title(), _para("Modules matter.")]).merged()
+        self.assertEqual(merged[1:], [_para("Modules matter.")])
+
+    def test_author_line_after_another_paragraph_stays_a_paragraph(self):
+        merged = ChapterOpener([_title(), _para("Modules matter."), _para(self.AUTHOR)]).merged()
+        self.assertEqual(merged[2:], [_para(self.AUTHOR)])
+
+    def test_author_line_of_two_sentences_stays_a_paragraph(self):
+        merged = ChapterOpener([_title(), _para(self.AUTHOR, "Read on.")]).merged()
+        self.assertEqual(merged[1:], [_para(self.AUTHOR, "Read on.")])
 
 
 class TableGridTest(unittest.TestCase):
