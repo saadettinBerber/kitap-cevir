@@ -31,11 +31,11 @@ def _output(command):
 
 class PdfInspectorTest(unittest.TestCase):
     def test_offset_is_voted_from_printed_page_numbers(self):
-        [(offset, _, example)] = PdfInspector(_book()).offsets(1, 20).most_likely(1)
+        [(offset, _, example)] = PdfInspector(_book()).likely_offsets(1, 20)
         self.assertEqual((offset, example), (OFFSET, (OFFSET + 1, 1)))
 
     def test_short_page_counts_its_page_number_once(self):
-        [(_, votes, _)] = PdfInspector(_book()).offsets(1, 20).most_likely(1)
+        [(_, votes, _)] = PdfInspector(_book()).likely_offsets(1, 20)
         self.assertEqual(votes, BODY_PAGES)
 
     def test_lines_run_top_to_bottom_with_their_height_from_the_bottom(self):
@@ -53,7 +53,7 @@ class PdfInspectorTest(unittest.TestCase):
 
     def test_zero_at_the_page_edge_is_not_a_page_number(self):
         document = FakePdfDocument([_text_page(("Body", 62), ("0", 790))])
-        self.assertEqual(PdfInspector(document).offsets(1, 1).most_likely(1), [])
+        self.assertEqual(PdfInspector(document).likely_offsets(1, 1), [])
 
     def test_page_texts_follow_the_asked_range(self):
         texts = PdfInspector(_book()).page_texts("1-2")

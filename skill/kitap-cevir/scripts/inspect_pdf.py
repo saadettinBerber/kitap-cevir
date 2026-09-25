@@ -131,8 +131,9 @@ class PdfInspector:
     def _page_lines(self, number):
         return PageLines(self._document.page(number))
 
-    def offsets(self, first, last):
-        return FolioOffsets.of_folios(self._folios(first, last))
+    def likely_offsets(self, first, last):
+        """En olası TOP_CANDIDATES ofset; bkz. FolioOffsets.most_likely."""
+        return FolioOffsets.of_folios(self._folios(first, last)).most_likely(TOP_CANDIDATES)
 
     def _folios(self, first, last):
         """(PDF sayfası, basılı sayfa numarası) adayları."""
@@ -167,7 +168,7 @@ class InspectionReport:
             print(f"  {font:28} {size:5.1f}  {count}")
 
     def offset(self, first, last):
-        candidates = self._inspector.offsets(first, last).most_likely(TOP_CANDIDATES)
+        candidates = self._inspector.likely_offsets(first, last)
         if not candidates:
             print("Basılı sayfa numarası bulunamadı; ofseti elle belirleyin.")
             return
