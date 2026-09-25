@@ -11,6 +11,7 @@ from extraction.tables.table_scan import TableScanner
 
 BOLD = "Helvetica-Bold"
 STEP = 0.1
+FRACTION = 0.2
 
 COLUMNS = [(70, 170), (170, 270), (270, 370)]
 HEADER = ["Name", "Count", "Share"]
@@ -25,6 +26,13 @@ BODY = span("Body text far below the table, spanning columns.", (70, 391, 370, 4
 
 def _bold(line):
     return tuple(dataclasses.replace(piece, font=BOLD) for piece in line)
+
+
+def _cell_row(y0, texts):
+    """Zebra sütunlarına oturan metin satırı; boş metin o sütunu boş bırakır."""
+    return tuple(span(text, (left + PADDING, y0, left + PADDING + CHAR_WIDTH * len(text), y0 + TEXT_HEIGHT),
+                      size=BODY_SIZE)
+                 for (left, _), text in zip(COLUMNS, texts) if text)
 
 
 class ZebraLayout:
@@ -49,10 +57,7 @@ class ZebraLayout:
         return self.top(len(self._rows) + 1)
 
     def _line(self, index, texts):
-        y0 = self.top(index) + TEXT_DROP
-        return tuple(span(text, (left + PADDING, y0, left + PADDING + CHAR_WIDTH * len(text), y0 + TEXT_HEIGHT),
-                          size=BODY_SIZE)
-                     for (left, _), text in zip(COLUMNS, texts))
+        return _cell_row(self.top(index) + TEXT_DROP, texts)
 
 
 def _scan(page):
@@ -82,9 +87,23 @@ class ZebraTableTest(unittest.TestCase):
     def test_rows_hold_the_cell_texts(self):
         self.assertEqual(_texts(self.tables[0]), [HEADER] + ROWS)
 
+    def test_table_spans_from_the_header_text_to_the_last_row_text(self):
+        last_text_top = ZebraLayout(ROWS).top(len(ROWS)) + TEXT_DROP
+        self.assertEqual((self.tables[0]["y0"], self.tables[0]["y1"]),
+                         (TABLE_TOP + TEXT_DROP, last_text_top + TEXT_HEIGHT))
+
     def test_caption_and_body_stay_outside_table_extent(self):
         self.assertGreater(self.tables[0]["y0"], CAPTION.box.y1)
         self.assertLess(self.tables[0]["y1"], BODY.box.y0)
+
+    def test_lines_read_bottom_up_still_give_rows_top_down(self):
+        page = _zebra_page()
+        self.assertEqual(_texts(_scan(FakePdfPage(lines=page.lines[::-1], shapes=page.shapes))[0]), [HEADER] + ROWS)
+
+    def test_cell_text_is_stripped(self):
+        layout = ZebraLayout([[" Alpha ", "1", "10%"]])
+        [table] = _scan(FakePdfPage(lines=layout.lines(), shapes=layout.shading(0) + layout.shading(1)))
+        self.assertEqual(_texts(table)[1][0], "Alpha")
 
     def test_page_without_fills_has_no_tables(self):
         self.assertEqual(_scan(FakePdfPage(lines=[(span("plain", (70, 90, 100, 101)),)])), [])
@@ -126,6 +145,82 @@ class FullWidthFillTest(unittest.TestCase):
         full_width = fill(COLUMNS[0][0], layout.top(1), COLUMNS[-1][1], layout.bottom())
         [table] = _scan(FakePdfPage(lines=layout.lines() + [(BODY,)], shapes=layout.shading(0) + [full_width]))
         self.assertEqual(_texts(table), [HEADER] + ROWS)
+
+
+SUBLINE_DROPS = (2, 16)      # bir bandın içindeki iki alt satırın üst kenarı, satırın tepesinden
+MARK_SIZE = BODY_SIZE / 2
+
+
+def _split_row(top, *sublines):
+    """Alt satırlara bölünmüş tablo satırı; her alt satır sütun metinleridir, SUBLINE_DROPS aralıklarıyla."""
+    return [_cell_row(top + drop, texts) for drop, texts in zip(SUBLINE_DROPS, sublines)]
+
+
+def _shaded_rows(lines):
+    """Başlığı ve ilk gövde satırı dolgulu tablonun bulunan satırları."""
+    layout = ZebraLayout([])
+    [table] = _scan(FakePdfPage(lines=lines, shapes=layout.shading(0) + layout.shading(1)))
+    return table["block"]["rows"]
+
+
+class HeaderTest(unittest.TestCase):
+    def test_small_regular_mark_does_not_unbold_the_header(self):
+        mark = span("a", (360, TABLE_TOP + TEXT_DROP, 364, TABLE_TOP + TEXT_DROP + MARK_SIZE), size=MARK_SIZE)
+        header = _bold(_cell_row(TABLE_TOP + TEXT_DROP, HEADER)) + (mark,)
+        layout = ZebraLayout(ROWS)
+        [table] = _scan(FakePdfPage(lines=[header] + layout.lines()[1:], shapes=layout.shading(0)))
+        self.assertEqual(table["block"]["header_rows"], 1)
+
+    def test_consecutive_bold_rows_are_all_header(self):
+        layout = ZebraLayout(ROWS)
+        header, first, *rest = layout.lines()
+        page = FakePdfPage(lines=[header, _bold(first), *rest], shapes=layout.shading(0) + layout.shading(1))
+        [table] = _scan(page)
+        self.assertEqual(table["block"]["header_rows"], 2)
+
+
+class LineBreakTest(unittest.TestCase):
+    """Bir gövde satırında iki ya da daha çok hücre çok satırlıysa hücre içi satırlar liste
+    niteliğindedir, korunur. Başlıkta korunmaz."""
+
+    BODY_TOP = TABLE_TOP + ROW_HEIGHT
+
+    def _header(self):
+        return [_bold(_cell_row(TABLE_TOP + TEXT_DROP, HEADER))]
+
+    def test_two_multiline_cells_keep_their_breaks(self):
+        rows = _shaded_rows(self._header() + _split_row(self.BODY_TOP, ("a", "c", "e"), ("b", "d", "")))
+        self.assertEqual(rows[1], [{"en": "a<br>b", "html": True}, {"en": "c<br>d", "html": True}, {"en": "e"}])
+
+    def test_one_multiline_cell_joins_its_lines(self):
+        rows = _shaded_rows(self._header() + _split_row(self.BODY_TOP, ("a", "c", "e"), ("b", "", "")))
+        self.assertEqual(rows[1][0], {"en": "a b"})
+
+    def test_header_joins_its_lines_even_when_multiline(self):
+        header = [_bold(line) for line in _split_row(TABLE_TOP, ("Na", "Co", "Sh"), ("me", "unt", ""))]
+        rows = _shaded_rows(header + [_cell_row(self.BODY_TOP + TEXT_DROP, ROWS[0])])
+        self.assertEqual(rows[0], [{"en": "Na me"}, {"en": "Co unt"}, {"en": "Sh"}])
+
+    def test_pieces_of_a_line_whose_tops_differ_in_fractions_stay_one_line(self):
+        y0 = self.BODY_TOP + TEXT_DROP
+        hello = dataclasses.replace(span("Hello", (75, y0, 105, y0 + TEXT_HEIGHT)), line_y=y0 + FRACTION)
+        world = dataclasses.replace(span("World", (110, y0, 140, y0 + TEXT_HEIGHT)), line_y=y0 - FRACTION)
+        rows = _shaded_rows(self._header() + [(hello, world) + _cell_row(y0, ("", "1", "10%"))])
+        self.assertEqual(rows[1][0], {"en": "Hello World"})
+
+
+AREA_TOP_SHIFT = 0.5         # parçanın tepesi tablo alanının bu kadar üstünde
+
+
+class TableAreaTest(unittest.TestCase):
+    def test_text_starting_within_a_point_above_the_area_belongs_to_the_table(self):
+        layout = ZebraLayout(ROWS[:1])
+        area_top = TABLE_TOP + TEXT_DROP + AREA_TOP_SHIFT
+        cells = [fill(left, area_top + AREA_TOP_SHIFT, right, layout.top(1)) for left, right in COLUMNS]
+        background = fill(COLUMNS[0][0] - BACKGROUND_MARGIN, area_top, COLUMNS[-1][1] + BACKGROUND_MARGIN,
+                          layout.bottom() + BACKGROUND_MARGIN)
+        [table] = _scan(FakePdfPage(lines=layout.lines(), shapes=[background] + cells))
+        self.assertEqual(_texts(table), [HEADER, ROWS[0]])
 
 
 TERM_COLUMNS = [(72, 140), (140, 432)]
@@ -190,6 +285,13 @@ class SeparateTablesTest(unittest.TestCase):
         self.assertEqual([_texts(table) for table in tables],
                          [[list(TERM_HEADER), ["Configurability", "Change aspects."]],
                           [list(TERM_HEADER), ["Accessibility", "Access for all users."]]])
+
+
+    def test_tables_come_from_top_to_bottom_whatever_the_drawing_order(self):
+        first = TermTableLayout(TABLE_TOP, [("Configurability", "Change aspects.")])
+        second = TermTableLayout(SECOND_TABLE_TOP, [("Accessibility", "Access for all users.")])
+        tables = _scan_book(FakePdfPage(lines=first.lines() + second.lines(), shapes=second.shapes() + first.shapes()))
+        self.assertEqual([_texts(table)[1][0] for table in tables], ["Configurability", "Accessibility"])
 
 
 class RowGapTest(unittest.TestCase):
