@@ -113,6 +113,12 @@ class InlineMathTest(unittest.TestCase):
     def test_simple_symbol_is_inserted_as_text(self):
         self.assertEqual(self._spliced(_equation("find", "to", kind="text", text="πr"))[0], "find πr to minimize")
 
+    def test_equation_goes_into_the_first_host_only(self):
+        hosts = [element("find to minimize", HOST_BOX), element("find to maximize", HOST_BOX)]
+        with contextlib.redirect_stdout(io.StringIO()):
+            spliced = LayoutElements(hosts).with_inline_math([_equation("find", "to")]).items
+        self.assertEqual([host.text for host in spliced], ["find ⟦eq-1⟧ to minimize", "find to maximize"])
+
     def test_equation_below_every_element_is_reported_and_left_out(self):
         text, output = self._spliced(_equation("find", "to", box=BELOW_HOST))
         self.assertEqual(text, "find to minimize")
