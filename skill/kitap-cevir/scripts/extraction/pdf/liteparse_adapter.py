@@ -45,10 +45,10 @@ class LiteParseLayoutReader:
     """LiteParse sonucunu düzen öğelerine çevirir; motoru yapıcıdan alır."""
 
     def __init__(self, runner):
-        self.runner = runner
+        self._runner = runner
 
     def read(self, page, image_dir):
-        result = self.runner.parse(page, image_dir)
+        result = self._runner.parse(page, image_dir)
         if not result.pages:
             raise LiteParsePageError(f"LiteParse PDF sayfası {page.number}'i okuyamadı: {result.page_errors}")
         blocks = LiteParseBlocks(Typography(page), FigureFiles(result.images, page, image_dir))
@@ -63,8 +63,8 @@ class LiteParseBlocks:
     """Bir sayfanın LiteParse blokları; ardışık liste maddeleri ODL'deki gibi tek liste olur."""
 
     def __init__(self, typography, figures):
-        self.typography = typography
-        self.figures = figures
+        self._typography = typography
+        self._figures = figures
 
     def elements(self, blocks):
         placed = [block for block in blocks if block.bbox is not None]
@@ -83,7 +83,7 @@ class LiteParseBlocks:
 
     def _text_element(self, block):
         box = _box(block.bbox)
-        font, size = self.typography.of(box)
+        font, size = self._typography.of(box)
         text = plain_text(block.text) if block.text else " ".join(block.lines or [])
         return LayoutElement(TEXT_KINDS[block.kind], box, text, font=font, font_size=size)
 
@@ -100,19 +100,19 @@ class LiteParseBlocks:
 
     def _figure(self, block):
         box = _box(block.bbox)
-        return LayoutElement("image", box, image_file=self.figures.file_for(block.id, box))
+        return LayoutElement("image", box, image_file=self._figures.file_for(block.id, box))
 
 
 class Typography:
     """Kutuya düşen metin parçalarının baskın fontu ve puntosu (karakter sayısıyla tartılır)."""
 
     def __init__(self, page):
-        self.spans = [span for line in page.text_lines() for span in line]
+        self._spans = [span for line in page.text_lines() for span in line]
 
     def of(self, box):
         """(font, punto); kutuda parça yoksa ("", 0.0)."""
         weights = collections.Counter()
-        for span in self.spans:
+        for span in self._spans:
             if box.contains_point(span.box.center_x, span.box.center_y):
                 weights[(span.font, span.size)] += len(span.text.strip())
         return weights.most_common(1)[0][0] if weights else ("", 0.0)
