@@ -26,6 +26,23 @@ class _RecordingFiller:
         return sentences[:1]
 
 
+class _NamingVisitor:
+    """Her visit_* çağrısı kendi adını döner; accept'in hangi metoda gittiği görünür."""
+
+    def __getattr__(self, name):
+        return lambda block: name
+
+
+class AcceptTest(unittest.TestCase):
+    def test_each_block_type_visits_its_own_method(self):
+        expected = {"caption": "visit_text_unit", "footnote": "visit_text_unit", "chapter": "visit_chapter",
+                    "heading": "visit_heading", "html": "visit_html", "para": "visit_para",
+                    "list": "visit_list", "table": "visit_table", "code": "visit_code",
+                    "image": "visit_image", "math": "visit_math", "yeni": "visit_unknown"}
+        visited = {kind: Block.of({"type": kind}).accept(_NamingVisitor()) for kind in expected}
+        self.assertEqual(visited, expected)
+
+
 class BlockTest(unittest.TestCase):
     def test_table_units_carry_their_cell_paths(self):
         self.assertEqual([path for path, _ in Block.of(TABLE).unit_paths()],

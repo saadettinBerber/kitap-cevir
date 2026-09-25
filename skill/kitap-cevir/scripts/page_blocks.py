@@ -56,6 +56,10 @@ class Block:
         """Sayfa başı görseli bu bloğun altına iner."""
         return False
 
+    def accept(self, visitor):
+        """VISITOR: türe göre çıktı (ör. EPUB) ziyaretçide yazılır, dallanma Block.of'ta kalır."""
+        return visitor.visit_unknown(self)
+
 
 class TextBlock(Block):
     """caption, footnote: bloğun kendisi tek bir {en, tr} birimidir."""
@@ -63,17 +67,29 @@ class TextBlock(Block):
     def unit_paths(self):
         return [("", self.data)]
 
+    def accept(self, visitor):
+        return visitor.visit_text_unit(self)
+
 
 class HeadingBlock(TextBlock):
-    """chapter, heading."""
-
     def leads_page(self):
         return True
+
+    def accept(self, visitor):
+        return visitor.visit_heading(self)
+
+
+class ChapterBlock(HeadingBlock):
+    def accept(self, visitor):
+        return visitor.visit_chapter(self)
 
 
 class HtmlBlock(Block):
     def leads_page(self):
         return True
+
+    def accept(self, visitor):
+        return visitor.visit_html(self)
 
 
 class ParaBlock(Block):
@@ -86,6 +102,9 @@ class ParaBlock(Block):
     def anchor_text(self):
         return " ".join(unit.get("en", "") for unit in self.units())
 
+    def accept(self, visitor):
+        return visitor.visit_para(self)
+
 
 class ListBlock(Block):
     def unit_paths(self):
@@ -94,11 +113,17 @@ class ListBlock(Block):
     def anchor_text(self):
         return " ".join(unit.get("en", "") for unit in self.units())
 
+    def accept(self, visitor):
+        return visitor.visit_list(self)
+
 
 class TableBlock(Block):
     def unit_paths(self):
         return [(f".rows[{r}][{c}]", cell)
                 for r, row in enumerate(self.data["rows"]) for c, cell in enumerate(row)]
+
+    def accept(self, visitor):
+        return visitor.visit_table(self)
 
 
 class CodeBlock(Block):
@@ -106,6 +131,9 @@ class CodeBlock(Block):
 
     def card_unit(self):
         return {"type": "code", "code": self.data["code"]}
+
+    def accept(self, visitor):
+        return visitor.visit_code(self)
 
 
 class MediaBlock(Block):
@@ -119,15 +147,21 @@ class ImageBlock(MediaBlock):
     def image_sources(self):
         return [self.data["src"]]
 
+    def accept(self, visitor):
+        return visitor.visit_image(self)
+
 
 class MathBlock(MediaBlock):
     def equations(self):
         return [self.data]
 
+    def accept(self, visitor):
+        return visitor.visit_math(self)
+
 
 _BLOCK_CLASSES = {
     "caption": TextBlock, "footnote": TextBlock,
-    "chapter": HeadingBlock, "heading": HeadingBlock,
+    "chapter": ChapterBlock, "heading": HeadingBlock,
     "html": HtmlBlock, "para": ParaBlock, "list": ListBlock, "table": TableBlock,
     "code": CodeBlock, "image": ImageBlock, "math": MathBlock,
 }
