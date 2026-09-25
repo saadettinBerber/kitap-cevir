@@ -55,7 +55,8 @@ class CardInputs:
         return self._project.relative_to_root(path)
 
     def card_input(self, document):
-        """Kart agent'ının girdisi; kitabın kart ayarı (concepts_spec) da gider, agent kart türlerini ona göre seçer."""
+        """Kart agent'ının girdisi; kitabın kart ayarı (concepts_spec) da gider, agent kart
+        türlerini ona göre seçer."""
         page_data = document.data
         content = [unit for unit in (block.card_unit() for block in document.blocks()) if unit]
         return {"id": page_data["id"], "page": page_data["page"],

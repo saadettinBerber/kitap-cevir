@@ -82,7 +82,8 @@ def parse_args(argv):
 
 
 class PreparationReport:
-    """Hazırlanan girdilerin kullanıcıya özeti; denklem notu çevirmenin görsel okuyup okuyamadığına bağlıdır."""
+    """Hazırlanan girdilerin kullanıcıya özeti; denklem notu çevirmenin görsel okuyup
+    okuyamadığına bağlıdır."""
 
     def __init__(self, has_vision):
         self._has_vision = has_vision

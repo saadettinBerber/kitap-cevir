@@ -97,7 +97,8 @@ class JsonFormTest(unittest.TestCase):
 
 
 class TranslatedPagesTest(unittest.TestCase):
-    """Çevrilmiş sayfaların tek kaynağı progress.json'daki kayıttır; sayfa numaraları kayıttaki anahtarlardır."""
+    """Çevrilmiş sayfaların tek kaynağı progress.json'daki kayıttır; sayfa numaraları kayıttaki
+    anahtarlardır."""
 
     def test_recorded_pages_are_listed_in_order(self):
         progress = Progress({"pages": {"12": {}, "3": {}}})

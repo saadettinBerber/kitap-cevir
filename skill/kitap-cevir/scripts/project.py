@@ -101,7 +101,8 @@ class Project:
         return self._path(WORK_DIR, "cards", stage, _page_name(page, ".json"))
 
     def work_migration_file(self, stage, page):
-        """Taşımada çevirisi bekleyen (pending) ve ajanın doldurduğu (done) birimler: pending-N.json, done-N.json."""
+        """Taşımada çevirisi bekleyen (pending) ve ajanın doldurduğu (done) birimler:
+        pending-N.json, done-N.json."""
         return self._path(WORK_DIR, "migrate", f"{stage}-{page}.json")
 
     def _path(self, *parts):

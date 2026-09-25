@@ -145,7 +145,8 @@ class AnchorMatchTest(unittest.TestCase):
         self.assertEqual(self._placed_at("a" * 10 + "b" * 10, "Other.", "a" * 10 + "c" * 10), 1)
 
     def test_characters_inserted_before_the_text_still_match(self):
-        """10 harflik çapa; blok başındaki 5 fazla harf karşılaştırılan paya sığar: oran 2 × 10 / 25 = 0.8."""
+        """10 harflik çapa; blok başındaki 5 fazla harf karşılaştırılan paya sığar:
+        oran 2 × 10 / 25 = 0.8."""
         self.assertEqual(self._placed_at("a" * 10, "Other.", "b" * 5 + "a" * 10), 3)
 
     def test_unmatched_image_on_a_page_of_headings_goes_last(self):

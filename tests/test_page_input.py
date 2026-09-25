@@ -69,7 +69,8 @@ class PageInputTest(unittest.TestCase):
 
 
 class SectionTest(unittest.TestCase):
-    """Koşu başlığı kesiti söyler; bölüm açılışında başlık yoktur, bölüm adlı başlıkta kesit sürer."""
+    """Koşu başlığı kesiti söyler; bölüm açılışında başlık yoktur, bölüm adlı başlıkta kesit
+    sürer."""
 
     def test_page_without_running_header_opens_a_chapter_without_section(self):
         self.assertEqual(_input(None)["section"], {"en": "", "tr": ""})
