@@ -13,6 +13,9 @@ class SplitSentencesTest(unittest.TestCase):
         self.assertEqual(split_sentences("Use tools, e.g. linters. Then ship."),
                          ["Use tools, e.g. linters.", "Then ship."])
 
+    def test_abbreviation_before_a_capital_is_not_a_boundary(self):
+        self.assertEqual(split_sentences("Ask Dr. Smith today. Then go."), ["Ask Dr. Smith today.", "Then go."])
+
     def test_keeps_initials_together(self):
         self.assertEqual(split_sentences("Written by Robert C. Martin. Read it."),
                          ["Written by Robert C. Martin.", "Read it."])
