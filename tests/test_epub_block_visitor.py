@@ -67,9 +67,6 @@ class SilentBlockTest(unittest.TestCase):
     def test_unknown_block_is_skipped(self):
         self.assertEqual(_fragments({"type": "yeni"}), [])
 
-    def test_legacy_html_block_is_skipped(self):
-        self.assertEqual(_fragments({"type": "html", "html": "<p/>"}), [])
-
 
 class MediaBlockTest(unittest.TestCase):
     def test_image_points_into_the_page_folder(self):

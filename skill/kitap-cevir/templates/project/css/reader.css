@@ -227,7 +227,6 @@ a { color: var(--navy); }
 .layout-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
 @media (max-width: 999px) { .layout-btn { display: none; } }
 [data-lang="parallel"] .sheet[data-lang="en"] .tr-text, [data-lang="parallel"] .sheet[data-lang="tr"] .en-text { display: none; }
-[data-lang="parallel"] .sheet[data-lang="tr"] .legacy .tr-text { display: inline; }
 [data-lang="parallel"] .sentence.revealed > .en-text, [data-lang="parallel"] .sentence.revealed > .tr-text { background: rgba(179, 139, 42, .22); }
 [data-lang="parallel"] .ui-pair .en-text { display: none; }
 [data-lang="parallel"] .running-head .en-text { display: inline; }
@@ -329,7 +328,6 @@ pre code { background: none; padding: 0; color: inherit; }
 /* Arayüz metinlerinde (koşu başlığı, menüler) iki dil modunda Türkçe gösterilir */
 [data-lang="both"] .ui-pair .en-text { display: none; }
 [data-lang="both"] .ui-pair .tr-text { display: inline; }
-[data-lang="both"] .legacy .tr-text { display: block; margin-top: .25em; color: var(--tr); font-family: var(--font-sans); font-size: .9em; }
 [data-lang="both"] .listing-caption .tr-text, [data-lang="both"] .list li .tr-text { display: block; }
 
 /* ---------- Kavram kartları ---------- */
@@ -425,44 +423,6 @@ pre code { background: none; padding: 0; color: inherit; }
 .cover-ch.empty { color: var(--ink-faint); cursor: default; }
 .cover-ch .n { font-weight: 800; color: var(--gold); min-width: 22px; }
 .cover-ch small { display: block; color: var(--ink-faint); }
-
-/* ---------- Eski (legacy) sayfalardan taşınan bloklar ---------- */
-.legacy .content-paragraph { margin-bottom: 1em; text-align: justify; }
-.legacy .chapter-header { display: flex; align-items: flex-end; gap: 20px; margin-bottom: 36px; padding-bottom: 20px; border-bottom: 3px double var(--rule); }
-.legacy .chapter-number { font-size: 5rem; font-weight: 700; line-height: 1; color: var(--navy); opacity: .14; }
-.legacy .chapter-title-tr { font-size: 2rem; font-weight: 700; color: var(--navy); }
-.legacy .chapter-title-en { font-size: 1.1rem; color: var(--ink-soft); }
-.legacy .chapter-banner, .legacy .final-words-banner { background: var(--navy); color: #fff; padding: 34px 28px; border-radius: 10px; margin: 0 0 30px; text-align: center; }
-.legacy .final-words-banner { text-align: left; border-left: 6px solid var(--gold); }
-.legacy .chapter-title { font-size: 2rem; font-weight: 700; margin: 0; color: #fff; }
-.legacy .chapter-subtitle { color: #c9cfdd; margin-top: 6px; font-family: var(--font-sans); font-size: .9rem; }
-.legacy .final-words-title { font-family: var(--font-sans); font-size: 1.1rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 12px; color: var(--gold-soft); }
-.legacy .chapter-main-title { font-size: 2rem; font-weight: 700; color: var(--navy); }
-.legacy .chapter-author { font-style: italic; color: var(--ink-soft); }
-.legacy .illustration-note { border: 1px dashed var(--ink-faint); border-radius: 8px; padding: 14px 18px; margin: 22px 0; color: var(--ink-soft); font-style: italic; text-align: center; font-size: .92rem; }
-.legacy .author-intro { font-family: var(--font-sans); font-weight: 700; margin: 1.4em 0 .5em; font-size: .98rem; }
-.legacy .author-intro em { font-weight: 400; font-style: italic; }
-.legacy .bibliography-section, .legacy .bib-list { margin-top: 20px; }
-.legacy .bib-list { list-style: none; padding: 0; }
-.legacy .bib-list li, .legacy .bib-entry { border-left: 3px solid var(--rule); padding: 8px 16px; margin-bottom: 10px; font-size: .95rem; }
-.legacy .bib-key { font-family: var(--font-mono); font-weight: 700; font-size: .85em; color: var(--navy); margin-right: 6px; }
-.legacy .bib-title { font-style: italic; }
-.legacy .bib-authors { font-weight: 600; }
-.legacy .bib-publisher, .legacy .bib-text { color: var(--ink-soft); }
-.legacy .chapter-end-marker { text-align: center; margin: 36px 0 16px; color: var(--ink-faint); letter-spacing: 6px; }
-.legacy .chapter-end-note { border: 1px solid var(--rule); border-radius: 10px; padding: 20px; margin-top: 28px; text-align: center; background: rgba(27,42,71,.04); }
-.legacy .chapter-end-note h3 { margin: 0 0 8px; color: var(--navy); }
-.legacy .chapter-end-note p { margin: 0; font-size: .95rem; color: var(--ink-soft); }
-.legacy .code-block, .legacy pre { margin: 14px 0; padding: 14px 16px; border-radius: 8px; background: var(--code-bg); color: var(--code-ink); font: .8rem/1.55 var(--font-mono); overflow-x: auto; }
-.legacy .code-evolution { border: 1px solid var(--rule); border-radius: 10px; padding: 16px 18px; margin: 18px 0; }
-.legacy .code-evolution-title { font-family: var(--font-sans); font-weight: 700; font-size: .9rem; margin-bottom: 8px; display: flex; gap: 8px; align-items: center; }
-.legacy .evolution-step { font-size: .7rem; background: var(--gold); color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 700; }
-.legacy .code-caption { font-family: var(--font-sans); font-size: .82rem; color: var(--ink-soft); font-style: italic; text-align: center; margin: -6px 0 18px; }
-.legacy .figure-container { text-align: center; margin: 28px 0; padding: 18px; border: 1px solid var(--rule); border-radius: 10px; background: #fff; }
-.legacy .figure-chart { max-width: 480px; margin: 0 auto; }
-.legacy .figure-chart svg { width: 100%; height: auto; }
-.legacy .figure-caption { font-family: var(--font-sans); font-size: .82rem; color: var(--ink-soft); margin-top: 10px; }
-.legacy .inline { font-family: var(--font-mono); font-size: .86em; background: rgba(27,42,71,.07); padding: 1px 5px; border-radius: 4px; color: #4a2b17; }
 
 /* ---------- Mobil ---------- */
 .pager-mobile { display: none; }

@@ -35,10 +35,6 @@ class EpubBlockVisitor:
     def visit_unknown(self, block):
         return []
 
-    def visit_html(self, block):
-        """Eski serbest HTML blokları okuyucuya özeldir; hiçbir kitapta kalmadı."""
-        return []
-
     def visit_chapter(self, block):
         """Bölüm başlığını bölüm dosyası bir kez yazar."""
         return []

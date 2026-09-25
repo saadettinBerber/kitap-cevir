@@ -163,7 +163,6 @@ const Blocks = (function () {
       case "footnote": return renderUnit(block, ctx, "div", "footnote");
       case "table": return renderTable(block, ctx);
       case "math": return renderMath(block, ctx);
-      case "html": return `<div class="legacy">${block.html}</div>`;
       default: return "";
     }
   }

@@ -42,7 +42,6 @@ tırnak parçaları okuyucuda `<code>` olarak çizilir.
 | `footnote`  | `en`, `tr`                                                     | Sayfa altı dipnotu |
 | `table`     | `rows: [[{en,tr,html?}]]`, `header_rows?`                      | Tablo; ilk `header_rows` satır `<th>` olarak çizilir. Hücre `html: true` ise `<sup>` (dipnot işareti) ve `<br>` (hücre içi liste) içerebilir; `tr` aynı etiketleri korur |
 | `math`      | `src`, `text`, `latex`                                         | Ayrı satır denklemi. `src` = PNG (`page-N_images/eq-K.png`, her zaman var), `text` = düzleştirilmiş ham metin (yedek), `latex` = isteğe bağlı LaTeX. Çevrilmez |
-| `html`      | `html`                                                         | Serbest HTML (nadiren; içinde `.tr-text` / `.en-text` span'ları olabilir) |
 
 Kod bloklarında PDF'teki alt/üst simgeler `x^23`, `W_K` biçiminde düz metne
 indirgenir; kod aynen korunur.

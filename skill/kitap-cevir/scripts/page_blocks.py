@@ -40,7 +40,7 @@ class Block:
 
     def anchor_text(self):
         """Görsel yerleştirirken bloğu tanıtan İngilizce metin."""
-        return self.data.get("en") or self.data.get("html") or ""
+        return self.data.get("en") or ""
 
     def media_sources(self):
         return []
@@ -82,14 +82,6 @@ class HeadingBlock(TextBlock):
 class ChapterBlock(HeadingBlock):
     def accept(self, visitor):
         return visitor.visit_chapter(self)
-
-
-class HtmlBlock(Block):
-    def leads_page(self):
-        return True
-
-    def accept(self, visitor):
-        return visitor.visit_html(self)
 
 
 class ParaBlock(Block):
@@ -162,6 +154,6 @@ class MathBlock(MediaBlock):
 _BLOCK_CLASSES = {
     "caption": TextBlock, "footnote": TextBlock,
     "chapter": ChapterBlock, "heading": HeadingBlock,
-    "html": HtmlBlock, "para": ParaBlock, "list": ListBlock, "table": TableBlock,
+    "para": ParaBlock, "list": ListBlock, "table": TableBlock,
     "code": CodeBlock, "image": ImageBlock, "math": MathBlock,
 }

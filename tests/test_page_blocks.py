@@ -36,9 +36,10 @@ class _NamingVisitor:
 class AcceptTest(unittest.TestCase):
     def test_each_block_type_visits_its_own_method(self):
         expected = {"caption": "visit_text_unit", "footnote": "visit_text_unit", "chapter": "visit_chapter",
-                    "heading": "visit_heading", "html": "visit_html", "para": "visit_para",
+                    "heading": "visit_heading", "para": "visit_para",
                     "list": "visit_list", "table": "visit_table", "code": "visit_code",
-                    "image": "visit_image", "math": "visit_math", "yeni": "visit_unknown"}
+                    "image": "visit_image", "math": "visit_math", "yeni": "visit_unknown",
+                    "html": "visit_unknown"}
         visited = {kind: Block.of({"type": kind}).accept(_NamingVisitor()) for kind in expected}
         self.assertEqual(visited, expected)
 
@@ -53,7 +54,7 @@ class BlockTest(unittest.TestCase):
         self.assertEqual(Block.of(caption).units(), [caption])
 
     def test_media_and_unknown_blocks_have_no_units(self):
-        for data in ({"type": "image", "src": "a.png"}, {"type": "html", "html": "<p/>"}, {"type": "yeni"}):
+        for data in ({"type": "image", "src": "a.png"}, {"type": "yeni"}):
             self.assertEqual(Block.of(data).units(), [], data["type"])
 
     def test_list_fill_uses_item_paths(self):
@@ -76,9 +77,9 @@ class BlockTest(unittest.TestCase):
         self.assertEqual(Block.of(TABLE).anchor_text(), "")
         self.assertEqual(Block.of(CODE).anchor_text(), "")
 
-    def test_only_headings_and_html_lead_the_page(self):
-        leads = {kind: Block.of({"type": kind}).leads_page() for kind in ("chapter", "heading", "html", "caption")}
-        self.assertEqual(leads, {"chapter": True, "heading": True, "html": True, "caption": False})
+    def test_only_headings_lead_the_page(self):
+        leads = {kind: Block.of({"type": kind}).leads_page() for kind in ("chapter", "heading", "caption")}
+        self.assertEqual(leads, {"chapter": True, "heading": True, "caption": False})
 
 
 class PageQueriesTest(unittest.TestCase):
