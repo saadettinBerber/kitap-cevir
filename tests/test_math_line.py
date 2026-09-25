@@ -47,7 +47,7 @@ def _neighbours(*spans):
 class SpanRunTest(unittest.TestCase):
     def test_split_groups_consecutive_spans_by_kind(self):
         runs = SpanRun.split((_prose("find "), _math("x"), _math("2"), _prose(" to")), _is_math)
-        self.assertEqual([(run.is_math, len(run.spans)) for run in runs], [(False, 1), (True, 2), (False, 1)])
+        self.assertEqual([(run.is_math(), run.text) for run in runs], [(False, "find"), (True, "x2"), (False, "to")])
 
 
 class SimpleRunTest(unittest.TestCase):
