@@ -91,21 +91,30 @@ def _print_entry(entry, has_vision):
 
 
 def _report(prepared, settings):
+    if not prepared:
+        print("Hazırlanacak sayfa yok.")
+        return
+    _print_prepared(prepared, settings.translator_has_vision())
+
+
+def _print_prepared(prepared, has_vision):
     print(f"Hazırlanan sayfa sayısı: {len(prepared)}\n")
     for entry in prepared:
-        _print_entry(entry, settings.translator_has_vision())
+        _print_entry(entry, has_vision)
     print("\nSonraki adım: her girdi için bir çevirmen agent çalıştır "
           "(sözleşme: references/FORMAT.md), çıktıyı _work/out/page-N.json yaz, "
           f"sonra: python3 {SCRIPTS_DIR}/finalize_page.py _work/out/page-N.json; "
           "kartlar en son (SKILL.md → C)")
 
 
-def _prepare(preparer, spec, count):
-    if spec not in NEXT_ALIASES:
-        prepared = preparer.prepare_page(int(spec))
-        if not prepared:
-            print(f"  ! Sayfa {spec} boş")
-        return prepared
+def _prepare_one(preparer, spec):
+    prepared = preparer.prepare_page(int(spec))
+    if not prepared:
+        print(f"  ! Sayfa {spec} boş")
+    return prepared
+
+
+def _prepare_next(preparer, count):
     prepared, blanks = preparer.prepare_next(count)
     for page in blanks:
         print(f"  ! Sayfa {page} boş — atlandı, işaretlendi")
@@ -115,10 +124,8 @@ def _prepare(preparer, spec, count):
 def main():
     spec, count = parse_args(sys.argv)
     project = Project.discover()
-    prepared = _prepare(PagePreparer.for_project(project), spec, count)
-    if not prepared:
-        print("Hazırlanacak sayfa yok.")
-        return
+    preparer = PagePreparer.for_project(project)
+    prepared = _prepare_next(preparer, count) if spec in NEXT_ALIASES else _prepare_one(preparer, spec)
     _report(prepared, project.load_settings())
 
 
