@@ -19,7 +19,7 @@ class ChapterFlow:
     Sayfa sonu eki (kart satırı) bu birleşmeyi kırmasın diye sonraki sayfa gelene dek bekler."""
 
     def __init__(self):
-        self.fragments = []
+        self._fragments = []
         self._page_end = []
 
     def add_page(self, page, fragments):
@@ -40,7 +40,7 @@ class ChapterFlow:
         return [entry for fragment in self._flow() for entry in fragment.toc_entries()]
 
     def _flow(self):
-        return self.fragments + self._page_end
+        return self._fragments + self._page_end
 
     def _place(self, page, fragments):
         if self._is_continued_by(fragments):
@@ -49,14 +49,14 @@ class ChapterFlow:
             self._start_page(page, fragments)
 
     def _is_continued_by(self, fragments):
-        return bool(fragments and self.fragments) and self.fragments[-1].continues_into(fragments[0])
+        return bool(fragments and self._fragments) and self._fragments[-1].continues_into(fragments[0])
 
     def _continue_paragraph(self, page, fragments):
-        self.fragments[-1] = self.fragments[-1].join(fragments[0], page_mark(page))
-        self.fragments += self._page_end + fragments[1:]
+        self._fragments[-1] = self._fragments[-1].join(fragments[0], page_mark(page))
+        self._fragments += self._page_end + fragments[1:]
 
     def _start_page(self, page, fragments):
-        self.fragments += [*self._page_end, Fragment(page_mark(page)), *fragments]
+        self._fragments += [*self._page_end, Fragment(page_mark(page)), *fragments]
 
     def _first_note_numbers(self):
         numbers, next_note = [], 1

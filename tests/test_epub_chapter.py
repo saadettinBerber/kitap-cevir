@@ -53,30 +53,30 @@ class ChapterFlowTest(unittest.TestCase):
     def test_new_page_starts_with_its_page_mark(self):
         flow = ChapterFlow()
         flow.add_page(PAGE, [_para("Done.", "Bitti.")])
-        self.assertEqual(flow.fragments[0].html, page_mark(PAGE))
+        self.assertTrue(flow.render().startswith(page_mark(PAGE)))
 
     def test_open_paragraph_absorbs_next_page_continuation(self):
         flow = ChapterFlow()
         flow.add_page(PAGE, [_para("of a masked", "Maskeli bir")])
-        flow.add_page(NEXT_PAGE, [_para("model.", "model."), _para("Next.", "Sonraki.")])
-        self.assertEqual([fragment.en_html for fragment in flow.fragments[1:]], ["of a masked model.", "Next."])
+        flow.add_page(NEXT_PAGE, [_para("model.", "modeli."), _para("Next.", "Sonraki.")])
+        self.assertEqual(flow.english(), ["of a masked model.", "Next."])
 
     def test_page_mark_sits_inside_the_joined_paragraph(self):
         flow = ChapterFlow()
         flow.add_page(PAGE, [_para("of a", "Bir")])
         flow.add_page(NEXT_PAGE, [_para("model.", "model.")])
-        self.assertIn(page_mark(NEXT_PAGE), flow.fragments[-1].tr_html)
+        self.assertIn(f"Bir {page_mark(NEXT_PAGE)}model.", flow.render())
 
     def test_closed_paragraph_keeps_next_page_apart(self):
         flow = ChapterFlow()
         flow.add_page(PAGE, [_para("Done.", "Bitti.")])
         flow.add_page(NEXT_PAGE, [_para("Next.", "Sonraki.")])
-        self.assertEqual(flow.fragments[2].html, page_mark(NEXT_PAGE))
+        self.assertIn(f"</p>\n{page_mark(NEXT_PAGE)}\n<p", flow.render())
 
     def test_empty_page_still_leaves_its_mark(self):
         flow = ChapterFlow()
         flow.add_page(PAGE, [])
-        self.assertEqual(len(flow.fragments), 1)
+        self.assertEqual(flow.render(), page_mark(PAGE))
 
     def test_notes_are_numbered_through_the_chapter(self):
         flow = ChapterFlow()
