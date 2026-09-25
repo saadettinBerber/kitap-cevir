@@ -101,6 +101,22 @@ def _code_lines_beside_prose(code_text):
     return [line.text for line in _lines((code,), (BODY.after(code, ", or more"),)) if line.is_code]
 
 
+def _one_line_of_code_then_prose(code_text):
+    """Kod ile başlayıp düz metinle süren tek PDF satırı; (kod mu, metin) çiftleri."""
+    code = CODE.at(code_text, (LEFT, TOP))
+    return [(line.is_code, line.text) for line in _lines((code, BODY.after(code, ", or more")))]
+
+
+class LeadingCodeTest(unittest.TestCase):
+    """Kod ile başlayıp düz metinle süren satırın uzun kod başı ayrı bir kod satırıdır."""
+
+    def test_leading_code_of_twelve_characters_is_split_off(self):
+        self.assertEqual(_one_line_of_code_then_prose("items.size()"), [(True, "items.size()"), (False, ", or more")])
+
+    def test_leading_code_of_eleven_characters_stays_inline(self):
+        self.assertEqual(_one_line_of_code_then_prose("items.count"), [(False, "items.count, or more")])
+
+
 class CodeLineTest(unittest.TestCase):
     def test_code_fragments_on_one_baseline_form_one_line(self):
         head = CODE.at("total = ", (LEFT, TOP))
