@@ -9,12 +9,10 @@ Kullanım (proje dizininde): python3 backfill_images.py [N ...]
 (argümansız: progress.json'da kayıtlı tüm çevrilmiş sayfalar)
 """
 import difflib
-import os
 import re
-import shutil
 import sys
 
-from extraction.pdf.pymupdf_adapter import image_size
+from image_folder import ImageFolder
 from page_blocks import Block
 from page_input import PageInputBuilder
 from project import Project
@@ -32,27 +30,6 @@ def _plain(text):
 
 def _similarity(anchor, candidate):
     return difflib.SequenceMatcher(None, anchor, candidate[:len(anchor) + 20]).ratio()
-
-
-class ImageFolder:
-    """Diskteki bir görsel klasörü: dosyanın varlığı, piksel boyutu ve kopyası."""
-
-    def __init__(self, path):
-        self.path = path
-
-    def has(self, src):
-        return os.path.isfile(self._file(src))
-
-    def size(self, src):
-        """(genişlik, yükseklik) piksel."""
-        return image_size(self._file(src))
-
-    def copy(self, src, target_dir):
-        os.makedirs(target_dir, exist_ok=True)
-        shutil.copy2(self._file(src), os.path.join(target_dir, src))
-
-    def _file(self, src):
-        return os.path.join(self.path, src)
 
 
 class PageImages:

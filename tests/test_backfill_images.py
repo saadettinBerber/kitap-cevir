@@ -1,9 +1,8 @@
-import os
 import tempfile
 import unittest
 
 import _paths  # noqa: F401
-from backfill_images import ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ImageBackfiller, ImageFolder, ImagePlacement, PageImages
+from backfill_images import ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ImageBackfiller, ImagePlacement, PageImages
 from page_document import PageDocument
 from project import Project
 from translated_pages import TranslatedPages
@@ -69,29 +68,6 @@ class PageImagesTest(unittest.TestCase):
     def test_anchor_keeps_only_the_first_characters(self):
         [(_, anchor)] = _anchored([_para("x" * (ANCHOR_CHARS + 1)), _image("fig.png")], {"fig.png": FIGURE})
         self.assertEqual(anchor, "x" * ANCHOR_CHARS)
-
-
-class ImageFolderTest(unittest.TestCase):
-    """Diskteki klasör; piksel boyutunu okuyan image_size'ın öğrenme testi test_pdf_boundary'dedir."""
-
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.source = os.path.join(self.tmp.name, "work")
-        os.makedirs(self.source)
-        with open(os.path.join(self.source, "fig.png"), "wb") as png:
-            png.write(b"png")
-
-    def tearDown(self):
-        self.tmp.cleanup()
-
-    def test_has_only_files_in_the_folder(self):
-        folder = ImageFolder(self.source)
-        self.assertEqual((folder.has("fig.png"), folder.has("missing.png")), (True, False))
-
-    def test_copy_creates_the_target_folder(self):
-        target = os.path.join(self.tmp.name, "pages", "page-5_images")
-        ImageFolder(self.source).copy("fig.png", target)
-        self.assertEqual(os.listdir(target), ["fig.png"])
 
 
 class ImagePlacementTest(unittest.TestCase):
