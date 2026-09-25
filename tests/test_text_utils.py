@@ -1,7 +1,7 @@
 import unittest
 
 import _paths  # noqa: F401
-from extraction.text_utils import clean_ligatures, split_sentences, strip_list_marker
+from extraction.text_utils import clean_ligatures, is_numeric_only, normalize_spaces, split_sentences, strip_list_marker
 
 
 class SplitSentencesTest(unittest.TestCase):
@@ -22,9 +22,20 @@ class HelpersTest(unittest.TestCase):
     def test_ligatures_are_expanded(self):
         self.assertEqual(clean_ligatures("ﬁle ﬂow"), "file flow")
 
-    def test_list_marker_is_stripped(self):
+    def test_bullet_marker_is_stripped(self):
         self.assertEqual(strip_list_marker("• item"), "item")
+
+    def test_number_marker_is_stripped(self):
         self.assertEqual(strip_list_marker("3) item"), "item")
+
+    def test_spaces_are_collapsed_and_trimmed(self):
+        self.assertEqual(normalize_spaces("  a \n\t b "), "a b")
+
+    def test_digits_with_separators_are_numeric_only(self):
+        self.assertTrue(is_numeric_only("1,024.5 %"))
+
+    def test_digits_beside_a_word_are_not_numeric_only(self):
+        self.assertFalse(is_numeric_only("42 items"))
 
 
 if __name__ == "__main__":
