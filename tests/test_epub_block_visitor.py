@@ -2,7 +2,7 @@ import unittest
 
 import _paths  # noqa: F401
 from epub.block_visitor import EpubBlockVisitor, image_href
-from epub.fragments import BodyParagraph, Heading, PassageList
+from epub.fragments import BodyParagraph, Heading
 from page_document import PageDocument
 
 PAGE = 12
@@ -49,9 +49,11 @@ class TextBlockTest(unittest.TestCase):
         caption = _only({"type": "caption", "en": "Figure", "tr": "Şekil"})
         self.assertEqual(caption.english(), ["Figure"])
 
-    def test_list_keeps_order_and_items(self):
-        fragment = _only({"type": "list", "ordered": True, "items": [{"en": "a", "tr": "b"}]})
-        self.assertIsInstance(fragment, PassageList)
+    def test_ordered_list_is_numbered(self):
+        self.assertTrue(_html({"type": "list", "ordered": True, "items": []}).startswith('<ol class="list">'))
+
+    def test_list_items_carry_their_english_notes(self):
+        fragment = _only({"type": "list", "items": [{"en": "a", "tr": "b"}]})
         self.assertEqual(fragment.english(), ["a"])
 
 
