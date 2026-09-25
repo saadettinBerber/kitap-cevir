@@ -92,11 +92,13 @@ class ImagePlacement:
 class ExtractedImages:
     """Sayfayı PDF'ten yeniden çıkarır; blokları ve görsel klasörünü PageImages olarak verir."""
 
-    def __init__(self, builder):
+    def __init__(self, builder, project):
         self.builder = builder
+        self.project = project
 
     def of(self, page):
-        return PageImages(self.builder.build(page)["blocks"], ImageFolder(self.builder.image_dir(page)))
+        image_dir = self.project.work_images(page)
+        return PageImages(self.builder.build(page, image_dir)["blocks"], ImageFolder(image_dir))
 
 
 class ImageBackfiller:
@@ -109,7 +111,7 @@ class ImageBackfiller:
     @classmethod
     def for_project(cls, project):
         builder = PageInputBuilder.for_progress(project, project.load_progress())
-        return cls(TranslatedPages(project), ExtractedImages(builder))
+        return cls(TranslatedPages(project), ExtractedImages(builder, project))
 
     def backfill_page(self, page):
         """Eklenen görsel sayısı; sayfa yalnız görsel eklendiyse yeniden yazılır."""

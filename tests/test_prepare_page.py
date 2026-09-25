@@ -43,7 +43,7 @@ class PagePreparationTest(unittest.TestCase):
             json.dump(self.progress.as_json(), handle)
         extractor = _FakeExtractor({2: [PARA], 3: [IMAGE], 4: [PARA], 5: [PARA]})
         book_pdf = BookPdf(lambda: _fake_document(5), extractor)
-        self.builder = PageInputBuilder(self.project, self.progress, book_pdf)
+        self.builder = PageInputBuilder(self.progress, book_pdf)
         self.preparer = PagePreparer(self.project, self.progress, self.builder)
 
     def tearDown(self):
@@ -54,7 +54,7 @@ class PagePreparationTest(unittest.TestCase):
             return json.load(handle)["pages"]
 
     def test_input_carries_chapter_section_and_context(self):
-        document = self.builder.build(1)
+        document = self.builder.build(1, self.project.work_images(1))
         self.assertEqual((document["pdf_page"], document["chapter"]["en"], document["section"]["en"]),
                          (2, "One", "Styles"))
         self.assertEqual(document["context"], {"prev_tail": "Sayfa 1", "next_head": "Sayfa 3"})

@@ -62,7 +62,7 @@ class PagePreparer:
         return self._prepare(page)
 
     def _prepare(self, page):
-        page_document = PageDocument(self.builder.build(page))
+        page_document = PageDocument(self.builder.build(page, self.project.work_images(page)))
         if page_document.is_blank():
             return []
         document = page_document.data

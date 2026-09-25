@@ -77,7 +77,7 @@ class Migrator:
     def run(self, page):
         """Sayfayı yeniden çıkarıp eski çevirileri taşır; sonlandırmaz."""
         old = self.pages.get(page).data
-        document = self.builder.build(page)
+        document = self.builder.build(page, self.project.work_images(page))
         pending, latex_items = PageMigration(document, old).run(self.builder.hyphen_fixes(document["pdf_page"]))
         write_json(self._out_path(page), document)
         self._write_pending(page, pending, latex_items)
