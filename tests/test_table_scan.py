@@ -242,6 +242,25 @@ class RowBandTest(unittest.TestCase):
         self.assertEqual(_texts(table), [HEADER, ROWS[0]])
 
 
+FAR_SUBLINE_DROPS = (2, 22)  # alt satırlar arası boşluk varsayılan satır boşluğu eşiğini aşar
+SPLIT_HEADER = (("Na", "Co", "Sh"), ("me", "unt", ""))
+
+
+class PageBandTest(unittest.TestCase):
+    """Satır bantları yalnız tablonun kendi hücrelerinden değil sayfanın bütün dolgularından çıkar.
+    Alt çizgisi olmayan tablo, sütunlarını paylaşan uzaktaki dolgulu satırı da içine alır (o satır
+    tek başına tablo olamayacak kadar kısadır); satırın iki alt satırı, arası satır boşluğundan büyük
+    olsa da, bandında tek satırdır."""
+
+    def test_band_of_another_table_joins_its_lines_into_one_row(self):
+        upper = ZebraLayout(ROWS[:1])
+        lower_top = upper.bottom() + ROW_HEIGHT * (MAX_BAND_GAP_RATIO + 1)
+        apart = [_bold(_cell_row(lower_top + drop, texts)) for drop, texts in zip(FAR_SUBLINE_DROPS, SPLIT_HEADER)]
+        lower_fills = [fill(left, lower_top, right, lower_top + ROW_HEIGHT) for left, right in COLUMNS]
+        [table] = _scan(FakePdfPage(lines=upper.lines() + apart, shapes=upper.shading(0) + lower_fills))
+        self.assertEqual(_texts(table)[-1][0], "Na<br>me")
+
+
 class WideSpanTest(unittest.TestCase):
     def test_row_with_a_span_wider_than_the_widest_column_ends_the_table(self):
         layout = ZebraLayout(ROWS)
