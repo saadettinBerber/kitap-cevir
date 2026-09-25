@@ -4,8 +4,7 @@ import fitz
 
 from extraction.pdf.geometry import Box
 from extraction.pdf.model import Drawing, Span
-
-FIRST_PAGE_NUMBER = 1       # PdfPage sayfaları 1'den, PyMuPDF 0'dan sayar
+from extraction.pdf.ports import FIRST_PAGE_NUMBER
 
 
 class PyMuPdfDocument:

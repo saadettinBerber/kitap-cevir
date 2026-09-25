@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 import _paths  # noqa: F401
 from extraction.pdf.geometry import Box
 from extraction.pdf.model import Drawing, LayoutElement, PageLayout, Span
+from extraction.pdf.ports import FIRST_PAGE_NUMBER
 from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 
 FAKE_PNG = b"\x89PNG fake"
@@ -77,10 +78,10 @@ class FakePdfDocument:
         return len(self.pages)
 
     def page(self, number):
-        return self.pages[number - 1]
+        return self.pages[number - FIRST_PAGE_NUMBER]
 
     def page_text(self, number):
-        return self.pages[number - 1].text()
+        return self.pages[number - FIRST_PAGE_NUMBER].text()
 
 
 @dataclass
