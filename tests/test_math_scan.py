@@ -72,6 +72,18 @@ def _fraction_above_display():
     return FakePdfPage(lines=lines, shapes=[stroke(106, 208, 125, 208)])
 
 
+def _superscripted(base, mark):
+    """Üst simgeli denklem: iki punto, basit sayılmaz."""
+    return _math(base, (0, 90, 6, 102)), span(mark, (6, 88, 10, 95), MATH_FONT, SUPERSCRIPT_SIZE)
+
+
+def _images_around_a_symbol():
+    """Cümlede iki görsel denklem, aralarında düz metne çevrilen bir sembol; üstte ayrı satır denklemi."""
+    inline = (span("see ", (0, 90, 1, 102)), *_superscripted("x", "2"), span(" and ", (0, 90, 1, 102)),
+              _math("πr", (0, 90, 1, 102)), span(" then ", (0, 90, 1, 102)), *_superscripted("y", "3"))
+    return _display_page(inline)
+
+
 class ScanCase(unittest.TestCase):
     """Her test kendi geçici görsel klasörüne tarar."""
 
@@ -165,6 +177,20 @@ class OrderTest(ScanCase):
     def test_inline_images_are_numbered_before_display_equations(self):
         result = self._scan(_page())
         self.assertEqual((result["inline"][0]["id"], result["display"][0]["block"]["src"]), ("eq-1", "eq-2.png"))
+
+
+class NumberingTest(ScanCase):
+    """Numarayı yalnız kırpılan denklemler alır; düz metne çevrilen sembol numara tüketmez."""
+
+    def setUp(self):
+        super().setUp()
+        self.result = self._scan(_images_around_a_symbol())
+
+    def test_inline_images_are_numbered_in_reading_order(self):
+        self.assertEqual([item.get("id") for item in self.result["inline"]], ["eq-1", None, "eq-2"])
+
+    def test_display_equations_follow_the_inline_images(self):
+        self.assertEqual([region["block"]["src"] for region in self.result["display"]], ["eq-3.png"])
 
 
 class InlineEquationTest(ScanCase):
