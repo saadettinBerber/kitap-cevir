@@ -10,7 +10,7 @@ class ImageFolder:
     """Görselin klasörde olup olmadığı, piksel boyutu ve başka klasöre kopyası."""
 
     def __init__(self, path):
-        self.path = path
+        self._path = path
 
     def has(self, src):
         return os.path.isfile(self._file(src))
@@ -24,4 +24,4 @@ class ImageFolder:
         shutil.copy2(self._file(src), os.path.join(target_dir, src))
 
     def _file(self, src):
-        return os.path.join(self.path, src)
+        return os.path.join(self._path, src)
