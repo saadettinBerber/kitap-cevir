@@ -29,6 +29,9 @@ Bu depodaki karşılıkları:
 - **OOP:** `page_blocks.py`. Blok türü başına bir sınıf var, tür dallanması yalnız `Block.of` fabrikasında (G23 "tek switch"). Aynı dallanma daha önce beş modülde tekrar ediyordu.
 - **OOP:** durum etrafında kurulan sınıflar (`CardChecker(spec)`, `PageInputBuilder`, `PdfInspector(document)`). Aynı değişken fonksiyondan fonksiyona elden ele taşınıyorsa orada bir sınıf çıkmak istiyordur (Bl.10 · Cohesion).
 - **Prosedürel:** `extraction/text_utils.py`. Veri (metin) sabit, işlemler çoğalıyor, durum yok; sınıfa sarılmaz.
+- **VISITOR:** `Block.accept` + `epub/block_visitor.py`. EPUB çıktısı bloklara eklenen yeni bir işlemdir; tür dallanması yine yalnız `Block.of`'ta kalır.
+- **Prosedürel:** `epub/cards.py`. Kart türleri sabit, işlemler (denetim, çizim) çoğalıyor.
+- **POJO:** `epub/` diski bilmez. Stil, görsel ve çıktı akışı dışarıdan verilir; disk sınırı `export_epub.BookExport`'tur.
 - **Veri yapısı:** sayfa JSON'u (`references/FORMAT.md`) bir veri taşıyıcıdır. Davranışı `PageDocument` ve `Block` sarmalayıcıları taşır.
 
 ## Ölçüler: eşik alarmdır, ölçüt değildir
