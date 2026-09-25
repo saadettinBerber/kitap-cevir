@@ -11,7 +11,7 @@ class PyMuPdfDocument:
 
     def __init__(self, pdf_path, document):
         self.pdf_path = pdf_path
-        self.document = document
+        self._document = document
 
     @classmethod
     def open(cls, pdf_path):
@@ -21,30 +21,30 @@ class PyMuPdfDocument:
         return self
 
     def __exit__(self, *_):
-        self.document.close()
+        self._document.close()
 
     @property
     def page_count(self):
-        return self.document.page_count
+        return self._document.page_count
 
     @property
     def metadata(self):
-        return self.document.metadata or {}
+        return self._document.metadata or {}
 
     def page(self, number):
-        return PyMuPdfPage(self.pdf_path, number, self.document[number - 1])
+        return PyMuPdfPage(self.pdf_path, number, self._document[number - 1])
 
 
 class PyMuPdfPage:
     def __init__(self, pdf_path, number, page):
         self.pdf_path = pdf_path
         self.number = number
-        self.page = page
+        self._page = page
         self.width = page.rect.width
         self.height = page.rect.height
 
     def text_lines(self):
-        lines = (line for block in self.page.get_text("dict")["blocks"] for line in block.get("lines", []))
+        lines = (line for block in self._page.get_text("dict")["blocks"] for line in block.get("lines", []))
         return [spans for spans in map(self._spans, lines) if spans]
 
     @staticmethod
@@ -53,16 +53,16 @@ class PyMuPdfPage:
                      for raw in line["spans"] if raw["text"].strip())
 
     def text(self):
-        return self.page.get_text()
+        return self._page.get_text()
 
     def drawings(self):
-        return [Drawing(_box(drawing["rect"]), bool(drawing.get("fill"))) for drawing in self.page.get_drawings()]
+        return [Drawing(_box(drawing["rect"]), bool(drawing.get("fill"))) for drawing in self._page.get_drawings()]
 
     def text_in(self, box):
-        return self.page.get_text("text", clip=_rect(box))
+        return self._page.get_text("text", clip=_rect(box))
 
     def png(self, box, dpi):
-        return self.page.get_pixmap(dpi=dpi, clip=_rect(box)).tobytes("png")
+        return self._page.get_pixmap(dpi=dpi, clip=_rect(box)).tobytes("png")
 
 
 def image_size(path):
