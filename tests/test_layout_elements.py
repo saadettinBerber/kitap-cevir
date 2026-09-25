@@ -30,20 +30,26 @@ def _spliced(equation, text="find to minimize"):
 
 
 class FootnoteMarkerTest(unittest.TestCase):
+    MARKER = (70, 100, 75, 110)
+    RIGHT_OF_MARKER = (80, 100, 400, 110)
+    LINE_BELOW_MARKER = (80, 110, 400, 120)
+
     def test_footnote_marker_joins_text_on_same_line(self):
-        items = [element("a", (70, 100, 75, 110)), element("Footnote text.", (80, 100, 400, 110))]
-        merged = _fixed(items)
+        merged = _fixed([element("a", self.MARKER), element("Footnote text.", self.RIGHT_OF_MARKER)])
         self.assertEqual([item.text for item in merged], ["a Footnote text."])
 
     def test_marker_on_another_line_stays_apart(self):
-        items = [element("a", (70, 100, 75, 110)), element("Next line.", (80, 110, 400, 120))]
+        items = [element("a", self.MARKER), element("Next line.", self.LINE_BELOW_MARKER)]
         self.assertEqual(_fixed(items), items)
 
 
 class NestedFragmentTest(unittest.TestCase):
+    HOST = (70, 100, 300, 120)
+    INSIDE_HOST = (120, 110, 125, 118)
+
     def test_single_character_inside_another_box_is_dropped(self):
-        host, fragment = element("x squared", (70, 100, 300, 120)), element("2", (120, 110, 125, 118))
-        self.assertEqual(_fixed([host, fragment]), [host])
+        host = element("x squared", self.HOST)
+        self.assertEqual(_fixed([host, element("2", self.INSIDE_HOST)]), [host])
 
 
 class NestedListTest(unittest.TestCase):
@@ -52,13 +58,13 @@ class NestedListTest(unittest.TestCase):
     BOX = (70, 100, 430, 120)
 
     def _list_with_kids(self):
-        kids = (element("Term Definition Configurability", self.BOX, font_size=9.0),
-                element("Cross-Cutting", self.BOX, "heading", font_size=15.8))
-        item = element("Table 4-2. Structural characteristics", self.BOX, "list item", font_size=10.0, children=kids)
+        kids = (element("Term Definition Configurability", self.BOX), element("Cross-Cutting", self.BOX, "heading"))
+        item = element("Table 4-2. Structural characteristics", self.BOX, "list item", children=kids)
         return element("", self.BOX, "list", is_ordered=True, list_items=(item,))
 
     def test_nested_content_returns_to_the_stream(self):
-        self.assertEqual([flat.kind for flat in _fixed([self._list_with_kids()])], ["list item", "paragraph", "heading"])
+        flat = _fixed([self._list_with_kids()])
+        self.assertEqual([item.kind for item in flat], ["list item", "paragraph", "heading"])
 
     def test_list_item_keeps_its_text(self):
         self.assertEqual(_fixed([self._list_with_kids()])[0].text, "Table 4-2. Structural characteristics")
@@ -79,23 +85,30 @@ class CodeImageLinkTest(unittest.TestCase):
     LINK = "Click here to view code image"
     # Bağlantı satırı 60-70'te, şeridi komşu satırlara kadar 50-80.
     SLOT = {"text": LINK, "y0": 50, "y1": 80}
+    LINK_LINE = (70, 60, 430, 70)
+    LINK_WITH_CODE_BELOW = (70, 60, 430, 90)
+    CODE_BELOW_THE_SLOT = (70, 80, 430, 90)
+    PROSE_WITH_LINK_BELOW = (70, 20, 430, 70)
+    PROSE_ABOVE_THE_SLOT = (70, 20, 430, 50)
+    FAR_BELOW = (70, 280, 430, 300)
+    IMAGE = (70, 500, 430, 700)
 
     def _without_links(self, *elements):
         return LayoutFixer([], [self.SLOT]).fixed(list(elements))
 
     def test_element_that_is_only_the_link_is_dropped(self):
-        self.assertEqual(self._without_links(element(self.LINK, (70, 60, 430, 70), "heading")), [])
+        self.assertEqual(self._without_links(element(self.LINK, self.LINK_LINE, "heading")), [])
 
     def test_code_glued_under_the_link_keeps_its_text_and_loses_the_slot(self):
-        kept = self._without_links(element(f"{self.LINK} // Two classes", (70, 60, 430, 90)))
-        self.assertEqual(kept, [element("// Two classes", (70, 80, 430, 90))])
+        kept = self._without_links(element(f"{self.LINK} // Two classes", self.LINK_WITH_CODE_BELOW))
+        self.assertEqual(kept, [element("// Two classes", self.CODE_BELOW_THE_SLOT)])
 
     def test_prose_glued_above_the_link_is_kept_above_the_slot(self):
-        kept = self._without_links(element(f"reduces the time to 9.2 seconds: {self.LINK}", (70, 20, 430, 70)))
-        self.assertEqual(kept, [element("reduces the time to 9.2 seconds:", (70, 20, 430, 50))])
+        kept = self._without_links(element(f"reduces the time to 9.2 seconds: {self.LINK}", self.PROSE_WITH_LINK_BELOW))
+        self.assertEqual(kept, [element("reduces the time to 9.2 seconds:", self.PROSE_ABOVE_THE_SLOT)])
 
     def test_elements_away_from_the_link_are_untouched(self):
-        body, image = element("Body text", (70, 280, 430, 300)), element("", (70, 500, 430, 700), "image")
+        body, image = element("Body text", self.FAR_BELOW), element("", self.IMAGE, "image")
         self.assertEqual(self._without_links(body, image), [body, image])
 
 
@@ -121,7 +134,8 @@ class InlineMathTest(unittest.TestCase):
         self.assertIn("atlandı", _spliced(_equation(before="seek", after="into"))[1])
 
     def test_simple_symbol_is_inserted_as_text(self):
-        self.assertEqual(_spliced(_equation(before="find", after="to", kind="text", text="πr"))[0], "find πr to minimize")
+        equation = _equation(before="find", after="to", kind="text", text="πr")
+        self.assertEqual(_spliced(equation)[0], "find πr to minimize")
 
     def test_equation_goes_into_the_first_host_only(self):
         hosts = [element("find to minimize", HOST_BOX), element("find to maximize", HOST_BOX)]
