@@ -9,7 +9,7 @@ from extraction.equations.math_scan import MathScanner
 from extraction.pdf.geometry import Box
 from extraction.settings import with_defaults
 
-SETTINGS = {"math_geometry": True}
+GEOMETRY_ON = {"math_geometry": True}
 COLUMN_LEFT = 72
 COLUMN_RIGHT = 432
 PROSE_TOP = 249
@@ -20,6 +20,7 @@ TABLE_RULE_SPLIT = 246
 NUMERATOR = (span("A =", (87, 191, 102, 205)), span("ma", (106, 191, 120, 205)))
 DENOMINATOR = (span("mc", (106, 208, 119, 222)),)
 PROSE = (span("In the equation, ma represents abstract elements.", (COLUMN_LEFT, PROSE_TOP, 303, 263), size=10.5),)
+FRACTION_LINES = (NUMERATOR, DENOMINATOR, PROSE)
 FRACTION_BAR = stroke(106, 208, 125, 208)
 EQUATION_CAPTION = (span("Equation 3-3. Abstractness", (COLUMN_LEFT, 177, 200, 187)),)
 
@@ -30,84 +31,93 @@ def _table_rule(*stops):
     return [stroke(left, TABLE_RULE_Y, right, TABLE_RULE_Y) for left, right in zip(stops, stops[1:])]
 
 
-def _scan(lines=(NUMERATOR, DENOMINATOR, PROSE), shapes=(), settings=SETTINGS):
-    page = FakePdfPage(lines=list(lines), shapes=[FRACTION_BAR, *shapes])
+def _fraction_page(*shapes):
+    return FakePdfPage(lines=list(FRACTION_LINES), shapes=[FRACTION_BAR, *shapes])
+
+
+def _display(page, settings=GEOMETRY_ON):
     with tempfile.TemporaryDirectory() as images:
-        return MathScanner(with_defaults(settings), page, images).scan()
+        return MathScanner(with_defaults(settings), page, images).scan()["display"]
 
 
 class GeometryMathTest(unittest.TestCase):
     """Type3 fontu olmayan kitaplarda denklemi kesir çizgisi ele verir."""
 
     def test_fraction_becomes_one_math_block(self):
-        display = _scan()["display"]
-        self.assertEqual(len(display), 1)
-        self.assertEqual(display[0]["block"]["type"], "math")
+        self.assertEqual([region["block"]["type"] for region in _display(_fraction_page())], ["math"])
 
     def test_region_covers_both_sides_of_the_bar(self):
-        text = _scan()["display"][0]["block"]["text"]
-        for part in ("A =", "ma", "mc"):
-            self.assertIn(part, text)
+        [region] = _display(_fraction_page())
+        self.assertEqual(region["block"]["text"], "A = ma mc")
 
     def test_body_text_below_stays_outside(self):
-        [region] = _scan()["display"]
+        [region] = _display(_fraction_page())
         self.assertLess(region["y1"], PROSE_TOP)
-        self.assertNotIn("represents", region["block"]["text"])
 
     def test_caption_above_the_fraction_stays_out_of_the_equation(self):
         """Denklem başlığı denklemin hemen üstündedir ama çevrilecek bir caption'dır."""
-        [region] = _scan(lines=(EQUATION_CAPTION, NUMERATOR, DENOMINATOR, PROSE))["display"]
+        page = FakePdfPage(lines=[EQUATION_CAPTION, *FRACTION_LINES], shapes=[FRACTION_BAR])
+        [region] = _display(page)
         self.assertEqual(region["block"]["text"], "A = ma mc")
 
     def test_full_width_rule_is_not_a_fraction_bar(self):
-        self.assertEqual(len(_scan(shapes=_table_rule(COLUMN_LEFT, COLUMN_RIGHT))["display"]), 1)
+        self.assertEqual(len(_display(_fraction_page(*_table_rule(COLUMN_LEFT, COLUMN_RIGHT)))), 1)
 
     def test_segmented_table_rule_is_not_a_fraction_bar(self):
         """Kenarlığın sütun kenarından başlamayan parçası tek başına kesir
         çizgisine benzer; test hizanın tamamına bakılmasını korur."""
-        self.assertEqual(len(_scan(shapes=_table_rule(COLUMN_LEFT, TABLE_RULE_SPLIT, COLUMN_RIGHT))["display"]), 1)
+        rule = _table_rule(COLUMN_LEFT, TABLE_RULE_SPLIT, COLUMN_RIGHT)
+        self.assertEqual(len(_display(_fraction_page(*rule))), 1)
 
     def test_detection_is_off_by_default(self):
-        self.assertEqual(_scan(settings={})["display"], [])
+        self.assertEqual(_display(_fraction_page(), settings={}), [])
 
 
 COLUMN_WIDTH = 300
 FRACTION_LEFT = 180
+FRACTION_RIGHT = 240
+BAR_TOP, BAR_BOTTOM = 150, 151
 EDGE = COLUMN_LEFT + COLUMN_EDGE_TOLERANCE
 WIDEST_FRACTION = COLUMN_WIDTH * BAR_GROUP_MAX_SPAN_RATIO
+SEGMENT_LEFT, SEGMENT_SPLIT, SEGMENT_RIGHT = 150, 200, 300
+EDGE_BAR_RIGHT = 120
+SHORT_BAR = 20
+FULL_LINE = Box(COLUMN_LEFT, 100, COLUMN_LEFT + COLUMN_WIDTH, 110)
+SHORT_LINE = Box(COLUMN_LEFT, 120, 360, 130)
 STEP = 0.1
+
+
+def _rule(*spans):
+    """spans: aynı hizadaki çizgi parçalarının (sol, sağ) uçları."""
+    [rule] = Rule.from_drawings([stroke(left, BAR_TOP, right, BAR_BOTTOM) for left, right in spans])
+    return rule
 
 
 class TextColumnTest(unittest.TestCase):
     def setUp(self):
-        self.column = TextColumn([Box(COLUMN_LEFT, 100, COLUMN_LEFT + COLUMN_WIDTH, 110),
-                                  Box(COLUMN_LEFT, 120, 360, 130)])
-
-    def _rule(self, *bars):
-        [rule] = Rule.from_drawings([stroke(*bar) for bar in bars])
-        return rule
+        self.column = TextColumn([FULL_LINE, SHORT_LINE])
 
     def test_short_indented_bar_is_a_fraction(self):
-        self.assertTrue(self.column.holds_fraction(self._rule((FRACTION_LEFT, 150, 240, 151))))
+        self.assertTrue(self.column.holds_fraction(_rule((FRACTION_LEFT, FRACTION_RIGHT))))
 
     def test_bar_from_column_edge_is_not_a_fraction(self):
-        self.assertFalse(self.column.holds_fraction(self._rule((COLUMN_LEFT, 150, 120, 151))))
+        self.assertFalse(self.column.holds_fraction(_rule((COLUMN_LEFT, EDGE_BAR_RIGHT))))
 
     def test_bar_starting_at_the_edge_tolerance_is_not_a_fraction(self):
-        self.assertFalse(self.column.holds_fraction(self._rule((EDGE, 150, EDGE + 20, 151))))
+        self.assertFalse(self.column.holds_fraction(_rule((EDGE, EDGE + SHORT_BAR))))
 
     def test_bar_starting_just_past_the_edge_tolerance_is_a_fraction(self):
-        self.assertTrue(self.column.holds_fraction(self._rule((EDGE + STEP, 150, EDGE + 20, 151))))
+        self.assertTrue(self.column.holds_fraction(_rule((EDGE + STEP, EDGE + SHORT_BAR))))
 
     def test_bar_as_wide_as_the_widest_fraction_is_a_fraction(self):
-        self.assertTrue(self.column.holds_fraction(self._rule((FRACTION_LEFT, 150, FRACTION_LEFT + WIDEST_FRACTION, 151))))
+        self.assertTrue(self.column.holds_fraction(_rule((FRACTION_LEFT, FRACTION_LEFT + WIDEST_FRACTION))))
 
     def test_bar_just_wider_than_the_widest_fraction_is_not_a_fraction(self):
         right = FRACTION_LEFT + WIDEST_FRACTION + STEP
-        self.assertFalse(self.column.holds_fraction(self._rule((FRACTION_LEFT, 150, right, 151))))
+        self.assertFalse(self.column.holds_fraction(_rule((FRACTION_LEFT, right))))
 
     def test_segmented_full_width_rule_is_not_a_fraction(self):
-        rule = self._rule((150, 150, 200, 151), (200, 150, 300, 151))
+        rule = _rule((SEGMENT_LEFT, SEGMENT_SPLIT), (SEGMENT_SPLIT, SEGMENT_RIGHT))
         self.assertFalse(self.column.holds_fraction(rule))
 
 
