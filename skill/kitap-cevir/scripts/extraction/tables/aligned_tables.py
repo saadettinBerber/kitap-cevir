@@ -90,7 +90,7 @@ class TableColumns:
 
     def __init__(self, starts, right_edge):
         ends = [start - COLUMN_GUTTER for start in starts[1:]] + [right_edge + LAST_COLUMN_REACH]
-        self.columns = list(zip(starts, ends))
+        self._columns = list(zip(starts, ends))
 
     @classmethod
     def of_header(cls, header):
@@ -108,14 +108,14 @@ class TableColumns:
         return self._within_columns(row) and sum(1 for bucket in self.buckets(row) if bucket) >= MIN_FILLED_COLUMNS
 
     def _within_columns(self, row):
-        left, right = self.columns[0][0], self.columns[-1][1]
+        left, right = self._columns[0][0], self._columns[-1][1]
         return row.left >= left - COLUMN_GUTTER and row.right <= right + ROW_RIGHT_SLACK
 
     def buckets(self, row):
         """Her sütuna düşen parçalar. İki sütunun payına giren parça soldakine gider;
         hiçbir sütuna düşmeyen parça atılır (sahipsiz boş listeye eklenir)."""
         buckets, unplaced = [], list(row)
-        for column in self.columns:
+        for column in self._columns:
             buckets.append([span for span in unplaced if self._holds(column, span)])
             unplaced = [span for span in unplaced if span not in buckets[-1]]
         return buckets
@@ -132,14 +132,14 @@ class TableColumns:
     def _cells(self, row):
         buckets = self.buckets(row)
         main_size = max((span.size for bucket in buckets for span in bucket), default=DEFAULT_MAIN_SIZE)
-        return [TableCell(bucket, column, main_size).unit(False) for bucket, column in zip(buckets, self.columns)]
+        return [TableCell(bucket, column, main_size).unit(False) for bucket, column in zip(buckets, self._columns)]
 
 
 class AlignedTableFinder:
     """Sayfanın satırları arasında hizalı tabloları arar."""
 
     def __init__(self, rows):
-        self.rows = rows
+        self._rows = rows
 
     @classmethod
     def of_spans(cls, spans):
@@ -148,7 +148,7 @@ class AlignedTableFinder:
     def tables(self):
         """[{y0, y1, block}]; bir tablonun satırları başka tablonun başlığı olamaz."""
         found, index = self._continued_table()
-        while index < len(self.rows):
+        while index < len(self._rows):
             rows = self._table_rows_at(index)
             is_table = self._is_table(index, rows)
             found += [TableColumns.of_header(rows[0]).table(rows, HEADER_ROW)] if is_table else []
@@ -158,8 +158,8 @@ class AlignedTableFinder:
     def _continued_table(self):
         """Önceki sayfadan süren başlıksız tablo ve taramanın süreceği satır.
         Sayfayı kendi başlığı olan bir tablo açıyorsa devam yoktur."""
-        for start in range(min(CONTINUATION_START_ROWS, len(self.rows))):
-            if self.rows[start].is_header():
+        for start in range(min(CONTINUATION_START_ROWS, len(self._rows))):
+            if self._rows[start].is_header():
                 break
             rows = self._continued_rows_at(start)
             if len(rows) >= MIN_CONTINUED_ROWS:
@@ -167,20 +167,20 @@ class AlignedTableFinder:
         return [], 0
 
     def _continued_rows_at(self, start):
-        first = self.rows[start]
+        first = self._rows[start]
         if not first.is_headerless():
             return []
-        return [first, *itertools.takewhile(TableColumns.of_row(first).fits, self.rows[start + 1:])]
+        return [first, *itertools.takewhile(TableColumns.of_row(first).fits, self._rows[start + 1:])]
 
     def _is_table(self, index, rows):
         """Sayfanın son satırına uzanan tablo sonraki sayfada sürer; kısa olması
         yanlış alarm değil, sayfa kırılmasıdır."""
-        reaches_page_end = index + len(rows) == len(self.rows)
+        reaches_page_end = index + len(rows) == len(self._rows)
         return len(rows) >= (MIN_SPLIT_TABLE_ROWS if reaches_page_end else MIN_TABLE_ROWS)
 
     def _table_rows_at(self, index):
         """Kalın başlık ve ona hizalı bitişik satırlar; başlık yoksa boş liste."""
-        header = self.rows[index]
+        header = self._rows[index]
         if not header.is_header():
             return []
-        return [header, *itertools.takewhile(TableColumns.of_header(header).fits, self.rows[index + 1:])]
+        return [header, *itertools.takewhile(TableColumns.of_header(header).fits, self._rows[index + 1:])]
