@@ -38,6 +38,10 @@ class InlineCodeTest(unittest.TestCase):
     def test_token_inside_a_longer_word_is_not_marked(self):
         self.assertEqual(_rich("call getUsers now", "getUser"), "call getUsers now")
 
+    def test_marked_text_is_repaired_first(self):
+        fixer = TextFixer({"hyphen_fixes": {"McGrawHill": "McGraw-Hill"}, "inline_code": ["getUser"]})
+        self.assertEqual(fixer.rich("McGrawHill  calls getUser"), "McGraw-Hill calls `getUser`")
+
     def test_token_inside_a_longer_marked_token_is_not_marked_again(self):
         self.assertEqual(_rich("call getUser() now", "getUser", "getUser()"), "call `getUser()` now")
 

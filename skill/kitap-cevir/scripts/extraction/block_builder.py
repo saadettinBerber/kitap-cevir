@@ -71,11 +71,11 @@ class SpecialParagraphs:
     def blocks_of(self, element, text):
         """Özel bir tür değilse boş liste."""
         if self.table_caption.match(text):
-            return [{"type": "caption", "kind": "table", "en": self.fixer.rich(text)}]
+            return [{"type": "caption", "kind": "table", "en": self.fixer.rich(element.text)}]
         if self.equation_caption.match(text):
-            return [{"type": "caption", "kind": "equation", "en": self.fixer.rich(text)}]
+            return [{"type": "caption", "kind": "equation", "en": self.fixer.rich(element.text)}]
         if element.font_size <= self.footnote_max_size:
-            return [{"type": "footnote", "en": self.fixer.rich(text)}]
+            return [{"type": "footnote", "en": self.fixer.rich(element.text)}]
         if self._is_bold_heading(element.font):
             return [{"type": "heading", "level": 3, "en": text}]
         return []
@@ -148,7 +148,7 @@ class BlockBuilder:
         special = self.special.blocks_of(element, text)
         if special:
             return special
-        block = {"type": "para", "sentences": _sentences(self.fixer.rich(text))}
+        block = {"type": "para", "sentences": _sentences(self.fixer.rich(element.text))}
         style = _paragraph_style(text, element.font)
         if style:
             block["style"] = style
@@ -166,19 +166,16 @@ class BlockBuilder:
         return blocks
 
     def _list_blocks(self, element):
-        items = [{"en": strip_list_marker(self._rich(item.text))} for item in element.list_items]
+        items = [{"en": strip_list_marker(self.fixer.rich(item.text))} for item in element.list_items]
         return [{"type": "list", "ordered": element.is_ordered, "items": items}]
 
     def _table_blocks(self, element):
-        rows = [[{"en": self._rich(text)} for text in row] for row in element.table_rows]
+        rows = [[{"en": self.fixer.rich(text)} for text in row] for row in element.table_rows]
         return [{"type": "table", "rows": rows}] if rows else []
 
     def _caption_blocks(self, element):
-        return [{"type": "caption", "en": self._rich(element.text)}]
+        return [{"type": "caption", "en": self.fixer.rich(element.text)}]
 
     @staticmethod
     def _image_blocks(element):
         return [{"type": "image", "src": element.image_file}]
-
-    def _rich(self, text):
-        return self.fixer.rich(self.fixer.plain(text))
