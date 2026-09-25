@@ -22,12 +22,14 @@ def _rect(box):
     return AnnotationRect(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
 
 
-def _block(kind, box=TEXT_BOX, **fields):
-    return LayoutBlock(kind=kind, bbox=_rect(box) if box else None, **fields)
+def _block(kind, **fields):
+    """Kutusu verilmeyen blok metin kutusundadır; kutusuz blok için bbox=None verilir."""
+    return LayoutBlock(kind=kind, **{"bbox": _rect(TEXT_BOX), **fields})
 
 
-def _item(text, top, ordered=True):
-    return _block("list_item", (90, top, 300, top + 12), text=text, ordered=ordered)
+def _item(text, top):
+    """Numaralı liste maddesi."""
+    return _block("list_item", bbox=_rect((90, top, 300, top + 12)), text=text, ordered=True)
 
 
 def _image(figure_id, path):
@@ -39,12 +41,19 @@ def _image(figure_id, path):
 class FakeRunner:
     """LiteParse motorunun yerine, önceden verilen blokları döndürür."""
 
-    def __init__(self, blocks=(), images=(), is_readable=True):
+    def __init__(self, blocks=(), images=()):
         page = ParsedPage(page_num=1, width=595, height=800, text="", blocks=list(blocks))
-        self.result = ParseResult(pages=[page] if is_readable else [], text="", images=list(images))
+        self._result = ParseResult(pages=[page], text="", images=list(images))
 
     def parse(self, page, image_dir):
-        return self.result
+        return self._result
+
+
+class UnreadablePageRunner:
+    """LiteParse'ın sayfayı okuyamadığı durum: sonuçta sayfa yoktur."""
+
+    def parse(self, page, image_dir):
+        return ParseResult(pages=[], text="", images=[])
 
 
 class _ReaderTestCase(unittest.TestCase):
@@ -84,7 +93,7 @@ class BlockConversionTest(_ReaderTestCase):
         self.assertEqual((paragraph.kind, paragraph.text), ("paragraph", "System.runFinalization. They may increase"))
 
     def test_rules_and_blocks_without_a_box_are_dropped(self):
-        elements = self._elements(_block("rule"), _block("paragraph", box=None, text="lost"), _block("paragraph", text="kept"))
+        elements = self._elements(_block("rule"), _block("paragraph", bbox=None, text="lost"), _block("paragraph", text="kept"))
         self.assertEqual([element.text for element in elements], ["kept"])
 
     def test_heading_text_is_plain(self):
@@ -106,13 +115,13 @@ class FigureTest(_ReaderTestCase):
     FIGURE_BOX = (72, 250, 272, 350)
 
     def test_written_image_keeps_its_liteparse_name(self):
-        runner = FakeRunner([_block("figure", self.FIGURE_BOX, id="p1_1", format="png")],
+        runner = FakeRunner([_block("figure", bbox=_rect(self.FIGURE_BOX), id="p1_1", format="png")],
                             [_image("p1_1", os.path.join(self.tmp.name, "img_p1_1.png"))])
         [image] = self._read(runner)
         self.assertEqual((image.kind, image.image_file), ("image", "img_p1_1.png"))
 
     def test_figure_without_a_written_image_is_cropped_from_the_page(self):
-        [image] = self._read(FakeRunner([_block("figure", self.FIGURE_BOX, id="p1_2", format="png")],
+        [image] = self._read(FakeRunner([_block("figure", bbox=_rect(self.FIGURE_BOX), id="p1_2", format="png")],
                                         [_image("p1_2", None)]))
         with open(os.path.join(self.tmp.name, image.image_file), "rb") as png:
             self.assertEqual(png.read(), FAKE_PNG)
@@ -144,7 +153,7 @@ class TypographyTest(_ReaderTestCase):
 class UnreadablePageTest(_ReaderTestCase):
     def test_page_liteparse_cannot_read_raises(self):
         with self.assertRaises(LiteParsePageError):
-            self._read(FakeRunner(is_readable=False))
+            self._read(UnreadablePageRunner())
 
 
 @unittest.skipUnless(HAS_LITEPARSE, "liteparse kurulu değil")
