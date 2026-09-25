@@ -14,6 +14,12 @@ class BookSettingsTest(unittest.TestCase):
     def test_book_info_has_fallback_slug(self):
         self.assertEqual(BookSettings({}).book()["slug"], "kitap")
 
+    def test_translator_reads_images_by_default(self):
+        self.assertTrue(BookSettings({}).translator_has_vision())
+
+    def test_translator_without_vision_is_configured(self):
+        self.assertFalse(BookSettings({"translator": {"vision": False}}).translator_has_vision())
+
     def test_concepts_default_allows_every_kind(self):
         self.assertEqual(BookSettings({}).concepts(),
                          {"kinds": list(CARD_KINDS), "code_langs": ["java"], "code_comment_lang": "en"})
