@@ -73,14 +73,24 @@ class _SafeInlineParser(HTMLParser):
         if tag in VOID_TAGS:
             self._parts.append(f"<{tag}/>")
         elif tag in INLINE_TAGS:
-            self._parts.append(f"<{tag}>")
-            self._open_tags.append(tag)
+            self._open(tag)
+
+    def _open(self, tag):
+        self._parts.append(f"<{tag}>")
+        self._open_tags.append(tag)
 
     def handle_endtag(self, tag):
         if tag in self._open_tags:
-            while self._open_tags[-1] != tag:
-                self._parts.append(f"</{self._open_tags.pop()}>")
-            self._parts.append(f"</{self._open_tags.pop()}>")
+            self._close_through(tag)
+
+    def _close_through(self, tag):
+        """İçeride açık kalmış etiketler önce kapanır; kesişen etiketler XHTML'de iç içe olmalıdır."""
+        while self._open_tags[-1] != tag:
+            self._close_last()
+        self._close_last()
+
+    def _close_last(self):
+        self._parts.append(f"</{self._open_tags.pop()}>")
 
     def handle_data(self, data):
         self._parts.append(escape(data))
