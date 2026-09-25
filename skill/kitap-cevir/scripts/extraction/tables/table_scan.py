@@ -17,6 +17,114 @@ MIN_MULTILINE_CELLS = 2      # bu kadar hücresi çok satırlı satırın hücre
 CORNER_TOLERANCE = 1         # parçanın sol üst köşesi tablo alanının bu kadar dışında kalabilir
 
 
+class TableScanner:
+    """Sayfadaki dolgu tabanlı ve çizgisiz sütun hizalı tabloları bulur."""
+
+    def __init__(self, settings):
+        self._footer_zone_top = settings["footer_zone_top"]
+        self._row_gap_ratio = settings["table_row_gap_ratio"]
+
+    def scan(self, page):
+        """[{y0, y1, block}], sayfada yukarıdan aşağıya."""
+        return sorted(self._tables_on(page), key=lambda table: table["y0"])
+
+    def _tables_on(self, page):
+        """Dolgulu hücre varsa tabloyu onlar belirler; hizalı tarama yalnız dolgusuz
+        sayfada çalışır ki aynı tablo iki kez yakalanmasın."""
+        body_bottom = page.height - self._footer_zone_top
+        fills = PageFills(page.drawings(), body_bottom)
+        spans = self._page_spans(page)
+        if fills.is_empty():
+            return AlignedTableFinder.of_spans([span for span in spans if span.box.y1 <= body_bottom]).tables()
+        builder = TableBuilder(fills, self._row_gap_ratio)
+        return [table for cells in fills.table_groups() for table in builder.tables_in(cells, spans)]
+
+    @staticmethod
+    def _page_spans(page):
+        """Satır anahtarı tam sayıya yuvarlanır: aynı satırın parçaları küsuratta ayrışabilir."""
+        spans = [dataclasses.replace(span, text=span.text.strip(), line_y=round(span.line_y))
+                 for line in page.text_lines() for span in line]
+        return sorted(spans, key=lambda s: (s.line_y, s.box.x0))
+
+
+class TableBuilder:
+    """Sayfanın dolgularından hücre kümesi başına (tek tablo) satırları, başlığı ve hücreleri kurar."""
+
+    def __init__(self, fills, row_gap_ratio):
+        self._fills = fills
+        self._row_gap_ratio = row_gap_ratio
+
+    def tables_in(self, cells, page_spans):
+        """Kümedeki tablo [{y0, y1, block}] olarak; tablo değilse boş liste."""
+        grid = self._fills.grid_of(cells)
+        if not grid.has_columns():
+            return []
+        spans = _spans_within(self._fills.extent(cells), page_spans)
+        table = FilledTable.trimmed(RowSplitter(grid, self._row_gap_ratio).rows(spans), grid)
+        return [table.region()] if table.is_table() else []
+
+
+def _spans_within(area, spans):
+    return [s for s in spans if area.contains_point(s.box.x0 + CORNER_TOLERANCE, s.box.y0 + CORNER_TOLERANCE)]
+
+
+class RowSplitter:
+    """Parçaları tablo satırlarına böler: bant varsa satırı bant belirler; bantsız gövdede satır
+    arası boşluk satır içi sarma boşluğundan büyüktür."""
+
+    def __init__(self, grid, row_gap_ratio):
+        self._grid = grid
+        self._row_gap_ratio = row_gap_ratio
+
+    def rows(self, spans):
+        rows = [[span] for span in spans[:1]]
+        for previous, span in zip(spans, spans[1:]):
+            if self._starts_row(span, previous):
+                rows.append([])
+            rows[-1].append(span)
+        return [TableRow(row, self._grid) for row in rows]
+
+    def _starts_row(self, span, previous):
+        """Eşik kitaba göre değişir: bir kitapta satır içi 1.2 / satırlar arası 1.6, başkasında
+        0.93 / 1.26 ölçüldü."""
+        if self._grid.is_in_band(span) or self._grid.is_in_band(previous):
+            return not self._grid.same_band(span, previous)
+        return span.box.y0 - previous.box.y0 > previous.box.height * self._row_gap_ratio
+
+
+class FilledTable:
+    """Dolgu ızgarasına oturan tablo satırları, yukarıdan aşağıya; baştaki kalın satırlar başlıktır."""
+
+    def __init__(self, rows):
+        self._rows = rows
+
+    @classmethod
+    def trimmed(cls, rows, grid):
+        """Bantlar varsa ilk bant öncesi (caption) atılır; tablo ilk tablo dışı satırda (gövde
+        metni, dipnot) biter. Baştaki/sondaki tek sütunlu satırlar tablo dışı metindir (kaynak notu vb.)."""
+        if grid.has_bands():
+            rows = list(itertools.dropwhile(lambda row: not row.is_in_band(), rows))
+        return cls(_without_single_column_edges(list(itertools.takewhile(TableRow.fits, rows))))
+
+    def is_table(self):
+        return len(self._rows) >= MIN_ROWS
+
+    def region(self):
+        """{y0, y1, block}: tablonun sayfadaki dikey yeri ve bloğu."""
+        header_rows = len(list(itertools.takewhile(TableRow.is_bold, self._rows)))
+        rows = [row.header_cells() if index < header_rows else row.body_cells() for index, row in enumerate(self._rows)]
+        block = {"type": "table", "header_rows": header_rows, "rows": rows}
+        return {"y0": min(row.top for row in self._rows), "y1": max(row.bottom for row in self._rows), "block": block}
+
+
+def _without_single_column_edges(rows):
+    while rows and rows[0].filled_columns() < MIN_COLUMNS:
+        rows = rows[1:]
+    while rows and rows[-1].filled_columns() < MIN_COLUMNS:
+        rows = rows[:-1]
+    return rows
+
+
 class TableRow:
     """Tablonun bir satırındaki parçalar; ızgaraya göre hücrelere dağıtılır."""
 
@@ -63,111 +171,3 @@ class TableRow:
         """İki ya da daha çok sütun çok satırlıysa hücre içi satırlar liste
         niteliğinde olabilir; sarılmış metin ayrıca elenir."""
         return sum(1 for cell in cells if cell.is_multiline()) >= MIN_MULTILINE_CELLS
-
-
-class TableBuilder:
-    """Sayfanın dolgularından hücre kümesi başına (tek tablo) satırları, başlığı ve hücreleri kurar."""
-
-    def __init__(self, fills, row_gap_ratio):
-        self._fills = fills
-        self._row_gap_ratio = row_gap_ratio
-
-    def tables_in(self, cells, page_spans):
-        """Kümedeki tablo [{y0, y1, block}] olarak; tablo değilse boş liste."""
-        grid = self._fills.grid_of(cells)
-        if not grid.has_columns():
-            return []
-        spans = _spans_within(self._fills.extent(cells), page_spans)
-        table = FilledTable.trimmed(RowSplitter(grid, self._row_gap_ratio).rows(spans), grid)
-        return [table.region()] if table.is_table() else []
-
-
-def _spans_within(area, spans):
-    return [s for s in spans if area.contains_point(s.box.x0 + CORNER_TOLERANCE, s.box.y0 + CORNER_TOLERANCE)]
-
-
-class FilledTable:
-    """Dolgu ızgarasına oturan tablo satırları, yukarıdan aşağıya; baştaki kalın satırlar başlıktır."""
-
-    def __init__(self, rows):
-        self._rows = rows
-
-    @classmethod
-    def trimmed(cls, rows, grid):
-        """Bantlar varsa ilk bant öncesi (caption) atılır; tablo ilk tablo dışı satırda (gövde
-        metni, dipnot) biter. Baştaki/sondaki tek sütunlu satırlar tablo dışı metindir (kaynak notu vb.)."""
-        if grid.has_bands():
-            rows = list(itertools.dropwhile(lambda row: not row.is_in_band(), rows))
-        return cls(_without_single_column_edges(list(itertools.takewhile(TableRow.fits, rows))))
-
-    def is_table(self):
-        return len(self._rows) >= MIN_ROWS
-
-    def region(self):
-        """{y0, y1, block}: tablonun sayfadaki dikey yeri ve bloğu."""
-        header_rows = len(list(itertools.takewhile(TableRow.is_bold, self._rows)))
-        rows = [row.header_cells() if index < header_rows else row.body_cells() for index, row in enumerate(self._rows)]
-        block = {"type": "table", "header_rows": header_rows, "rows": rows}
-        return {"y0": min(row.top for row in self._rows), "y1": max(row.bottom for row in self._rows), "block": block}
-
-
-def _without_single_column_edges(rows):
-    while rows and rows[0].filled_columns() < MIN_COLUMNS:
-        rows = rows[1:]
-    while rows and rows[-1].filled_columns() < MIN_COLUMNS:
-        rows = rows[:-1]
-    return rows
-
-
-class RowSplitter:
-    """Parçaları tablo satırlarına böler: bant varsa satırı bant belirler; bantsız gövdede satır
-    arası boşluk satır içi sarma boşluğundan büyüktür."""
-
-    def __init__(self, grid, row_gap_ratio):
-        self._grid = grid
-        self._row_gap_ratio = row_gap_ratio
-
-    def rows(self, spans):
-        rows = [[span] for span in spans[:1]]
-        for previous, span in zip(spans, spans[1:]):
-            if self._starts_row(span, previous):
-                rows.append([])
-            rows[-1].append(span)
-        return [TableRow(row, self._grid) for row in rows]
-
-    def _starts_row(self, span, previous):
-        """Eşik kitaba göre değişir: bir kitapta satır içi 1.2 / satırlar arası 1.6, başkasında
-        0.93 / 1.26 ölçüldü."""
-        if self._grid.is_in_band(span) or self._grid.is_in_band(previous):
-            return not self._grid.same_band(span, previous)
-        return span.box.y0 - previous.box.y0 > previous.box.height * self._row_gap_ratio
-
-
-class TableScanner:
-    """Sayfadaki dolgu tabanlı ve çizgisiz sütun hizalı tabloları bulur."""
-
-    def __init__(self, settings):
-        self._footer_zone_top = settings["footer_zone_top"]
-        self._row_gap_ratio = settings["table_row_gap_ratio"]
-
-    def scan(self, page):
-        """[{y0, y1, block}], sayfada yukarıdan aşağıya."""
-        return sorted(self._tables_on(page), key=lambda table: table["y0"])
-
-    def _tables_on(self, page):
-        """Dolgulu hücre varsa tabloyu onlar belirler; hizalı tarama yalnız dolgusuz
-        sayfada çalışır ki aynı tablo iki kez yakalanmasın."""
-        body_bottom = page.height - self._footer_zone_top
-        fills = PageFills(page.drawings(), body_bottom)
-        spans = self._page_spans(page)
-        if fills.is_empty():
-            return AlignedTableFinder.of_spans([span for span in spans if span.box.y1 <= body_bottom]).tables()
-        builder = TableBuilder(fills, self._row_gap_ratio)
-        return [table for cells in fills.table_groups() for table in builder.tables_in(cells, spans)]
-
-    @staticmethod
-    def _page_spans(page):
-        """Satır anahtarı tam sayıya yuvarlanır: aynı satırın parçaları küsuratta ayrışabilir."""
-        spans = [dataclasses.replace(span, text=span.text.strip(), line_y=round(span.line_y))
-                 for line in page.text_lines() for span in line]
-        return sorted(spans, key=lambda s: (s.line_y, s.box.x0))
