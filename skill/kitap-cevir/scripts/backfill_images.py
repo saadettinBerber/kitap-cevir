@@ -120,8 +120,8 @@ class ImageBackfiller:
         self._extracted = extracted
 
     @classmethod
-    def for_project(cls, project):
-        builder = PageInputBuilder.for_progress(project, project.load_progress())
+    def for_progress(cls, project, progress):
+        builder = PageInputBuilder.for_progress(project, progress)
         return cls(TranslatedPages(project), ExtractedImages(builder, project))
 
     def backfill_page(self, page):
@@ -139,15 +139,21 @@ class ImageBackfiller:
 
 def main():
     project = Project.discover()
-    backfiller = ImageBackfiller.for_project(project)
-    pages = [int(a) for a in sys.argv[1:]] or project.load_progress().translated_pages()
+    progress = project.load_progress()
+    pages = [int(a) for a in sys.argv[1:]] or progress.translated_pages()
+    total = _backfill(ImageBackfiller.for_progress(project, progress), sorted(pages))
+    print(f"Toplam {total} görsel, {len(pages)} sayfa tarandı.")
+
+
+def _backfill(backfiller, pages):
+    """Sayfaları sırayla tarar, görsel eklenenleri basar; toplam eklenen görsel."""
     total = 0
-    for page in sorted(pages):
+    for page in pages:
         added = backfiller.backfill_page(page)
         total += added
         if added:
             print(f"  sayfa {page}: {added} görsel eklendi")
-    print(f"Toplam {total} görsel, {len(pages)} sayfa tarandı.")
+    return total
 
 
 if __name__ == "__main__":
