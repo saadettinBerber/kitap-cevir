@@ -4,7 +4,7 @@ import unittest
 
 from pdf_fakes import span
 from extraction.pdf.geometry import Box
-from extraction.tables.table_grid import TableGrid
+from extraction.tables.table_grid import EDGE_TOLERANCE, TableGrid
 
 TOP, BOTTOM = 100, 120
 FIRST_LEFT, SECOND_LEFT, SECOND_RIGHT = 70, 170, 270
@@ -42,6 +42,13 @@ class ColumnTilingTest(unittest.TestCase):
 
     def test_tie_between_right_edges_takes_the_nearer_one(self):
         grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(FIRST_LEFT, NEAR_EDGE), _cell(SECOND_LEFT, SECOND_RIGHT))
+        self.assertFalse(grid.is_table_row([_span_at(NEAR_EDGE + INSIDE)]))
+
+    def test_fills_starting_within_the_edge_tolerance_share_a_column(self):
+        """Sol kenarı birkaç kesir kayan dolgular aynı sütundandır; sütunu en sık sağ kenar bitirir."""
+        near_left = FIRST_LEFT + EDGE_TOLERANCE / 2
+        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(near_left, NEAR_EDGE), _cell(near_left, NEAR_EDGE),
+                     _cell(SECOND_LEFT, SECOND_RIGHT))
         self.assertFalse(grid.is_table_row([_span_at(NEAR_EDGE + INSIDE)]))
 
 
