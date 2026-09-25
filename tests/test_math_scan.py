@@ -3,15 +3,22 @@ denklem yer tutuculu öğe olur; PNG'ler görsel klasörüne kırpılır."""
 import os
 import tempfile
 import unittest
+from unittest import mock
 
-from pdf_fakes import FAKE_PNG, FakePdfPage, span
-from extraction.equations.math_scan import MathScanner, placeholder
+from pdf_fakes import FAKE_PNG, FakePdfPage, span, stroke
+from extraction.equations.math_scan import CROP_DPI, CROP_PADDING, LINE_MERGE_RATIO, MathScanner, placeholder
+from extraction.pdf.geometry import Box
 from extraction.settings import with_defaults
 
 MATH_FONT = "Helvetica-Oblique"
 MATH_SIZE = 11
 SUPERSCRIPT_SIZE = 7
 SETTINGS = with_defaults({"math_font_prefix": MATH_FONT})
+DISPLAY_BOX = (72, 50, 115, 62)
+DISPLAY_TOP, DISPLAY_BOTTOM = DISPLAY_BOX[1], DISPLAY_BOX[3]
+LINE_LEFT, LINE_RIGHT = 72, 115
+LINE_HEIGHT = 10
+STEP = 0.1
 
 
 def _math(text, box):
@@ -35,6 +42,34 @@ def _display_with_mixed_line():
              span("…", (121, 58, 130, 68)), _math(",xn)", (131, 58, 160, 68)))
     bottom = (_math("= (1/P)", (72, 66, 130, 78)),)
     return FakePdfPage(lines=[top, mixed, bottom])
+
+
+def _display_line():
+    return (_math("E = mc2", DISPLAY_BOX),)
+
+
+def _display_page(*lines):
+    """Ayrı satır denklemi ve ardından gelen satırlar."""
+    return FakePdfPage(lines=[_display_line(), *lines])
+
+
+def _display_line_at(top):
+    return (_math("c = d", (LINE_LEFT, top, LINE_RIGHT, top + LINE_HEIGHT)),)
+
+
+def _inline_centred_at(center_y):
+    """Cümle içinde, denklem parçasının ortası center_y'de olan satır."""
+    top, bottom = center_y - LINE_HEIGHT / 2, center_y + LINE_HEIGHT / 2
+    return span("see ", (LINE_LEFT, top, 90, bottom)), _math("x", (90, top, 96, bottom))
+
+
+def _fraction_above_display():
+    """Üstte düz metinle dizilmiş bir kesir (geometriyle bulunur), altta denklem fontunda bir satır."""
+    numerator = (span("A =", (87, 191, 102, 205)), span("ma", (106, 191, 120, 205)))
+    denominator = (span("mc", (106, 208, 119, 222)),)
+    prose = (span("In the equation, ma represents abstract elements.", (72, 249, 303, 263)),)
+    lines = [numerator, denominator, prose, (_math("E = mc2", (72, 300, 115, 312)),)]
+    return FakePdfPage(lines=lines, shapes=[stroke(106, 208, 125, 208)])
 
 
 class ScanCase(unittest.TestCase):
@@ -70,6 +105,66 @@ class DisplayEquationTest(ScanCase):
     def test_png_is_cropped_into_the_image_dir(self):
         png = self._png(self.region["block"]["src"])
         self.assertEqual(png, FAKE_PNG)
+
+
+class DisplayBlockTest(ScanCase):
+    def test_block_holds_only_the_image_text_and_latex(self):
+        [region] = self._scan(_display_page())["display"]
+        self.assertEqual(region["block"], {"type": "math", "src": "eq-1.png", "text": "E = mc2", "latex": ""})
+
+    def test_region_spans_the_equation_line(self):
+        [region] = self._scan(_display_page())["display"]
+        self.assertEqual((region["y0"], region["y1"]), (DISPLAY_TOP, DISPLAY_BOTTOM))
+
+    def test_block_text_has_single_spaces(self):
+        page = FakePdfPage(lines=[(_math("E =", DISPLAY_BOX), _math(" mc2", DISPLAY_BOX))])
+        [region] = self._scan(page)["display"]
+        self.assertEqual(region["block"]["text"], "E = mc2")
+
+    def test_crop_is_padded_around_the_equation(self):
+        page = _display_page()
+        with mock.patch.object(page, "png", wraps=page.png) as png:
+            self._scan(page)
+        self.assertEqual(png.call_args_list, [mock.call(Box(*DISPLAY_BOX).expanded(CROP_PADDING), CROP_DPI)])
+
+
+class AdjacentLinesTest(ScanCase):
+    """Ardışık denklem satırları, aradaki boşluk satır yüksekliğinin bir oranını aşmıyorsa tek denklemdir."""
+
+    def test_line_at_the_merge_gap_joins_the_equation(self):
+        page = _display_page(_display_line_at(DISPLAY_BOTTOM + LINE_HEIGHT * LINE_MERGE_RATIO))
+        self.assertEqual(len(self._scan(page)["display"]), 1)
+
+    def test_line_past_the_merge_gap_is_a_new_equation(self):
+        page = _display_page(_display_line_at(DISPLAY_BOTTOM + LINE_HEIGHT * LINE_MERGE_RATIO + STEP))
+        self.assertEqual(len(self._scan(page)["display"]), 2)
+
+
+class DisplayBandTest(ScanCase):
+    """Ortası ayrı satır denkleminin bandına düşen parça o denklemin parçasıdır."""
+
+    def test_run_centred_on_the_band_top_belongs_to_the_display_equation(self):
+        self.assertEqual(self._scan(_display_page(_inline_centred_at(DISPLAY_TOP)))["inline"], [])
+
+    def test_run_centred_above_the_band_is_inline(self):
+        self.assertEqual(len(self._scan(_display_page(_inline_centred_at(DISPLAY_TOP - STEP)))["inline"]), 1)
+
+    def test_run_centred_on_the_band_bottom_belongs_to_the_display_equation(self):
+        self.assertEqual(self._scan(_display_page(_inline_centred_at(DISPLAY_BOTTOM)))["inline"], [])
+
+    def test_run_centred_below_the_band_is_inline(self):
+        self.assertEqual(len(self._scan(_display_page(_inline_centred_at(DISPLAY_BOTTOM + STEP)))["inline"]), 1)
+
+
+class OrderTest(ScanCase):
+    def test_font_equations_come_before_geometry_equations(self):
+        settings = with_defaults({"math_font_prefix": MATH_FONT, "math_geometry": True})
+        display = self._scan(_fraction_above_display(), settings)["display"]
+        self.assertEqual([region["y0"] for region in display], [300, 191])
+
+    def test_inline_images_are_numbered_before_display_equations(self):
+        result = self._scan(_page())
+        self.assertEqual((result["inline"][0]["id"], result["display"][0]["block"]["src"]), ("eq-1", "eq-2.png"))
 
 
 class InlineEquationTest(ScanCase):
