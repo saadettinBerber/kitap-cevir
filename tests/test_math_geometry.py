@@ -186,6 +186,13 @@ class RuleLevelTest(unittest.TestCase):
     def test_segment_past_the_tolerance_is_a_bar_of_its_own(self):
         self.assertEqual(len(_regions(*_edge_segment_and(BAR_Y + BAR_GROUP_Y_TOLERANCE + STEP))), 1)
 
+    def test_level_is_measured_from_the_first_segment_of_the_rule(self):
+        """Her parça bir öncekine tolerans kadar yakın olsa da ilk parçadan uzaklaşan parça yeni kuraldır."""
+        half_step = BAR_GROUP_Y_TOLERANCE * 0.8
+        edge, segment = _edge_segment_and(BAR_Y + 2 * half_step)
+        middle = stroke(COLUMN_LEFT, BAR_Y + half_step, SEGMENT_RIGHT, BAR_Y + half_step)
+        self.assertEqual(len(_regions(edge, middle, segment)), 1)
+
     def test_segments_are_grouped_in_vertical_order_not_drawing_order(self):
         edge, segment = _edge_segment_and(BAR_Y)
         lower_bar = stroke(FRACTION_LEFT, TABLE_RULE_Y, FRACTION_RIGHT, TABLE_RULE_Y)
@@ -206,6 +213,10 @@ class GrowthTest(unittest.TestCase):
         """Her geçiş bir komşu satır ekler; son geçişin satırı girer, sonrakiler dışarıda kalır."""
         chain = _chain_below(MAX_GROWTH_PASSES + 1)
         self.assertEqual(_grown_bottom(*chain), chain[MAX_GROWTH_PASSES - 1].y1)
+
+    def test_every_bar_of_a_fraction_rule_is_grown(self):
+        second_bar = stroke(SECOND_BAR_LEFT, BAR_Y, SECOND_BAR_LEFT + SHORT_BAR, BAR_Y)
+        self.assertEqual(len(_regions(_bar(SHORT_BAR, 0), second_bar)), 2)
 
     def test_two_bars_of_one_equation_make_one_region(self):
         second_bar = stroke(SECOND_BAR_LEFT, BAR_Y, SECOND_BAR_LEFT + SHORT_BAR, BAR_Y)
