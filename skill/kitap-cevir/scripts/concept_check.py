@@ -113,10 +113,10 @@ class CardRules:
 
 
 def _problems_per_option(options):
-    return [problem for index, option in enumerate(options, 1) for problem in _option_problems(option, index)]
+    return [problem for index, option in enumerate(options, 1) for problem in _missing_option_fields(option, index)]
 
 
-def _option_problems(option, index):
+def _missing_option_fields(option, index):
     return [problem for field in OPTION_FIELDS
             for problem in _missing_pair(option.get(field), f"options[{index}].{field}")]
 
