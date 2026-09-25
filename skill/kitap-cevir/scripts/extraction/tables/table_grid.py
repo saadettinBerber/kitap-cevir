@@ -1,6 +1,8 @@
 """Dolgu dikdörtgenlerinden tablo ızgarasını çıkarır: hücre kümeleri (tablolar),
 sütunlar, satır bantları ve tablo kapsamı. Koordinatlar üst orijinlidir.
 """
+import collections
+
 from extraction.pdf.geometry import Box
 
 MIN_CELL_WIDTH = 15
@@ -47,14 +49,9 @@ class PageFills:
     def table_groups(self):
         """Aynı arka plandaki hücreler tek tablodur; arka planı olmayanlar sütun
         kenarı paylaşımına göre kümelenir."""
-        by_background, loose = {}, []
-        for rect in self._cells:
-            owner = next((i for i, b in enumerate(self._backgrounds) if b.contains(rect)), None)
-            if owner is None:
-                loose.append(rect)
-            else:
-                by_background.setdefault(owner, []).append(rect)
-        return list(by_background.values()) + self._connected_groups(loose)
+        owned = [rect for rect in self._cells if _is_on_any(rect, self._backgrounds)]
+        loose = [rect for rect in self._cells if not _is_on_any(rect, self._backgrounds)]
+        return _grouped_by_background(owned, self._backgrounds) + self._connected_groups(loose)
 
     @classmethod
     def _connected_groups(cls, cells):
@@ -92,6 +89,18 @@ class PageFills:
         below = [rule.y0 for rule in self._rules
                  if rule.y0 > union.y1 and rule.x0 <= union.x1 and rule.x1 >= union.x0]
         return min(below, default=self._text_bottom)
+
+
+def _is_on_any(rect, backgrounds):
+    return any(background.contains(rect) for background in backgrounds)
+
+
+def _grouped_by_background(cells, backgrounds):
+    """Her hücre onu içine alan ilk arka planın kümesindedir; kümeler ilk hücrelerinin sırasıyla gelir."""
+    groups = collections.defaultdict(list)
+    for rect in cells:
+        groups[next(background for background in backgrounds if background.contains(rect))].append(rect)
+    return list(groups.values())
 
 
 class TableGrid:
