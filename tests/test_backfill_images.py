@@ -191,6 +191,11 @@ class ImageBackfillerTest(unittest.TestCase):
         self.backfiller.backfill_page(self.PAGE)
         self.assertEqual((self.backfiller.backfill_page(self.PAGE), len(self._page_blocks())), (0, 2))
 
+    def test_image_already_on_the_page_is_not_copied(self):
+        self._write_page([_para("Layers separate concerns."), _image("fig.png")])
+        self.backfiller.backfill_page(self.PAGE)
+        self.assertEqual(self.folder.copied(), [])
+
     def test_page_without_new_images_is_not_rewritten(self):
         path = self.project.page_js(self.PAGE)
         self._write_page([_para("Layers separate concerns."), _image("fig.png")])
