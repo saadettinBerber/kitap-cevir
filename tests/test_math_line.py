@@ -1,12 +1,15 @@
 """Satırın denklem fontundaki ve düz metindeki parçaları (SpanRun, MathLine).
 Parçalar metin sırasıyla verilir; kutuları bu kurallarda rol oynamaz, hepsi aynı satır kutusundadır."""
+import dataclasses
 import unittest
 
-from pdf_fakes import span
-from extraction.equations.math_line import MathLine, SpanRun
+from pdf_fakes import SIZE, span
+from extraction.equations.math_line import SIMPLE_MAX_SPANS, MathLine, SpanRun
 
 MATH_FONT = "Helvetica-Oblique"
 LINE_BOX = (72, 90, 200, 102)
+PRINT_NOISE = 0.04            # bir ondalığa yuvarlanınca kaybolan fark
+SIZE_STEP = 0.1
 
 
 def _is_math(piece):
@@ -21,6 +24,21 @@ def _prose(text):
     return span(text, LINE_BOX)
 
 
+def _sized(size, piece):
+    return dataclasses.replace(piece, size=size)
+
+
+def _inline_run(*spans):
+    [inline_run] = MathLine(spans, _is_math).inline_runs()
+    return inline_run.run
+
+
+def _is_simple(*math_spans):
+    """Cümle içinde, bir düz metin parçasından sonra gelen denklem basit mi?"""
+    run = _inline_run(_prose("a "), *math_spans)
+    return run.is_simple()
+
+
 def _neighbours(*spans):
     [inline_run] = MathLine(spans, _is_math).inline_runs()
     return inline_run.before, inline_run.after
@@ -30,6 +48,25 @@ class SpanRunTest(unittest.TestCase):
     def test_split_groups_consecutive_spans_by_kind(self):
         runs = SpanRun.split((_prose("find "), _math("x"), _math("2"), _prose(" to")), _is_math)
         self.assertEqual([(run.is_math, len(run.spans)) for run in runs], [(False, 1), (True, 2), (False, 1)])
+
+
+class SimpleRunTest(unittest.TestCase):
+    """Az parçalı, tek puntolu denklem düz metne çevrilebilir bir semboldür."""
+
+    def test_run_of_the_most_spans_in_one_size_is_simple(self):
+        self.assertTrue(_is_simple(*[_math("x")] * SIMPLE_MAX_SPANS))
+
+    def test_run_of_more_spans_is_not_simple(self):
+        self.assertFalse(_is_simple(*[_math("x")] * (SIMPLE_MAX_SPANS + 1)))
+
+    def test_sizes_equal_to_a_tenth_are_one_size(self):
+        self.assertTrue(_is_simple(_math("x"), _sized(SIZE + PRINT_NOISE, _math("y"))))
+
+    def test_sizes_a_tenth_apart_are_two_sizes(self):
+        self.assertFalse(_is_simple(_math("x"), _sized(SIZE + SIZE_STEP, _math("y"))))
+
+    def test_run_text_has_single_spaces(self):
+        self.assertEqual(_inline_run(_prose("a "), _math("π "), _math(" r")).text, "π r")
 
 
 class MathLineTest(unittest.TestCase):
@@ -46,6 +83,12 @@ class MathLineTest(unittest.TestCase):
 
     def test_blank_neighbour_gives_no_word(self):
         self.assertEqual(_neighbours(_prose(" "), _math("x")), ("", ""))
+
+    def test_neighbour_words_are_split_at_span_edges(self):
+        self.assertEqual(_neighbours(_prose("Goal:"), _prose("find"), _math("x")), ("find", ""))
+
+    def test_line_text_drops_surrounding_blanks(self):
+        self.assertEqual(MathLine((_prose(" "), _prose("Equation 1-1 ")), _is_math).text, "Equation 1-1")
 
     def test_line_all_in_math_font_is_a_display_line(self):
         self.assertTrue(MathLine((_math("E = mc2"),), _is_math).is_display())
