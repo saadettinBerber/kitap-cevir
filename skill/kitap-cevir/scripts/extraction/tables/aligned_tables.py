@@ -6,6 +6,7 @@ gövde satırları. Sayfa kırılması iki yerde tanınır: sayfanın son satır
 uzanan kısa parça ve sayfayı açan başlıksız devam. Çok satırlı hücreli ya da
 sayfa ortasındaki başlıksız tablolar elle kurulur.
 """
+import collections
 import itertools
 
 from extraction.tables.table_cell import TableCell
@@ -34,9 +35,9 @@ class SpanRow:
     @classmethod
     def lines_of(cls, spans):
         """Parçalar satırlarına, satırlar yukarıdan aşağıya."""
-        rows = {}
+        rows = collections.defaultdict(list)
         for span in spans:
-            rows.setdefault(span.line_y, []).append(span)
+            rows[span.line_y].append(span)
         return [cls(sorted(rows[y], key=lambda span: span.box.x0)) for y in sorted(rows)]
 
     @property
