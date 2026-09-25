@@ -79,8 +79,7 @@ class PyMuPdfPage:
         return self._page.get_text("text", clip=_rect(box))
 
     def png(self, box, dpi):
-        pixmap = self._page.get_pixmap(dpi=dpi, clip=_rect(box))
-        return pixmap.tobytes("png")
+        return self._page.get_pixmap(dpi=dpi, clip=_rect(box)).tobytes("png")
 
 
 def image_size(path):
