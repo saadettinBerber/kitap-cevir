@@ -1,3 +1,4 @@
+import re
 import unittest
 
 import _paths  # noqa: F401
@@ -5,6 +6,7 @@ from epub.fragments import BodyParagraph, Fragment, Heading, Paragraph, Passage,
 
 MARK = "<span/>"
 FIRST_NOTE = 1
+LATER_NOTE = 7
 QUOTE_STYLE = "para quote"
 
 
@@ -67,9 +69,9 @@ class BodyParagraphJoinTest(unittest.TestCase):
 
 class PassageNoteTest(unittest.TestCase):
     def test_translated_passage_links_its_note(self):
-        html = Paragraph("caption", Passage("Şekil", "Figure")).render(4)
-        self.assertEqual(html, '<p class="caption">Şekil <a epub:type="noteref" id="ref-4" '
-                               'href="#note-4" class="en-ref">EN</a></p>')
+        html = Paragraph("caption", Passage("Şekil", "Figure")).render(LATER_NOTE)
+        self.assertEqual(html, f'<p class="caption">Şekil <a epub:type="noteref" id="ref-{LATER_NOTE}" '
+                               f'href="#note-{LATER_NOTE}" class="en-ref">EN</a></p>')
 
     def test_untranslated_passage_has_no_note(self):
         self.assertEqual(Passage("Figure", "Figure").english(), [])
@@ -81,8 +83,9 @@ class PassageNoteTest(unittest.TestCase):
 class PassageListTest(unittest.TestCase):
     def test_items_are_numbered_from_first_note_skipping_untranslated(self):
         items = [Passage("Bir", "One"), Passage("Two", "Two"), Passage("Üç", "Three")]
-        html = PassageList(False, items).render(7)
-        self.assertEqual((html.count('href="#note-7"'), html.count('href="#note-8"')), (1, 1))
+        html = PassageList(False, items).render(LATER_NOTE)
+        numbers = [int(number) for number in re.findall(r'href="#note-(\d+)"', html)]
+        self.assertEqual(numbers, [LATER_NOTE, LATER_NOTE + 1])
 
     def test_english_lists_each_item(self):
         items = [Passage("Bir", "One"), Passage("İki", "Two")]
