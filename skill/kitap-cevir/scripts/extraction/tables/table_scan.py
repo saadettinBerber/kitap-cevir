@@ -13,6 +13,8 @@ from extraction.tables.table_cell import SUPERSCRIPT_RATIO, TableCell
 from extraction.tables.table_grid import MIN_COLUMNS, PageFills, TableGrid
 
 MIN_ROWS = 2
+MIN_MULTILINE_CELLS = 2      # bu kadar hücresi çok satırlı satırın hücre içi satırları liste niteliğindedir
+CORNER_TOLERANCE = 1         # parçanın sol üst köşesi tablo alanının bu kadar dışında kalabilir
 
 
 class TableRow:
@@ -39,7 +41,7 @@ class TableRow:
     def _has_aligned_sublines(cells):
         """İki ya da daha çok sütun çok satırlıysa hücre içi satırlar liste
         niteliğinde olabilir; sarılmış metin ayrıca elenir."""
-        return sum(1 for cell in cells if cell.is_multiline()) >= 2
+        return sum(1 for cell in cells if cell.is_multiline()) >= MIN_MULTILINE_CELLS
 
 
 class TableBuilder:
@@ -65,7 +67,7 @@ class TableBuilder:
                  "y1": max(s.box.y1 for row in rows for s in row.spans), "block": block}]
 
     def _spans_within(self, area):
-        return [s for s in self.page_spans if area.contains_point(s.box.x0 + 1, s.box.y0 + 1)]
+        return [s for s in self.page_spans if area.contains_point(s.box.x0 + CORNER_TOLERANCE, s.box.y0 + CORNER_TOLERANCE)]
 
     def _group_rows(self, spans, grid):
         rows, previous = [], None

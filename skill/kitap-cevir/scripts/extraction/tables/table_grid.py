@@ -10,6 +10,7 @@ WIDE_SPAN_RATIO = 1.2        # sütundan geniş parça = tablo dışı (caption,
 MAX_BAND_GAP_RATIO = 3.0     # iki dolgu arası boşluk / bant yüksekliği: üstü ayrı tablodur
 RULE_MAX_HEIGHT = 2.0        # bundan kalını çizgi değil dolgudur
 MIN_COLUMNS = 2
+MIN_BACKGROUND_CELLS = 2     # arka plan en az bu kadar dolguyu içine alır
 
 
 class PageFills:
@@ -34,7 +35,7 @@ class PageFills:
         return [r for r in rects if r.height <= RULE_MAX_HEIGHT and r.width >= MIN_CELL_WIDTH]
 
     def _is_background(self, rect):
-        return len([r for r in self.rects if r != rect and rect.contains(r)]) >= 2
+        return len([r for r in self.rects if r != rect and rect.contains(r)]) >= MIN_BACKGROUND_CELLS
 
     def table_groups(self):
         """Aynı arka plandaki hücreler tek tablodur; arka planı olmayanlar sütun
