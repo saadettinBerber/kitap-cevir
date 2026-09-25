@@ -9,7 +9,7 @@ import dataclasses
 import itertools
 
 from extraction.tables.aligned_tables import AlignedTableFinder
-from extraction.tables.table_cell import SUPERSCRIPT_RATIO, TableCell
+from extraction.tables.table_cell import SUPERSCRIPT_RATIO
 from extraction.tables.table_grid import MIN_COLUMNS, PageFills
 
 MIN_ROWS = 2
@@ -30,10 +30,7 @@ class TableRow:
         return all("bold" in s.font.lower() for s in body)
 
     def cells(self, is_header):
-        buckets = [[] for _ in self.grid.columns]
-        for span in self.spans:
-            buckets[self.grid.column_of(span)].append(span)
-        cells = [TableCell(bucket, column, self.main_size) for bucket, column in zip(buckets, self.grid.columns)]
+        cells = self.grid.cells_of(self.spans, self.main_size)
         keeps_breaks = not is_header and self._has_aligned_sublines(cells)
         return [cell.unit(keeps_breaks) for cell in cells]
 

@@ -4,6 +4,7 @@ sütunlar, satır bantları ve tablo kapsamı. Koordinatlar üst orijinlidir.
 import collections
 
 from extraction.pdf.geometry import Box
+from extraction.tables.table_cell import TableCell
 
 MIN_CELL_WIDTH = 15
 MIN_CELL_HEIGHT = 8
@@ -160,6 +161,12 @@ class TableGrid:
     def _columns_holding(self, span):
         center = span.box.center_x
         return [index for index, (left, right) in enumerate(self.columns) if left <= center <= right]
+
+    def cells_of(self, row, main_size):
+        """Satırın parçaları sütunlarının hücrelerine dağılmış olarak; her parça bir sütuna düşmelidir."""
+        columns = [self.column_of(span) for span in row]
+        return [TableCell([span for span, column in zip(row, columns) if column == index], bounds, main_size)
+                for index, bounds in enumerate(self.columns)]
 
     def filled_columns(self, row):
         return len({self.column_of(span) for span in row})
