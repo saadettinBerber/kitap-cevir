@@ -63,16 +63,15 @@ class ProseRepairs:
 
     def inline_code_tokens(self):
         """Ters tırnakla işaretlenecek satır içi kod parçaları (tekrarsız, sırayla)."""
-        tokens = []
-        for line in self._lines:
-            if line.is_code:
-                continue
-            if line.uses_script_layout():
-                tokens.append(line.text.strip())
-                continue
-            tokens += [token for token in map(_clean_token, (span.text for span in line.spans if span.is_code))
-                       if self._is_markable(token)]
+        tokens = [token for line in self._lines if not line.is_code for token in self._tokens_of(line)]
         return list(dict.fromkeys(tokens))
+
+    def _tokens_of(self, line):
+        """Kod formüllü satır bütünüyle tek parçadır; düz metin satırında kod fontlu parçalar."""
+        if line.uses_script_layout():
+            return [line.text.strip()]
+        code = (_clean_token(span.text) for span in line.spans if span.is_code)
+        return [token for token in code if self._is_markable(token)]
 
     @staticmethod
     def _is_markable(token):
