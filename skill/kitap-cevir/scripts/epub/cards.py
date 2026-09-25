@@ -1,6 +1,6 @@
 """Kavram kartları bölüm sonunda düz XHTML olur (okuyucudaki karşılığı js/concepts.js).
-Kart bir veri yapısıdır ve türleri sabittir; aynı veriye yeni bir işlem eklendiği için
-çizim fonksiyonlarla yazılır (Bl.6). Denetimi concept_check'tedir.
+Kartın türe göre değişen gövdesini EpubCardVisitor çizer (VISITOR, Bl.6); tür dallanması
+Card.of'ta kalır. Denetimi concept_check'tedir.
 """
 from typing import NamedTuple
 
@@ -10,8 +10,9 @@ from epub.xhtml import code_block, translated_html
 
 CARDS_ANCHOR = "kavram-kartlari"
 CARDS_TITLE = "Kavram kartları"
-SIDE_LABELS = {"code": ("Önce", "Sonra"), "contrast": ("Kaçın", "Tercih et")}
-TIP_LABELS = {"tradeoff": "Ne zaman hangisi"}
+CODE_LABELS = ("Önce", "Sonra")
+CONTRAST_LABELS = ("Kaçın", "Tercih et")
+TRADEOFF_TIP_LABEL = "Ne zaman hangisi"
 DEFAULT_TIP_LABEL = "Pratik ipucu"
 OPTION_LABELS = (("gains", "Kazandırır"), ("costs", "Bedeli"))
 FIRST_CARD = 1
@@ -63,8 +64,7 @@ def cards_section(page_cards):
 
 def card_html(page_card):
     card = page_card.card
-    kind = Card.of(card).kind()
-    body = f'{_paragraph(card.get("summary"))}{_MIDDLE_PARTS.get(kind, _no_middle)(card, kind)}{_tip(card, kind)}'
+    body = _paragraph(card.get("summary")) + Card.of(card).accept(EpubCardVisitor())
     return f'<div class="card" id="{card_anchor(page_card)}">{_card_head(page_card)}{body}</div>'
 
 
@@ -73,37 +73,49 @@ def _card_head(page_card):
     return f'<h3>{_text(page_card.card.get("title"))}</h3><p class="card-page"><a href="#{links_anchor(page)}">s. {page}</a></p>'
 
 
-def _no_middle(card, kind):
-    return ""
+class EpubCardVisitor:
+    """Kartın özetten sonraki gövdesi: türe özgü kısım ve ipucu."""
 
+    def visit_unknown(self, card):
+        return self.visit_explain(card)
 
-def _sides(card, kind):
-    return "".join(_side(card.get(side) or {}, label) for side, label in zip(SIDES, SIDE_LABELS[kind]))
+    def visit_explain(self, card):
+        return self._tip(card, DEFAULT_TIP_LABEL)
 
+    def visit_contrast(self, card):
+        return self._sides(card, CONTRAST_LABELS) + self._tip(card, DEFAULT_TIP_LABEL)
 
-def _side(sample, label):
-    return f'<p class="label">{label}</p>{_sample_body(sample)}{_paragraph(sample.get("why"))}'
+    def visit_code(self, card):
+        return self._sides(card, CODE_LABELS) + self._tip(card, DEFAULT_TIP_LABEL)
 
+    def visit_tradeoff(self, card):
+        return self._options(card) + self._tip(card, TRADEOFF_TIP_LABEL)
 
-def _sample_body(sample):
-    if sample.get("code"):
-        return code_block(sample["code"])
-    return _paragraph(sample.get("text"))
+    def _sides(self, card, labels):
+        return "".join(self._side(card.get(side) or {}, label) for side, label in zip(SIDES, labels))
 
+    def _side(self, sample, label):
+        return f'<p class="label">{label}</p>{self._sample_body(sample)}{_paragraph(sample.get("why"))}'
 
-def _options(card, kind):
-    return "".join(_option(option) for option in card.get("options", []))
+    @staticmethod
+    def _sample_body(sample):
+        if sample.get("code"):
+            return code_block(sample["code"])
+        return _paragraph(sample.get("text"))
 
+    def _options(self, card):
+        return "".join(self._option(option) for option in card.get("options", []))
 
-def _option(option):
-    lines = "".join(f"<p><em>{label}:</em> {_text(option.get(field))}</p>" for field, label in OPTION_LABELS)
-    return f'<div class="option"><p class="label">{_text(option.get("name"))}</p>{lines}</div>'
+    @staticmethod
+    def _option(option):
+        lines = "".join(f"<p><em>{label}:</em> {_text(option.get(field))}</p>" for field, label in OPTION_LABELS)
+        return f'<div class="option"><p class="label">{_text(option.get("name"))}</p>{lines}</div>'
 
-
-def _tip(card, kind):
-    if not card.get("tip"):
-        return ""
-    return f'<p class="tip"><strong>{TIP_LABELS.get(kind, DEFAULT_TIP_LABEL)}:</strong> {_text(card["tip"])}</p>'
+    @staticmethod
+    def _tip(card, label):
+        if not card.get("tip"):
+            return ""
+        return f'<p class="tip"><strong>{label}:</strong> {_text(card["tip"])}</p>'
 
 
 def _paragraph(unit):
@@ -113,5 +125,3 @@ def _paragraph(unit):
 def _text(unit):
     return translated_html(unit or {})
 
-
-_MIDDLE_PARTS = {"contrast": _sides, "code": _sides, "tradeoff": _options}
