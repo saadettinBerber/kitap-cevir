@@ -50,9 +50,13 @@ class BookSettings:
         mode = configured.pop("mode", None)
         if mode is None or "kinds" in configured:
             return configured
-        if mode not in _LEGACY_MODE_KINDS:
-            raise InvalidConceptSettings(f"Bilinmeyen kavram kartı modu: {mode!r}")
-        return {**configured, "kinds": _LEGACY_MODE_KINDS[mode]}
+        return {**configured, "kinds": _legacy_kinds(mode)}
+
+
+def _legacy_kinds(mode):
+    if mode not in _LEGACY_MODE_KINDS:
+        raise InvalidConceptSettings(f"Bilinmeyen kavram kartı modu: {mode!r}")
+    return _LEGACY_MODE_KINDS[mode]
 
 
 def _check_card_kinds(kinds):
