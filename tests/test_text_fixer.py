@@ -17,6 +17,9 @@ class WordBoundaryTest(unittest.TestCase):
     def test_word_followed_by_punctuation_is_fixed(self):
         self.assertEqual(self._fixer().plain("the ratio of ma, mc"), "the ratio of mᵃ, mc")
 
+    def test_word_beginning_with_the_fixed_word_is_untouched(self):
+        self.assertEqual(self._fixer().plain("make it"), "make it")
+
     def test_other_words_are_untouched(self):
         self.assertEqual(self._fixer().plain("format and summary"), "format and summary")
 
@@ -37,6 +40,12 @@ class InlineCodeTest(unittest.TestCase):
 
     def test_token_inside_a_longer_word_is_not_marked(self):
         self.assertEqual(_rich("call getUsers now", "getUser"), "call getUsers now")
+
+    def test_token_at_the_end_of_a_longer_word_is_not_marked(self):
+        self.assertEqual(_rich("call mygetUser now", "getUser"), "call mygetUser now")
+
+    def test_token_inside_existing_code_is_not_marked(self):
+        self.assertEqual(_rich("see `x = getUser()` here", "getUser"), "see `x = getUser()` here")
 
     def test_marked_text_is_repaired_first(self):
         fixer = TextFixer({"hyphen_fixes": {"McGrawHill": "McGraw-Hill"}, "inline_code": ["getUser"]})
