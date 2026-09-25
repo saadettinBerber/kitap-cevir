@@ -12,6 +12,7 @@ from extraction.tables.table_scan import TableScanner
 BOLD = "Helvetica-Bold"
 STEP = 0.1
 FRACTION = 0.2
+SHIFT = 3
 
 COLUMNS = [(70, 170), (170, 270), (270, 370)]
 HEADER = ["Name", "Count", "Share"]
@@ -20,6 +21,7 @@ ROW_HEIGHT = 30
 TABLE_TOP = 150
 PADDING, TEXT_DROP, TEXT_HEIGHT, CHAR_WIDTH = 5, 10, 12, 6
 BODY_SIZE = 11
+MARK_SIZE = BODY_SIZE / 2
 CAPTION = span("Table 1-1. A caption that spans the whole table width", (70, 121, 370, 132), size=9)
 BODY = span("Body text far below the table, spanning columns.", (70, 391, 370, 402), size=BODY_SIZE)
 
@@ -92,6 +94,19 @@ class ZebraTableTest(unittest.TestCase):
         self.assertEqual((self.tables[0]["y0"], self.tables[0]["y1"]),
                          (TABLE_TOP + TEXT_DROP, last_text_top + TEXT_HEIGHT))
 
+    def test_raised_or_lowered_pieces_widen_the_table_extent(self):
+        """Üst simge satırının üstüne, alt simge altına taşar; tablo onları da kapsar."""
+        layout = ZebraLayout(ROWS)
+        header_top, last_top = TABLE_TOP + TEXT_DROP, layout.top(len(ROWS)) + TEXT_DROP
+        raised = dataclasses.replace(span("a", (360, header_top - SHIFT, 364, header_top + MARK_SIZE)),
+                                     line_y=header_top)
+        lowered = dataclasses.replace(span("i", (360, last_top + SHIFT, 364, last_top + TEXT_HEIGHT + SHIFT)),
+                                      line_y=last_top)
+        header, *body = layout.lines()
+        page = FakePdfPage(lines=[header + (raised,)] + body[:-1] + [body[-1] + (lowered,)], shapes=layout.shading(0))
+        [table] = _scan(page)
+        self.assertEqual((table["y0"], table["y1"]), (header_top - SHIFT, last_top + TEXT_HEIGHT + SHIFT))
+
     def test_caption_and_body_stay_outside_table_extent(self):
         self.assertGreater(self.tables[0]["y0"], CAPTION.box.y1)
         self.assertLess(self.tables[0]["y1"], BODY.box.y0)
@@ -148,7 +163,6 @@ class FullWidthFillTest(unittest.TestCase):
 
 
 SUBLINE_DROPS = (2, 16)      # bir bandın içindeki iki alt satırın üst kenarı, satırın tepesinden
-MARK_SIZE = BODY_SIZE / 2
 
 
 def _split_row(top, *sublines):
