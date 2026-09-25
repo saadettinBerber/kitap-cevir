@@ -2,7 +2,7 @@ import unittest
 
 import _paths  # noqa: F401
 from book_settings import CARD_KINDS
-from concept_check import CardChecker, card_kind, kind_rules
+from concept_check import CardChecker, kind_rules
 
 SPEC = {"kinds": ["explain", "contrast", "tradeoff", "code"], "code_langs": ["python"],
         "code_comment_lang": "en"}
@@ -29,17 +29,6 @@ TRADEOFF = _card("secim", "tradeoff", options=[_option("A"), _option("B")])
 CONTRAST = _card("karsit", "contrast", bad={"text": _pair(), "why": _pair()},
                  good={"text": _pair(), "why": _pair()})
 CODE = _card("kod", "code", bad=_code(), good=_code("py"))
-
-
-class CardKindTest(unittest.TestCase):
-    def test_explicit_kind_wins(self):
-        self.assertEqual(card_kind(TRADEOFF), "tradeoff")
-
-    def test_legacy_cards_are_inferred(self):
-        self.assertEqual(card_kind({"bad": {"code": "x"}}), "code")
-        self.assertEqual(card_kind({"bad": {"text": _pair()}}), "contrast")
-        self.assertEqual(card_kind({"options": []}), "tradeoff")
-        self.assertEqual(card_kind({"summary": _pair()}), "explain")
 
 
 class CardProblemsTest(unittest.TestCase):

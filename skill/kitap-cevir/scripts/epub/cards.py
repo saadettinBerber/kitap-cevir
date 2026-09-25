@@ -4,7 +4,8 @@ Kart bir veri yapısıdır ve türleri sabittir; aynı veriye yeni bir işlem ek
 """
 from typing import NamedTuple
 
-from concept_check import SIDES, card_kind
+from concept_cards import Card
+from concept_check import SIDES
 from epub.xhtml import code_block, translated_html
 
 CARDS_ANCHOR = "kavram-kartlari"
@@ -62,7 +63,7 @@ def cards_section(page_cards):
 
 def card_html(page_card):
     card = page_card.card
-    kind = card_kind(card)
+    kind = Card.of(card).kind()
     body = f'{_paragraph(card.get("summary"))}{_MIDDLE_PARTS.get(kind, _no_middle)(card, kind)}{_tip(card, kind)}'
     return f'<div class="card" id="{card_anchor(page_card)}">{_card_head(page_card)}{body}</div>'
 

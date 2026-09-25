@@ -4,6 +4,8 @@ Sorunlar metin listesi olarak döner; boş liste = kartlar geçerli. Kart türle
 ve alanları: references/FORMAT.md → Kavram kartları. finalize_page.py ve
 regen_concepts.py kullanır.
 """
+from concept_cards import Card
+
 MIN_CARDS = 2
 MAX_CARDS = 4
 MIN_OPTIONS = 2
@@ -11,18 +13,6 @@ MAX_OPTIONS = 3
 SIDES = ("bad", "good")
 COMMON_PAIRS = ("title", "summary", "tip")
 _LANG_ALIASES = {"js": "javascript", "py": "python", "ts": "typescript"}
-
-
-def card_kind(card):
-    """Kartın türü; `kind` alanı olmayan eski kartlarda içerikten çıkarılır."""
-    if card.get("kind"):
-        return card["kind"]
-    if "options" in card:
-        return "tradeoff"
-    sample = card.get("bad") or {}
-    if sample.get("code"):
-        return "code"
-    return "contrast" if sample.get("text") else "explain"
 
 
 def _missing_pair(unit, label):
@@ -137,7 +127,7 @@ class CardChecker:
         return problems + _duplicate_ids(cards)
 
     def _card_problems(self, card):
-        kind = card_kind(card)
+        kind = Card.of(card).kind()
         if kind not in self.allowed_rules:
             return [f"tür {kind!r} bu kitapta izinli değil ({', '.join(self.allowed_rules)})"]
         return _common_problems(card) + self.allowed_rules[kind].problems(card)
