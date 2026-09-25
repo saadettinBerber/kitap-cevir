@@ -145,15 +145,17 @@ class BookSetup:
 
 def report(root, project):
     print(f"✓ Kitap projesi kuruldu: {root}")
-    progress = project.load_progress()
-    settings, data = project.load_settings(), progress.as_json()
-    book = settings.book()
-    print(f"  kitap: {book['title']} — {book['author']}")
-    print(f"  PDF: {settings.book_pdf()} ({data['pdf_total_pages']} sayfa), "
-          f"ofset {data['pdf_offset']}, kitap {data['book_total_pages']} sayfa")
-    print(f"  bölüm sayısı: {len(data['chapters'])}")
-    print(f"  kart türleri: {', '.join(settings.concepts()['kinds'])}")
+    _print_book(project.load_settings(), project.load_progress())
     print(NEXT_STEPS)
+
+
+def _print_book(settings, progress):
+    record, book = progress.as_json(), settings.book()
+    print(f"  kitap: {book['title']} — {book['author']}")
+    print(f"  PDF: {settings.book_pdf()} ({record['pdf_total_pages']} sayfa), "
+          f"ofset {record['pdf_offset']}, kitap {record['book_total_pages']} sayfa")
+    print(f"  bölüm sayısı: {len(record['chapters'])}")
+    print(f"  kart türleri: {', '.join(settings.concepts()['kinds'])}")
 
 
 def main():
