@@ -166,6 +166,10 @@ class HeadingBySizeTest(unittest.TestCase):
         size = DEFAULT_EXTRACTION["subsection_min_size"]
         self.assertEqual(self._blocks("Cross-Cutting", size, is_nested=True)[0]["type"], "heading")
 
+    def test_nested_element_just_below_subsection_size_stays_a_paragraph(self):
+        size = DEFAULT_EXTRACTION["subsection_min_size"] - 0.1
+        self.assertEqual(self._blocks("Cross-Cutting", size, is_nested=True)[0]["type"], "para")
+
 
 
 

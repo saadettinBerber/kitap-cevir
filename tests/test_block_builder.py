@@ -43,6 +43,9 @@ class HeadingSizeTest(unittest.TestCase):
     def test_digits_just_below_chapter_number_size_are_a_chapter_title(self):
         self.assertEqual(_heading("7", CHAPTER_NUMBER - STEP), [{"type": "chapter", "en": "7"}])
 
+    def test_words_at_chapter_number_size_are_a_chapter_title(self):
+        self.assertEqual(_heading("Modularity", CHAPTER_NUMBER), [{"type": "chapter", "en": "Modularity"}])
+
     def test_text_at_chapter_title_size_is_the_chapter(self):
         self.assertEqual(_heading("Modularity", CHAPTER_TITLE), [{"type": "chapter", "en": "Modularity"}])
 
@@ -105,11 +108,17 @@ class ParagraphTest(unittest.TestCase):
     def test_bold_heading_font_is_a_minor_heading(self):
         self.assertEqual(_blocks(f"About {CODE}", font="Arial-BoldMT"), [{"type": "heading", "level": 3, "en": f"About {CODE}"}])
 
+    def test_regular_weight_of_the_bold_heading_font_is_a_paragraph(self):
+        self.assertEqual(_blocks("About modules", font="ArialMT")[0]["type"], "para")
+
     def test_other_bold_font_is_a_paragraph(self):
         self.assertEqual(_blocks("About modules", font="Helvetica-Bold")[0]["type"], "para")
 
     def test_bibliography_entry_is_a_reference(self):
         self.assertEqual(_blocks("[Fowler]: Refactoring.")[0]["style"], "reference")
+
+    def test_italic_bibliography_entry_is_still_a_reference(self):
+        self.assertEqual(_blocks("[Fowler]: Refactoring.", font="Minion-Italic")[0]["style"], "reference")
 
     def test_italic_paragraph_is_a_quote(self):
         self.assertEqual(_blocks("Less is more.", font="Minion-Italic")[0]["style"], "quote")
@@ -122,6 +131,9 @@ class ListTest(unittest.TestCase):
     def test_numbered_list_item_keeps_its_number(self):
         self.assertEqual(_blocks("2. If the shop offers more.", "list item")[0]["sentences"][0]["en"],
                          "2. If the shop offers more.")
+
+    def test_list_item_in_chapter_title_size_stays_a_list_item(self):
+        self.assertEqual(_blocks("2. Big item", "list item", CHAPTER_TITLE)[0]["sentences"][0]["en"], "2. Big item")
 
     def test_list_items_are_rich_without_markers(self):
         items = (element(f"1. Call {CODE}", BOX, "list item"), element("2. Stop", BOX, "list item"))
