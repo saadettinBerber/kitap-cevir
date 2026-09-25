@@ -145,7 +145,7 @@ class BookSetup:
 
 def report(project, progress):
     print(f"✓ Kitap projesi kuruldu: {project.root}")
-    settings, data = project.load_settings(), progress.data
+    settings, data = project.load_settings(), progress.as_json()
     book = settings.book()
     print(f"  kitap: {book['title']} — {book['author']}")
     print(f"  PDF: {settings.book_pdf()} ({data['pdf_total_pages']} sayfa), "

@@ -68,7 +68,7 @@ class Project:
         return BookSettings(read_json(self.progress_path))
 
     def save_progress(self, progress):
-        write_json(self.progress_path, progress.data)
+        write_json(self.progress_path, progress.as_json())
 
     def pdf_path(self):
         configured = self.load_settings().book_pdf()

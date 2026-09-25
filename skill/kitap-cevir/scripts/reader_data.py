@@ -36,7 +36,7 @@ class TableOfContents:
     def __init__(self, project, progress):
         self.script = ReaderScript(project.toc_js, "TOC")
         self.book = project.load_settings().book()
-        self.data = progress.data
+        self.data = progress.as_json()
 
     def write(self):
         data = self.data
