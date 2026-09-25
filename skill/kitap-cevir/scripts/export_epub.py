@@ -22,27 +22,24 @@ STYLESHEET_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
 
 
 class BookExport:
-    """Paketin diskle tek sınırı: sayfaları ve görselleri okur, EPUB'ı dist/ altına yazar."""
+    """Paketin diskle tek sınırı: sayfaları ve görselleri okur, EPUB'ı verilen yola yazar."""
 
-    def __init__(self, project, pages):
-        self.project = project
-        self.pages = pages
+    def __init__(self, pages, epub_path):
+        self._pages = pages
+        self._epub_path = epub_path
 
-    def write(self, package):
-        """Çevrilmiş sayfalar pakete girer; yazılan EPUB'ın yolu döner."""
-        documents = self._documents()
+    def write(self, package, page_numbers):
+        """Verilen sayfalar pakete girer, paket EPUB olarak yazılır. Boş sayfaları progress.json zaten
+        dışarıda bırakır; tek görselli sayfa şekildir, kalır."""
+        documents = [self._pages.get(page) for page in page_numbers]
         for chapter in chapters_of(documents):
             package.add_chapter(chapter)
         for href, source in self._present(self._images(documents)):
             package.add_image(href, _read_bytes(source))
-        return self._save(package)
-
-    def _documents(self):
-        """Boş sayfaları progress.json zaten dışarıda bırakır; tek görselli sayfa şekildir, kalır."""
-        return [self.pages.get(page) for page in self.project.load_progress().translated_pages()]
+        self._save(package)
 
     def _images(self, documents):
-        return [(image_href(document.number(), src), os.path.join(self.pages.images_dir(document.number()), src))
+        return [(image_href(document.number(), src), os.path.join(self._pages.images_dir(document.number()), src))
                 for document in documents for src in document.media_sources()]
 
     @staticmethod
@@ -54,11 +51,9 @@ class BookExport:
         return [(href, source) for href, source in images if source not in missing]
 
     def _save(self, package):
-        path = self.project.epub_file(self.project.load_settings().book()["slug"])
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "wb") as stream:
+        os.makedirs(os.path.dirname(self._epub_path), exist_ok=True)
+        with open(self._epub_path, "wb") as stream:
             package.write_to(stream)
-        return path
 
 
 def chapters_of(documents):
@@ -86,10 +81,16 @@ def _read_text(path):
 
 def main():
     project = Project.discover()
-    metadata = EpubMetadata.for_book(project.load_settings().book(), datetime.now(timezone.utc))
-    package = EpubPackage(metadata, _read_text(STYLESHEET_PATH))
-    path = BookExport(project, TranslatedPages(project)).write(package)
-    print("yazıldı:", project.relative_to_root(path))
+    book = project.load_settings().book()
+    epub_path = project.epub_file(book["slug"])
+    export = BookExport(TranslatedPages(project), epub_path)
+    export.write(_package(book), project.load_progress().translated_pages())
+    print("yazıldı:", project.relative_to_root(epub_path))
+
+
+def _package(book):
+    metadata = EpubMetadata.for_book(book, datetime.now(timezone.utc))
+    return EpubPackage(metadata, _read_text(STYLESHEET_PATH))
 
 
 if __name__ == "__main__":
