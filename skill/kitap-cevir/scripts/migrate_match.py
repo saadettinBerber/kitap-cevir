@@ -22,31 +22,15 @@ class Translations:
     """Eski birimlerden kurulan arama tabloları: tek birim ve ardışık birleşimler."""
 
     def __init__(self, units):
-        self.single = {}
-        self.joined = {}
-        for index, unit in enumerate(units):
-            self.single.setdefault(self.key(unit["en"]), unit["tr"])
-            for window in self._windows(units, index):
-                self.joined.setdefault(self.key(" ".join(u["en"] for u in window)),
-                                       " ".join(u["tr"] for u in window))
-
-    @staticmethod
-    def _windows(units, start):
-        """start'tan başlayan, 2..MAX_JOIN uzunluğundaki ardışık birim grupları."""
-        return [units[start:start + count] for count in range(2, MAX_JOIN + 1) if start + count <= len(units)]
+        self._single = self._first_translations(units)
+        self._joined = self._first_translations(_joined_windows(units))
 
     @classmethod
     def of_page(cls, old_page, fixes):
         """Eski sayfanın çevrilmiş birimleri, sayfa sırasıyla. Yeni çıkarımın metin
         onarımları ('3.14 × 10' → '3.14 × 10^23') eski birimlere de uygulanır ki
         iki taraf aynı biçimde eşleşsin."""
-        units = [{"en": u.get("en", ""), "tr": u.get("tr", "")}
-                 for u in PageDocument(old_page).text_units() if u.get("en")]
-        for unit in units:
-            for wrong, right in fixes.items():
-                unit["en"] = unit["en"].replace(wrong, right)
-                unit["tr"] = unit["tr"].replace(wrong, right)
-        return cls(units)
+        return cls([_with_fixes(unit, fixes) for unit in PageDocument(old_page).text_units() if unit.get("en")])
 
     @staticmethod
     def key(text):
@@ -59,10 +43,35 @@ class Translations:
         key = self.key(text)
         if not key:
             return ""
-        return self.single.get(key) or self.joined.get(key) or ""
+        return self._single.get(key) or self._joined.get(key) or ""
 
     def lookup_single(self, text):
-        return self.single.get(self.key(text), "")
+        return self._single.get(self.key(text), "")
+
+    @classmethod
+    def _first_translations(cls, units):
+        """Anahtar → çeviri; aynı anahtarlı birimlerden ilkinin çevirisi kalır."""
+        table = {}
+        for unit in units:
+            table.setdefault(cls.key(unit["en"]), unit["tr"])
+        return table
+
+
+def _with_fixes(unit, fixes):
+    en, tr = unit.get("en", ""), unit.get("tr", "")
+    for wrong, right in fixes.items():
+        en, tr = en.replace(wrong, right), tr.replace(wrong, right)
+    return {"en": en, "tr": tr}
+
+
+def _joined_windows(units):
+    """Her birimden başlayan 2..MAX_JOIN uzunluğundaki ardışık grupların birleşimi, sayfa sırasıyla."""
+    return [{"en": " ".join(unit["en"] for unit in window), "tr": " ".join(unit["tr"] for unit in window)}
+            for start in range(len(units)) for window in _windows(units, start)]
+
+
+def _windows(units, start):
+    return [units[start:start + count] for count in range(2, MAX_JOIN + 1) if start + count <= len(units)]
 
 
 class TranslationFiller:
