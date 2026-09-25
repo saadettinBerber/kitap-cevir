@@ -65,6 +65,12 @@ class BandTest(unittest.TestCase):
         self.assertFalse(grid.same_band(below, below))
 
 
+class ColumnOfTest(unittest.TestCase):
+    def test_span_centred_on_a_column_border_belongs_to_the_left_column(self):
+        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
+        self.assertEqual(grid.column_of(_span_at(SECOND_LEFT)), 0)
+
+
 def _groups(*fills):
     return PageFills(list(fills), TEXT_BOTTOM).table_groups()
 
