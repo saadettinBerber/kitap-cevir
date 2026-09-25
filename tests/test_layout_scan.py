@@ -119,6 +119,10 @@ class LeadingCodeTest(unittest.TestCase):
 
 class CodeLineTest(unittest.TestCase):
     FAR = 100
+    HALF_POINT = 0.5
+    GAP_IN_CHARACTERS = 3
+    SMALLER = SIZE * 0.7
+    SLIGHTLY_HIGHER, LOWER_WITHIN_TOLERANCE = HALF_POINT, SAME_BASELINE_TOLERANCE - 2 * STEP
     LOWER = SAME_BASELINE_TOLERANCE * 0.9
 
     def test_code_fragments_on_one_baseline_form_one_line(self):
@@ -135,6 +139,40 @@ class CodeLineTest(unittest.TestCase):
         head = CODE.at("total = ", (LEFT, TOP))
         tail = CODE.on_baseline("count + 1", _end_of(head, SAME_BASELINE_TOLERANCE + STEP))
         self.assertEqual(len(_lines((head,), (tail,))), 2)
+
+    def test_merged_line_is_measured_in_its_leftmost_fragment(self):
+        """Okuma sırasında önce gelen ama sağda duran büyük parça, boşluk genişliğini belirlemez."""
+        head = CODE.at("total =", (LEFT, TOP))
+        larger = Pen(CODE_FONT, CODE_MAX_SIZE - self.HALF_POINT)
+        raised_baseline = head.baseline - SAME_BASELINE_TOLERANCE + STEP
+        tail = larger.on_baseline("count", (head.box.x1 + 2 * self.GAP_IN_CHARACTERS * CHAR_WIDTH, raised_baseline))
+        [line] = _lines((head,), (tail,))
+        self.assertEqual(line.text, "total =      count")
+
+    def test_superscript_of_the_right_fragment_stays_after_merging(self):
+        head = CODE.at("x = ", (LEFT, TOP))
+        tail = CODE.at("10", (LEFT + self.FAR, TOP))
+        exponent = Pen(CODE_FONT, SCRIPT_SIZE).on_baseline("23", _end_of(tail, SCRIPT_RISE + 1))
+        [line] = _lines((head,), (tail, exponent))
+        self.assertTrue(line.text.endswith("10^23"))
+
+    def test_spacing_is_counted_in_the_size_of_the_first_piece(self):
+        head = CODE.at("x =", (LEFT, TOP))
+        gap = self.GAP_IN_CHARACTERS * CHAR_WIDTH
+        tail = Pen(CODE_FONT, self.SMALLER).on_baseline("y", (head.box.x1 + gap, head.baseline))
+        [line] = _lines((head, tail))
+        self.assertEqual(line.text, "x =   y")
+
+    def test_code_beside_a_demoted_fragment_is_demoted_too(self):
+        """Sırayla karar verilir: indirilen kısa kod parçası sonraki parçanın komşusu olarak düz metindir."""
+        short = CODE.at("a", (LEFT, TOP))
+        prose = BODY.on_baseline("count + 1", (LEFT + self.FAR, short.baseline - self.SLIGHTLY_HIGHER))
+        later = CODE.on_baseline("then", (LEFT + 2 * self.FAR, short.baseline + self.LOWER_WITHIN_TOLERANCE))
+        self.assertEqual([line.is_code for line in _lines((short,), (prose,), (later,))], [False, False, False])
+
+    def test_prose_line_loses_its_trailing_spaces(self):
+        [line] = _lines((BODY.at("Hello  ", (LEFT, TOP)),))
+        self.assertEqual(line.text, "Hello")
 
     def test_short_code_beside_prose_is_inline_code(self):
         prose = BODY.at("The value is stored in ", (LEFT, TOP))
