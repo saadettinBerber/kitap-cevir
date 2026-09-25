@@ -14,7 +14,7 @@ yalnız `en` tarafıdır.
 from extraction.block_builder import BlockBuilder
 from extraction.chapter_opener import ChapterOpener
 from extraction.equations.math_scan import MathScanner
-from extraction.layout_elements import LayoutElements
+from extraction.layout_elements import LayoutFixer
 from extraction.page_regions import PageRegions
 from extraction.page_zones import PageZones
 from extraction.pdf.readers import layout_reader_for
@@ -46,8 +46,7 @@ class PageExtractor:
         layout = self.text_layer.scan(page)
         math = MathScanner(self.settings, page, image_dir).scan()
         regions = PageRegions.of(self.tables.scan(page) + math["display"], self._code_regions(layout))
-        body = (LayoutElements(body).flatten_nested_lists().drop_nested_fragments().merge_footnote_markers()
-                .with_inline_math(math["inline"]).without_code_image_links(layout["code_image_links"]).items)
+        body = LayoutFixer(math["inline"], layout["code_image_links"]).fixed(body)
         builder = BlockBuilder(self.settings, TextFixer(layout))
         return {"blocks": ChapterOpener(regions.place(body, builder.blocks_of)).merged(),
                 "running_header": header, "math": self._inline_images(math)}

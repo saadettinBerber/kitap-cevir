@@ -13,47 +13,58 @@ from extraction.pdf.geometry import Box
 _FOOTNOTE_MARKER = re.compile(r"^[a-z0-9]$")
 
 
-class LayoutElements:
-    """Bir sayfanın düzen öğeleri; düzeltmeler zincirlenir, `items` sonucu verir."""
+class LayoutFixer:
+    """Bir sayfanın düzen öğelerini düzen okuyucusunun bilinen kusurlarından arındırır;
+    satır içi denklemler ve kod görseli bağlantıları metin katmanının o sayfadaki bulgularıdır."""
 
-    def __init__(self, items):
-        self.items = items
+    def __init__(self, inline_math, code_image_links):
+        self._equations = [InlineEquation(item) for item in inline_math]
+        self._links = [CodeImageLink(slot) for slot in code_image_links]
 
-    def flatten_nested_lists(self):
+    def fixed(self, elements):
+        """Gömülü içerik önce akışa döner ki sonraki düzeltmeler onu da görsün; metin
+        düzeltmeleri (denklem, bağlantı) öğelerin son hâline uygulanır."""
+        structured = self._merge_footnote_markers(self._drop_nested_fragments(self._flatten_nested_lists(elements)))
+        return self._without_code_image_links(self._with_inline_math(structured))
+
+    @staticmethod
+    def _flatten_nested_lists(elements):
         """ODL italik bir caption'ı ("Table 4-2.") numaralı liste sanıp sonrasındaki
         her şeyi maddenin `children` alanına gömebilir. Gömülü içerik (tablo satırları,
         başlık, paragraf) sıradan öğe olarak akışa döner; yoksa sessizce düşer ve
         sayfadan koca bir bölüm eksilir."""
-        flat = []
-        for element in self.items:
-            list_items = element.list_items if element.kind == "list" else ()
-            if not any(item.children for item in list_items):
-                flat.append(element)
-                continue
-            for item in list_items:
-                flat += [_nested(item), *map(_nested, item.children)]
-        return LayoutElements(flat)
+        return [flat for element in elements for flat in LayoutFixer._flattened(element)]
 
-    def drop_nested_fragments(self):
+    @staticmethod
+    def _flattened(element):
+        """[öğe]; gömülü içerikli listenin yerine maddeleri ve onların gömülü öğeleri."""
+        list_items = element.list_items if element.kind == "list" else ()
+        if not any(item.children for item in list_items):
+            return [element]
+        return [nested for item in list_items for nested in map(_nested, (item, *item.children))]
+
+    @staticmethod
+    def _drop_nested_fragments(elements):
         """ODL'nin ayrı paragraf yaptığı alt/üst simge parçalarını atar; metin
         katmanı bunları zaten ev sahibi satıra bağlar (text_layer.script_marks)."""
-        return LayoutElements([element for element in self.items
-                            if not any(self._is_fragment_of(element, host) for host in self.items)])
+        return [element for element in elements
+                if not any(LayoutFixer._is_fragment_of(element, host) for host in elements)]
 
     @staticmethod
     def _is_fragment_of(element, host):
         """Başka öğenin kutusu içindeki tek karakterlik öğe (alt/üst simge) parçadır."""
         return element is not host and len(element.text.strip()) == 1 and host.box.contains(element.box)
 
-    def merge_footnote_markers(self):
+    @staticmethod
+    def _merge_footnote_markers(elements):
         """Tek harflik dipnot işaretini ('a') aynı satırdaki metnin başına ekler."""
         merged = []
-        for element in self.items:
-            if merged and self._is_marker(merged[-1]) and self._same_line(merged[-1], element):
+        for element in elements:
+            if merged and LayoutFixer._is_marker(merged[-1]) and LayoutFixer._same_line(merged[-1], element):
                 marker = merged.pop().text.strip()
                 element = dataclasses.replace(element, text=f"{marker} {element.text}")
             merged.append(element)
-        return LayoutElements(merged)
+        return merged
 
     @staticmethod
     def _is_marker(element):
@@ -63,32 +74,25 @@ class LayoutElements:
     def _same_line(marker, element):
         return marker.box.vertical_overlap(element.box) > 0 and element.box.x0 > marker.box.x0
 
-    def without_code_image_links(self, slots):
+    def _with_inline_math(self, elements):
+        """Satır içi denklemleri ev sahibi öğenin metnine yerleştirir: basit sembol
+        düz metin, karmaşık denklem ⟦eq-N⟧ yer tutucusu."""
+        for equation in self._equations:
+            elements = equation.placed_in(elements)
+        return elements
+
+    def _without_code_image_links(self, elements):
         """E-kitabın kod görseli bağlantılarını (text_layer CodeImageLinkLines) öğelerden
         çıkarır. Bağlantıya yapışmış kod satırı böylece gerçek yüksekliğine döner ve
         kod bölgesine düşer; yalnız bağlantıdan oluşan öğe atılır."""
-        links = [CodeImageLink(slot) for slot in slots]
-        return LayoutElements([kept for element in self.items for kept in self._without_links(element, links)])
+        return [kept for element in elements for kept in self._without_links(element)]
 
-    @staticmethod
-    def _without_links(element, links):
+    def _without_links(self, element):
         """[bağlantılarından arınmış öğe]; öğe yalnız bağlantıdan oluşuyorsa []."""
-        present = [link for link in links if link.is_in(element)]
+        present = [link for link in self._links if link.is_in(element)]
         for link in present:
             element = link.cut_from(element)
         return [element] if element.text or not present else []
-
-    def with_inline_math(self, items):
-        """Satır içi denklemleri ev sahibi öğenin metnine yerleştirir: basit sembol
-        düz metin, karmaşık denklem ⟦eq-N⟧ yer tutucusu."""
-        elements = list(self.items)
-        for equation in map(InlineEquation, items):
-            host = next((index for index, element in enumerate(elements) if equation.is_hosted_by(element)), None)
-            if host is None:
-                print(f"  ! satır içi denklem için öğe bulunamadı: {equation.insert}")
-                continue
-            elements[host] = equation.spliced_into(elements[host])
-        return LayoutElements(elements)
 
 
 def _nested(element):
@@ -99,42 +103,50 @@ class InlineEquation:
     """Metin katmanının bulduğu bir satır içi denklem; öğe metnine komşu kelimeleri arasında girer."""
 
     def __init__(self, item):
-        self.box = item["bbox"]
-        self.before, self.after = item["before"], item["after"]
-        self.text = item["text"]
-        self.insert = item["text"] if item["kind"] == "text" else placeholder(item["id"])
+        self._box = item["bbox"]
+        self._before, self._after = item["before"], item["after"]
+        self._text = item["text"]
+        self._insert = item["text"] if item["kind"] == "text" else placeholder(item["id"])
 
-    def is_hosted_by(self, element):
-        """Öğe, denklem kutusunu dikeyde kapsıyorsa ev sahibidir."""
-        return element.box.y0 <= self.box.center_y <= element.box.y1
+    def placed_in(self, elements):
+        """Denklem, kutusunu dikeyde kapsayan ilk öğenin metnine girer; öyle öğe yoksa bildirilip atlanır."""
+        hosts = [index for index, element in enumerate(elements) if self._is_hosted_by(element)]
+        if not hosts:
+            print(f"  ! satır içi denklem için öğe bulunamadı: {self._insert}")
+            return elements
+        host = hosts[0]
+        return elements[:host] + [self._spliced_into(elements[host])] + elements[host + 1:]
 
-    def spliced_into(self, host):
+    def _is_hosted_by(self, element):
+        return element.box.y0 <= self._box.center_y <= element.box.y1
+
+    def _spliced_into(self, host):
         text, count = self._splice(host.text)
         if not count:
-            print(f"  ! satır içi denklem yerleştirilemedi, atlandı: {self.insert}")
+            print(f"  ! satır içi denklem yerleştirilemedi, atlandı: {self._insert}")
         return dataclasses.replace(host, text=text)
 
     def _splice(self, text):
         """insert'i metinde before/after komşu kelimelerinin arasına koyar."""
-        if self.before and self.after:
+        if self._before and self._after:
             return self._between_neighbours(text)
-        if self.after:
-            return re.subn(_word(self.after), lambda match: f"{self.insert} {match[0]}", text, count=1)
-        if self.before:
-            return re.subn(_word(self.before), lambda match: f"{match[0]} {self.insert}", text, count=1)
-        return f"{text} {self.insert}", 1
+        if self._after:
+            return re.subn(_word(self._after), lambda match: f"{self._insert} {match[0]}", text, count=1)
+        if self._before:
+            return re.subn(_word(self._before), lambda match: f"{match[0]} {self._insert}", text, count=1)
+        return f"{text} {self._insert}", 1
 
     def _between_neighbours(self, text):
         """Önce bitişik komşular: ODL denklem glifini metinden düşürür. Yoksa araları en çok
         denklemin kendi metni kadar olan komşular: LiteParse glifi düzleşmiş metin olarak bırakır."""
         spliced, count = self._replace_between(text, 0)
-        return (spliced, count) if count else self._replace_between(text, len(self.text))
+        return (spliced, count) if count else self._replace_between(text, len(self._text))
 
     def _replace_between(self, text, gap):
         """Aralarında en çok gap harf bulunan ilk komşu çifti; aradaki metnin yerini insert alır.
         Boşluk olabildiğince uzun tutulur: sonraki kelime (',') denklemin içinde de geçebilir."""
-        pattern = rf"(?P<before>{_word(self.before)})\s*.{{0,{gap}}}\s*(?P<after>{_word(self.after)})"
-        return re.subn(pattern, lambda match: f"{match['before']} {self.insert} {match['after']}", text, count=1)
+        pattern = rf"(?P<before>{_word(self._before)})\s*.{{0,{gap}}}\s*(?P<after>{_word(self._after)})"
+        return re.subn(pattern, lambda match: f"{match['before']} {self._insert} {match['after']}", text, count=1)
 
 
 def _word(word):
@@ -154,22 +166,22 @@ class CodeImageLink:
     """Metin katmanının bulduğu bir kod görseli bağlantısı ve dikey şeridi."""
 
     def __init__(self, slot):
-        self.text = slot["text"]
-        self.top, self.bottom = slot["y0"], slot["y1"]
+        self._text = slot["text"]
+        self._top, self._bottom = slot["y0"], slot["y1"]
 
     def is_in(self, element):
-        return self.text in element.text and self._overlaps_vertically(element.box)
+        return self._text in element.text and self._overlaps_vertically(element.box)
 
     def _overlaps_vertically(self, box):
-        return self.top < box.y1 and box.y0 < self.bottom
+        return self._top < box.y1 and box.y0 < self._bottom
 
     def cut_from(self, element):
-        text = element.text.replace(self.text, "", 1).strip()
+        text = element.text.replace(self._text, "", 1).strip()
         return dataclasses.replace(element, text=text, box=self._box_without_slot(element.box))
 
     def _box_without_slot(self, box):
         """Şerit kutunun üst yarısındaysa bağlantı öğenin başındadır, alt kısım
         kalır; alt yarısındaysa sonundadır, üst kısım kalır."""
-        if (self.top + self.bottom) / 2 < box.center_y:
-            return Box(box.x0, max(box.y0, self.bottom), box.x1, box.y1)
-        return Box(box.x0, box.y0, box.x1, min(box.y1, self.top))
+        if (self._top + self._bottom) / 2 < box.center_y:
+            return Box(box.x0, max(box.y0, self._bottom), box.x1, box.y1)
+        return Box(box.x0, box.y0, box.x1, min(box.y1, self._top))

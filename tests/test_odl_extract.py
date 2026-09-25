@@ -2,7 +2,7 @@ import unittest
 
 from pdf_fakes import PAGE_HEIGHT, element
 from extraction.block_builder import BlockBuilder
-from extraction.layout_elements import LayoutElements
+from extraction.layout_elements import LayoutFixer
 from extraction.page_regions import PageRegions, Region
 from extraction.pdf.model import PageLayout
 from extraction.page_zones import InvalidRunningHeader, PageZones
@@ -184,7 +184,7 @@ class CodeImageLinkPlacementTest(unittest.TestCase):
         code = {"type": "code", "lang": "java", "code": "// Two classes"}
         regions = PageRegions([Region({**self.CODE_LINE, "block": code})])
         glued = _element(f"{self.LINK} // Two classes", (70, 60, 430, 90))
-        body = LayoutElements([glued]).without_code_image_links([self.SLOT]).items
+        body = LayoutFixer([], [self.SLOT]).fixed([glued])
         self.assertEqual(regions.place(body, _builder().blocks_of), [code])
 
 
