@@ -83,27 +83,27 @@ class BookSetup:
     """Komut satırı seçeneklerinden yeni bir kitap projesi kurar; open_pdf: yol → PdfDocument."""
 
     def __init__(self, args, open_pdf):
-        self.args = args
-        self.target = os.path.abspath(args.target)
-        self.open_pdf = open_pdf
+        self._args = args
+        self._target = os.path.abspath(args.target)
+        self._open_pdf = open_pdf
 
     def run(self):
         self._ensure_empty_target()
-        shutil.copytree(TEMPLATE_DIR, self.target, dirs_exist_ok=True)
-        self._fill_placeholders({"TITLE": self.args.title, "AUTHOR": self.args.author})
-        project = Project(self.target)
+        shutil.copytree(TEMPLATE_DIR, self._target, dirs_exist_ok=True)
+        self._fill_placeholders({"TITLE": self._args.title, "AUTHOR": self._args.author})
+        project = Project(self._target)
         project.save_progress(Progress(self._progress(self._place_pdf())))
         ReaderData(project).rebuild()
         return project
 
     def _ensure_empty_target(self):
-        os.makedirs(self.target, exist_ok=True)
-        if os.path.exists(os.path.join(self.target, PROGRESS_FILE)):
-            raise SystemExit(f"{self.target} zaten bir kitap projesi ({PROGRESS_FILE} var); durduruldu.")
+        os.makedirs(self._target, exist_ok=True)
+        if os.path.exists(os.path.join(self._target, PROGRESS_FILE)):
+            raise SystemExit(f"{self._target} zaten bir kitap projesi ({PROGRESS_FILE} var); durduruldu.")
 
     def _fill_placeholders(self, mapping):
         for name in PLACEHOLDER_FILES:
-            path = os.path.join(self.target, name)
+            path = os.path.join(self._target, name)
             with open(path, encoding="utf-8") as handle:
                 text = handle.read()
             for key, value in mapping.items():
@@ -113,14 +113,14 @@ class BookSetup:
 
     def _place_pdf(self):
         """PDF'i projeye kopyalar; zaten proje içindeyse yalnız göreli adını verir."""
-        source = os.path.abspath(self.args.pdf)
-        if os.path.commonpath([source, self.target]) == self.target:
-            return os.path.relpath(source, self.target)
-        shutil.copy2(source, os.path.join(self.target, PDF_NAME))
+        source = os.path.abspath(self._args.pdf)
+        if os.path.commonpath([source, self._target]) == self._target:
+            return os.path.relpath(source, self._target)
+        shutil.copy2(source, os.path.join(self._target, PDF_NAME))
         return PDF_NAME
 
     def _progress(self, pdf_name):
-        args = self.args
+        args = self._args
         return {"book": self._book(), "book_pdf": pdf_name, "pdf_offset": args.offset,
                 "book_total_pages": args.total, "pdf_total_pages": self._page_count(pdf_name),
                 "pages_per_run": args.pages_per_run, "translator": {"vision": True},
@@ -129,18 +129,18 @@ class BookSetup:
                 "last_translated_page": 0, "chapters": self._chapters(), "pages": {}}
 
     def _book(self):
-        args = self.args
+        args = self._args
         return {"slug": args.slug or slugify(args.title), "title": args.title, "subtitle": args.subtitle,
                 "subtitle_tr": args.subtitle_tr, "author": args.author, "series": args.series}
 
     def _page_count(self, pdf_name):
-        with self.open_pdf(os.path.join(self.target, pdf_name)) as document:
+        with self._open_pdf(os.path.join(self._target, pdf_name)) as document:
             return document.page_count
 
     def _chapters(self):
-        if not self.args.chapters:
+        if not self._args.chapters:
             return []
-        return read_json(self.args.chapters)
+        return read_json(self._args.chapters)
 
 
 def report(root, project):
