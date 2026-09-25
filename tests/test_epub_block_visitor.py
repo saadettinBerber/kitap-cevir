@@ -45,6 +45,10 @@ class TextBlockTest(unittest.TestCase):
     def test_caption_class_is_its_block_type(self):
         self.assertTrue(_html({"type": "caption", "en": "Figure", "tr": "Şekil"}).startswith('<p class="caption">'))
 
+    def test_caption_carries_its_english_note(self):
+        caption = _only({"type": "caption", "en": "Figure", "tr": "Şekil"})
+        self.assertEqual(caption.english(), ["Figure"])
+
     def test_list_keeps_order_and_items(self):
         fragment = _only({"type": "list", "ordered": True, "items": [{"en": "a", "tr": "b"}]})
         self.assertIsInstance(fragment, PassageList)
