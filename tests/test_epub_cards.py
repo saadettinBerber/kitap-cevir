@@ -1,11 +1,12 @@
 import unittest
 
 import _paths  # noqa: F401
-from epub.cards import (CARDS_ANCHOR, PageCard, card_anchor, card_html, card_links, cards_section, is_drawable,
-                        links_anchor, page_cards)
+from epub.cards import CARDS_ANCHOR, ChapterCards, PageCards
 
 PAGE = 7
 NEXT_PAGE = 8
+FIRST_NOTE = 1
+EMPTY = {"id": "e", "title": {"en": "EMPTY", "tr": "boş"}}
 
 
 def _pair(tr):
@@ -18,15 +19,16 @@ def _card(kind=None, **fields):
 
 
 def _html(card):
-    return card_html(PageCard(1, 1, card))
+    return PageCards(PAGE, [card]).html()
+
+
+def _line(page_cards):
+    return "".join(fragment.render(FIRST_NOTE) for fragment in page_cards.page_end())
 
 
 class CommonPartsTest(unittest.TestCase):
     def test_card_returns_to_its_card_line(self):
-        self.assertIn(f'<a href="#{links_anchor(PAGE)}">s. {PAGE}</a>', card_html(PageCard(PAGE, 1, _card("explain"))))
-
-    def test_card_carries_its_anchor(self):
-        self.assertIn(f'<div class="card" id="kart-{PAGE}-2">', card_html(PageCard(PAGE, 2, _card("explain"))))
+        self.assertIn(f'<a href="#kartlar-{PAGE}">s. {PAGE}</a>', _html(_card("explain")))
 
     def test_explain_card_has_title_summary_and_tip(self):
         html = _html(_card("explain"))
@@ -75,49 +77,53 @@ class KindTest(unittest.TestCase):
         self.assertNotIn('class="tip"', _html(card))
 
 
-class DrawableTest(unittest.TestCase):
-    def test_card_with_summary_is_drawable(self):
-        self.assertTrue(is_drawable(_card("explain")))
-
-    def test_card_without_summary_is_not_drawable(self):
-        self.assertFalse(is_drawable({"id": "e", "title": _pair("boş"), "body_html": "<p/>"}))
-
-
 class PageCardsTest(unittest.TestCase):
     def test_cards_are_numbered_from_one_within_their_page(self):
-        cards = page_cards(PAGE, [_card("explain"), _card("explain")])
-        self.assertEqual([card_anchor(card) for card in cards], [f"kart-{PAGE}-1", f"kart-{PAGE}-2"])
+        html = PageCards(PAGE, [_card("explain"), _card("explain")]).html()
+        self.assertLess(html.index(f'id="kart-{PAGE}-1"'), html.index(f'id="kart-{PAGE}-2"'))
 
-    def test_same_card_id_on_two_pages_gets_two_anchors(self):
-        first, second = page_cards(PAGE, [_card("explain")]) + page_cards(NEXT_PAGE, [_card("explain")])
-        self.assertNotEqual(card_anchor(first), card_anchor(second))
+    def test_same_card_on_two_pages_gets_two_anchors(self):
+        self.assertIn(f'id="kart-{NEXT_PAGE}-1"', PageCards(NEXT_PAGE, [_card("explain")]).html())
 
     def test_card_without_summary_is_left_out_and_not_counted(self):
-        empty = {"id": "e", "title": _pair("boş")}
-        cards = page_cards(PAGE, [empty, _card("explain")])
-        self.assertEqual([card_anchor(card) for card in cards], [f"kart-{PAGE}-1"])
+        html = PageCards(PAGE, [EMPTY, _card("explain")]).html()
+        self.assertEqual((html.count('<div class="card" '), f'id="kart-{PAGE}-1"' in html), (1, True))
+
+    def test_page_of_cards_without_summary_has_no_cards(self):
+        self.assertFalse(PageCards(PAGE, [EMPTY]).has_cards())
 
 
-class CardLinksTest(unittest.TestCase):
+class CardLineTest(unittest.TestCase):
     def test_line_links_every_card(self):
-        line = card_links(page_cards(PAGE, [_card("explain"), _card("explain")]))
-        self.assertEqual(line.count('href="#kart-'), 2)
+        self.assertEqual(_line(PageCards(PAGE, [_card("explain"), _card("explain")])).count('href="#kart-'), 2)
 
     def test_link_reads_as_the_card_title(self):
-        self.assertIn(f'<a href="#kart-{PAGE}-1">başlık</a>', card_links(page_cards(PAGE, [_card("explain")])))
+        self.assertIn(f'<a href="#kart-{PAGE}-1">başlık</a>', _line(PageCards(PAGE, [_card("explain")])))
 
     def test_line_carries_the_anchor_cards_return_to(self):
-        self.assertIn(f'id="{links_anchor(PAGE)}"', card_links(page_cards(PAGE, [_card("explain")])))
+        self.assertIn(f'id="kartlar-{PAGE}"', _line(PageCards(PAGE, [_card("explain")])))
+
+    def test_page_without_drawable_cards_ends_with_nothing(self):
+        self.assertEqual(PageCards(PAGE, [EMPTY]).page_end(), [])
 
 
-class SectionTest(unittest.TestCase):
+class ChapterCardsTest(unittest.TestCase):
+    def setUp(self):
+        self.cards = ChapterCards()
+
     def test_no_cards_no_section(self):
-        self.assertEqual(cards_section([]), "")
+        self.cards.add(PageCards(PAGE, [EMPTY]))
+        self.assertEqual(self.cards.section(), "")
 
-    def test_section_has_its_anchor_and_every_card(self):
-        section = cards_section(page_cards(1, [_card("explain")]) + page_cards(2, [_card("explain")]))
-        self.assertIn(f'id="{CARDS_ANCHOR}"', section)
-        self.assertEqual(section.count('<div class="card" '), 2)
+    def test_no_cards_no_toc_entry(self):
+        self.cards.add(PageCards(PAGE, [EMPTY]))
+        self.assertEqual(self.cards.toc_entries(), [])
+
+    def test_section_has_its_anchor_and_every_page_of_cards(self):
+        self.cards.add(PageCards(PAGE, [_card("explain")]))
+        self.cards.add(PageCards(NEXT_PAGE, [_card("explain")]))
+        section = self.cards.section()
+        self.assertEqual((f'id="{CARDS_ANCHOR}"' in section, section.count('<div class="card" ')), (True, 2))
 
 
 if __name__ == "__main__":

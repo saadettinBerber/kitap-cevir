@@ -1,11 +1,11 @@
 """Kavram kartları bölüm sonunda düz XHTML olur (okuyucudaki karşılığı js/concepts.js).
-Kartın türe göre değişen gövdesini EpubCardVisitor çizer (VISITOR, Bl.6); tür dallanması
-Card.of'ta kalır. Denetimi concept_check'tedir.
+Sayfanın kartlarını PageCards, bölüm sonu kesitini ChapterCards tutar. Kartın türe göre değişen
+gövdesini EpubCardVisitor çizer (VISITOR, Bl.6); tür dallanması Card.of'ta kalır. Denetimi
+concept_check'tedir.
 """
-from typing import NamedTuple
-
 from concept_cards import Card
 from concept_check import SIDES
+from epub.fragments import Fragment
 from epub.xhtml import code_block, translated_html
 
 CARDS_ANCHOR = "kavram-kartlari"
@@ -19,58 +19,68 @@ FIRST_CARD = 1
 CARD_LINK_SEPARATOR = " · "
 
 
-class PageCard(NamedTuple):
-    """Bölüm sonuna giden kart; çapası geldiği sayfadan ve o sayfadaki sırasından kurulur."""
-    page: int
-    index: int
-    card: dict
+class PageCards:
+    """Bir sayfanın çizilecek kartları: sayfa metninin sonundaki kart satırı ve bölüm sonundaki kartlar.
+    Çapa kart kimliğinden değil sayfadan ve sayfa içindeki sıradan kurulur; kimlikler ASCII dışı harf
+    taşıyabilir (G26)."""
+
+    def __init__(self, page, cards):
+        self._page = page
+        self._cards = [card for card in cards if _is_drawable(card)]
+
+    def has_cards(self):
+        return bool(self._cards)
+
+    def page_end(self):
+        """Sayfanın metni bittiği yerde duran satır; her kart başlığı bölüm sonundaki kartına götürür."""
+        return [Fragment(self._links())] if self._cards else []
+
+    def html(self):
+        return "\n".join(self._card_html(index, card) for index, card in self._numbered())
+
+    def _links(self):
+        links = CARD_LINK_SEPARATOR.join(f'<a href="#{self._anchor(index)}">{_text(card.get("title"))}</a>'
+                                         for index, card in self._numbered())
+        return f'<p class="card-links" id="{self._links_anchor()}">{CARDS_TITLE}: {links}</p>'
+
+    def _numbered(self):
+        return enumerate(self._cards, FIRST_CARD)
+
+    def _anchor(self, index):
+        return f"kart-{self._page}-{index}"
+
+    def _links_anchor(self):
+        """Kart okunduktan sonra dönülecek yer."""
+        return f"kartlar-{self._page}"
+
+    def _card_html(self, index, card):
+        body = _paragraph(card.get("summary")) + Card.of(card).accept(EpubCardVisitor())
+        return f'<div class="card" id="{self._anchor(index)}">{self._head(card)}{body}</div>'
+
+    def _head(self, card):
+        back = f'<p class="card-page"><a href="#{self._links_anchor()}">s. {self._page}</a></p>'
+        return f'<h3>{_text(card.get("title"))}</h3>{back}'
 
 
-def is_drawable(card):
-    """Özeti (FORMAT.md'de zorunlu) olmayan kart çizilmez; başlıktan ibaret kart kitapta gürültüdür."""
-    return bool(card.get("summary"))
+class ChapterCards:
+    """Bölüm sonundaki kart kesiti; sayfaların kartları sırayla eklenir."""
 
+    def __init__(self):
+        self._pages = []
 
-def page_cards(page, cards):
-    """Sayfanın çizilecek kartları, sayfa içinde 1'den numaralanmış."""
-    drawable = [card for card in cards if is_drawable(card)]
-    return [PageCard(page, index, card) for index, card in enumerate(drawable, FIRST_CARD)]
+    def add(self, page_cards):
+        if page_cards.has_cards():
+            self._pages.append(page_cards)
 
+    def toc_entries(self):
+        return [(CARDS_TITLE, CARDS_ANCHOR)] if self._pages else []
 
-def card_anchor(page_card):
-    """Kart kimliği değil sıra kullanılır: kimlikler ASCII dışı harf taşıyabilir (G26)."""
-    return f"kart-{page_card.page}-{page_card.index}"
-
-
-def links_anchor(page):
-    """Sayfanın kart satırı; kart okunduktan sonra dönülecek yer."""
-    return f"kartlar-{page}"
-
-
-def card_links(page_cards):
-    """Sayfanın metni bittiği yerde duran satır; her kart başlığı bölüm sonundaki kartına götürür."""
-    links = CARD_LINK_SEPARATOR.join(f'<a href="#{card_anchor(page_card)}">{_text(page_card.card.get("title"))}</a>'
-                                     for page_card in page_cards)
-    return f'<p class="card-links" id="{links_anchor(page_cards[0].page)}">{CARDS_TITLE}: {links}</p>'
-
-
-def cards_section(page_cards):
-    """Bölüm sonu kesiti; kart yoksa boş."""
-    if not page_cards:
-        return ""
-    cards = "\n".join(card_html(page_card) for page_card in page_cards)
-    return f'<section class="cards">\n<h2 id="{CARDS_ANCHOR}">{CARDS_TITLE}</h2>\n{cards}\n</section>'
-
-
-def card_html(page_card):
-    card = page_card.card
-    body = _paragraph(card.get("summary")) + Card.of(card).accept(EpubCardVisitor())
-    return f'<div class="card" id="{card_anchor(page_card)}">{_card_head(page_card)}{body}</div>'
-
-
-def _card_head(page_card):
-    page = page_card.page
-    return f'<h3>{_text(page_card.card.get("title"))}</h3><p class="card-page"><a href="#{links_anchor(page)}">s. {page}</a></p>'
+    def section(self):
+        """Kart yoksa boş."""
+        if not self._pages:
+            return ""
+        cards = "\n".join(page.html() for page in self._pages)
+        return f'<section class="cards">\n<h2 id="{CARDS_ANCHOR}">{CARDS_TITLE}</h2>\n{cards}\n</section>'
 
 
 class EpubCardVisitor:
@@ -116,6 +126,11 @@ class EpubCardVisitor:
         if not card.get("tip"):
             return ""
         return f'<p class="tip"><strong>{label}:</strong> {_text(card["tip"])}</p>'
+
+
+def _is_drawable(card):
+    """Özeti (FORMAT.md'de zorunlu) olmayan kart çizilmez; başlıktan ibaret kart kitapta gürültüdür."""
+    return bool(card.get("summary"))
 
 
 def _paragraph(unit):

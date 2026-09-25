@@ -129,7 +129,7 @@ class ChapterTest(unittest.TestCase):
     def test_card_without_summary_is_left_out_of_the_chapter(self):
         empty = {"kind": "explain", "title": {"en": "A", "tr": "B"}}
         self.chapter.add(_page(PAGE, [_para_block("A.", "B.")], concepts=[empty]))
-        self.assertEqual((self.chapter.page_cards, self.chapter.toc_entries()), ([], []))
+        self.assertNotIn('<section class="cards">', self.chapter.xhtml())
 
     def test_page_with_cards_ends_with_its_card_line(self):
         self.chapter.add(_page(PAGE, [_para_block("A.", "B.")], concepts=[CARD]))

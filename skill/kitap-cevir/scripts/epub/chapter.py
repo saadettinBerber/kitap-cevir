@@ -2,7 +2,7 @@
 from html import escape
 
 from epub.block_visitor import EpubBlockVisitor
-from epub.cards import CARDS_ANCHOR, CARDS_TITLE, card_links, cards_section, page_cards
+from epub.cards import ChapterCards, PageCards
 from epub.fragments import Fragment, notes_section
 from epub.xhtml import document
 
@@ -74,27 +74,26 @@ class Chapter:
         self.info = info
         self.flow = ChapterFlow()
         self.pages = []
-        self.page_cards = []
+        self._cards = ChapterCards()
 
     def add(self, page_document):
         page = page_document.number()
         self.pages.append(page)
         self.flow.add_page(page, EpubBlockVisitor(page_document).fragments())
-        self._add_cards(page_cards(page, page_document.concepts()))
+        self._add_cards(PageCards(page, page_document.concepts()))
 
     def _add_cards(self, cards):
-        self.flow.end_page([Fragment(card_links(cards))] if cards else [])
-        self.page_cards += cards
+        self.flow.end_page(cards.page_end())
+        self._cards.add(cards)
 
     def title(self):
         return self.info.get("tr") or self.info.get("en") or ""
 
     def toc_entries(self):
-        cards = [(CARDS_TITLE, CARDS_ANCHOR)] if self.page_cards else []
-        return self.flow.toc_entries() + cards
+        return self.flow.toc_entries() + self._cards.toc_entries()
 
     def xhtml(self):
-        parts = [self._heading(), self.flow.render(), cards_section(self.page_cards),
+        parts = [self._heading(), self.flow.render(), self._cards.section(),
                  notes_section(self.flow.english())]
         return document(self.title(), "\n".join(part for part in parts if part))
 
