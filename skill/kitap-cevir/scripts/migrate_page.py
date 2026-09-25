@@ -67,52 +67,61 @@ class PageMigration:
 
 
 class Migrator:
-    """Projenin çevrilmiş sayfalarını taşır; bekleyenleri _work/migrate'e yazar."""
+    """Projenin çevrilmiş sayfalarını yeni çıkarıma taşır; bekleyenleri _work/migrate'e yazar."""
 
-    def __init__(self, project, builder, finalizer):
-        self.project = project
-        self.pages = TranslatedPages(project)
-        self.builder = builder
-        self.finalizer = finalizer
+    def __init__(self, project, builder):
+        self._project = project
+        self._pages = TranslatedPages(project)
+        self._builder = builder
 
     @classmethod
-    def for_project(cls, project):
-        return cls(project, PageInputBuilder.for_progress(project, project.load_progress()), PageFinalizer.for_project(project))
+    def for_progress(cls, project, progress):
+        return cls(project, PageInputBuilder.for_progress(project, progress))
 
     def run(self, page):
         """Sayfayı yeniden çıkarıp eski çevirileri taşır; sonlandırmaz."""
-        old = self.pages.get(page).data
-        document = self.builder.build(page, self.project.work_images(page))
-        pending = PageMigration(document, old).run(self.builder.hyphen_fixes(document["pdf_page"]))
-        write_json(self._out_path(page), document)
+        old = self._pages.get(page).data
+        document = self._builder.build(page, self._project.work_images(page))
+        pending = PageMigration(document, old).run(self._builder.hyphen_fixes(document["pdf_page"]))
+        write_json(self._project.work_output(page), document)
         self._write_pending(page, pending)
         return {"page": page, **_summary(document, pending)}
 
-    def finalize(self, page):
-        return self.finalizer.finalize(self._out_path(page))
-
-    def apply(self, page):
-        """done-N.json'daki çevirileri ({path, tr} ve {path, latex}) yazar ve sonlandırır."""
-        done = read_json(self.project.work_migration_file("done", page))
-        document = read_json(self._out_path(page))
-        for item in done.get("units", []):
-            node_at(document, item["path"])["tr"] = item["tr"]
-        for item in done.get("latex", []):
-            node_at(document, item["path"])["latex"] = item["latex"]
-        write_json(self._out_path(page), document)
-        return self.finalize(page)
-
-    def _out_path(self, page):
-        return self.project.work_output(page)
-
     def _write_pending(self, page, pending):
         """Bekleyen yoksa eski bekleyenler dosyası da silinir: sayfa tamamlanmıştır."""
-        path = self.project.work_migration_file("pending", page)
+        path = self._project.work_migration_file("pending", page)
         os.makedirs(os.path.dirname(path), exist_ok=True)
         if pending["units"] or pending["latex"]:
             write_json(path, {"page": page, **pending})
         elif os.path.exists(path):
             os.remove(path)
+
+
+class MigrationFinisher:
+    """Taşınmış sayfayı sonlandırır; ajanın doldurduğu bekleyenler (done-N.json) önce yazılır."""
+
+    def __init__(self, project, finalizer):
+        self._project = project
+        self._finalizer = finalizer
+
+    @classmethod
+    def for_project(cls, project):
+        return cls(project, PageFinalizer.for_project(project))
+
+    def finalize(self, page):
+        return self._finalizer.finalize(self._project.work_output(page))
+
+    def apply(self, page):
+        """done-N.json'daki çevirileri ({path, tr} ve {path, latex}) yazar ve sonlandırır."""
+        done = read_json(self._project.work_migration_file("done", page))
+        document = read_json(self._project.work_output(page))
+        for item in done.get("units", []):
+            node_at(document, item["path"])["tr"] = item["tr"]
+        for item in done.get("latex", []):
+            node_at(document, item["path"])["latex"] = item["latex"]
+        write_json(self._project.work_output(page), document)
+        return self.finalize(page)
+
 
 def node_at(document, path):
     """'blocks[3].sentences[1]' gibi bir yolun gösterdiği birim."""
@@ -127,9 +136,9 @@ def _summary(document, pending):
             "latex": len(pending["latex"]), "complete": not pending["units"] and not pending["latex"]}
 
 
-def _apply_done(migrator, pages):
+def _apply_done(finisher, pages):
     for page in pages:
-        result = migrator.apply(int(page))
+        result = finisher.apply(int(page))
         print(f"✓ sayfa {page} uygulandı ve sonlandırıldı (boş tr: {result['untranslated']})")
 
 
@@ -142,16 +151,17 @@ def _status(result):
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     project = Project.discover()
-    migrator = Migrator.for_project(project)
+    finisher = MigrationFinisher.for_project(project)
     if args[:1] == ["apply"]:
-        _apply_done(migrator, args[1:])
+        _apply_done(finisher, args[1:])
         return
+    migrator = Migrator.for_progress(project, project.load_progress())
     finalizes_complete = "--no-finalize" not in sys.argv
     for page in project.load_progress().translated_pages() if args == ["all"] else [int(a) for a in args]:
         result = migrator.run(page)
         result["finalized"] = result["complete"] and finalizes_complete
         if result["finalized"]:
-            migrator.finalize(page)
+            finisher.finalize(page)
         print(f"sayfa {result['page']}: {result['units']} birim, {_status(result)}")
 
 

@@ -7,7 +7,7 @@ import unittest
 import _paths  # noqa: F401
 from json_file import write_json
 from migrate_match import TranslationFiller, Translations
-from migrate_page import Migrator, PageMigration, node_at
+from migrate_page import MigrationFinisher, Migrator, PageMigration, node_at
 from page_document import PageDocument
 from project import Project
 from translated_pages import TranslatedPages
@@ -263,7 +263,11 @@ class MigratorTest(unittest.TestCase):
         self.tmp.cleanup()
 
     def _migrator(self, new_document):
-        return Migrator(self.project, FakePageInputBuilder(new_document), self.finalizer)
+        return Migrator(self.project, FakePageInputBuilder(new_document))
+
+    def _apply_done(self, done):
+        write_json(self.project.work_migration_file("done", PAGE), done)
+        MigrationFinisher(self.project, self.finalizer).apply(PAGE)
 
     @staticmethod
     def _read(path):
@@ -294,21 +298,16 @@ class MigratorTest(unittest.TestCase):
         self.assertTrue(self._migrator(COMPLETE_DOCUMENT).run(PAGE)["complete"])
 
     def test_done_answers_are_written_before_finalizing(self):
-        migrator = self._migrator(_new_document())
-        migrator.run(PAGE)
-        write_json(self.project.work_migration_file("done", PAGE),
-                   {"units": [{"path": "blocks[1].sentences[1]", "tr": "Görülmemiş cümle."}],
-                    "latex": [{"path": "blocks[3]", "latex": "y^2"}]})
-        migrator.apply(PAGE)
+        self._migrator(_new_document()).run(PAGE)
+        self._apply_done({"units": [{"path": "blocks[1].sentences[1]", "tr": "Görülmemiş cümle."}],
+                          "latex": [{"path": "blocks[3]", "latex": "y^2"}]})
         document = self._read(self.project.work_output(PAGE))
         self.assertEqual((document["blocks"][1]["sentences"][1]["tr"], document["blocks"][3]["latex"]),
                          ("Görülmemiş cümle.", "y^2"))
 
     def test_applied_page_is_finalized(self):
-        migrator = self._migrator(COMPLETE_DOCUMENT)
-        migrator.run(PAGE)
-        write_json(self.project.work_migration_file("done", PAGE), {})
-        migrator.apply(PAGE)
+        self._migrator(COMPLETE_DOCUMENT).run(PAGE)
+        self._apply_done({})
         self.assertEqual(self.finalizer.finalized(), [self.project.work_output(PAGE)])
 
 
