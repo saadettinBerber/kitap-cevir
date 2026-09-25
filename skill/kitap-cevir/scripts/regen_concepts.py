@@ -67,14 +67,14 @@ class CardInputs:
 class CardOutputs:
     """Kart agent'ının çıktısını (_work/cards/out) denetler; geçerli kartları sayfaya yazar."""
 
-    def __init__(self, project, checker):
+    def __init__(self, project, settings):
         self.project = project
         self.pages = TranslatedPages(project)
-        self.checker = checker
+        self.checker = CardChecker(settings.concepts())
 
     @classmethod
     def for_project(cls, project):
-        return cls(project, CardChecker(project.load_settings().concepts()))
+        return cls(project, project.load_settings())
 
     def apply(self, pages):
         """{sayfa: sorunlar}; sorunsuz sayfaların kartları yazılmıştır."""
