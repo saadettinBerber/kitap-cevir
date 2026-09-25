@@ -54,12 +54,9 @@ class CardChecker:
 
 
 def _duplicate_ids(cards):
-    seen, duplicates = set(), []
-    for card in cards:
-        if card.get("id") in seen:
-            duplicates.append(f"{card['id']}: id tekrar ediyor")
-        seen.add(card.get("id"))
-    return duplicates
+    """Yalnız kimliği olan kartlar sayılır; kimliksiz kart zaten "id yok" diye raporlanır."""
+    ids = [card["id"] for card in cards if card.get("id")]
+    return [f"{card_id}: id tekrar ediyor" for index, card_id in enumerate(ids) if card_id in ids[:index]]
 
 
 def _common_problems(card):

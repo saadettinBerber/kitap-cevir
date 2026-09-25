@@ -89,9 +89,12 @@ class CardProblemsTest(unittest.TestCase):
         card = _card("contrast", id="kodlu", bad=_code(), good={"text": _pair(), "why": _pair()})
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), [])
 
-    @unittest.expectedFailure
     def test_cards_without_id_are_not_duplicates(self):
         self.assertEqual(CardChecker(SPEC).problems([_card("explain"), _card("explain")]), ["#1: id yok", "#2: id yok"])
+
+    def test_cards_with_empty_id_are_not_duplicates(self):
+        cards = [_card("explain", id=""), _card("explain", id="")]
+        self.assertEqual(CardChecker(SPEC).problems(cards), ["#1: id yok", "#2: id yok"])
 
     def test_duplicate_ids_are_reported(self):
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, EXPLAIN]), ["tanim: id tekrar ediyor"])
