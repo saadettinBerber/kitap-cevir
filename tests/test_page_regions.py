@@ -59,6 +59,22 @@ class PageRegionsTest(unittest.TestCase):
         blocks = PageRegions([_region("code", (100, 200))]).place([_element("edge", (181, 221))], _names)
         self.assertEqual([block["name"] for block in blocks], ["edge"])
 
+    def test_standalone_region_ending_at_an_element_top_comes_before_it(self):
+        regions = PageRegions([_region("math", (300, 340))])
+        blocks = regions.place([_element("below", (340, 360))], _names)
+        self.assertEqual([block["name"] for block in blocks], ["math@300", "below"])
+
+    def test_first_region_covering_an_element_takes_its_place(self):
+        regions = PageRegions([_region("table", (100, 200)), _region("code", (100, 200))])
+        blocks = regions.place([_element("inside", (110, 190))], _names)
+        self.assertEqual([block["name"] for block in blocks], ["table@100"])
+
+    def test_code_touching_a_table_is_a_region(self):
+        layout = {"code_blocks": [{"y0": 200, "y1": 260, "code": "x"}]}
+        table = {"y0": 100, "y1": 200, "block": {"type": "table"}}
+        regions = PageRegions.from_layout(layout, [table], lambda code: {"type": "code", "code": code["code"]})
+        self.assertEqual([region.block["type"] for region in regions.regions], ["table", "code"])
+
     def test_code_overlapping_a_table_is_not_a_region(self):
         layout = {"code_blocks": [{"y0": 110, "y1": 150, "code": "x"}, {"y0": 400, "y1": 420, "code": "y"}]}
         table = {"y0": 100, "y1": 200, "block": {"type": "table"}}
