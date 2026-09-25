@@ -16,7 +16,7 @@ from concept_check import CardChecker
 from json_file import read_json
 from page_document import PageDocument
 from project import Project
-from reader_data import Glossary, TableOfContents
+from reader_data import Glossary, ReaderData
 from translated_pages import TranslatedPages
 
 _REQUIRED_FIELDS = ("id", "page", "pdf_page", "blocks")
@@ -59,7 +59,7 @@ class PageFinalizer:
         """Yeni terimleri sözlüğe ekler, toc.js ve glossary.js'i yeniden yazar; eklenen terim sayısı."""
         glossary = Glossary(self.project)
         added = glossary.add(page.data.get("glossary_new", []))
-        TableOfContents(self.project, progress).write()
+        ReaderData(self.project).write_toc(progress)
         glossary.write_js()
         return added
 

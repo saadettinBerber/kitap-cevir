@@ -6,7 +6,7 @@ import unittest
 import _paths  # noqa: F401
 from progress import Progress
 from project import Project
-from reader_data import Glossary, TableOfContents
+from reader_data import Glossary, ReaderData
 
 GLOSSARY_PREAMBLE = ("# Sözlük\n\nAçıklama.\n\n| İngilizce Terim | Türkçe Karşılığı | Açıklama/Not |\n"
                      "|----------------|-----------------|-------------|\n")
@@ -47,7 +47,7 @@ class _ProjectTestCase(unittest.TestCase):
 class TableOfContentsTest(_ProjectTestCase):
     def setUp(self):
         super().setUp()
-        TableOfContents(self.project, Progress(PROGRESS)).write()
+        ReaderData(self.project).write_toc(Progress(PROGRESS))
         self.toc = self._js_payload(self.project.toc_js(), "window.TOC = ")
 
     def test_book_info_uses_the_reader_field_names(self):
@@ -72,12 +72,12 @@ class TableOfContentsTest(_ProjectTestCase):
 
 class ReaderScriptTest(_ProjectTestCase):
     def test_script_defines_one_global_with_readable_json(self):
-        TableOfContents(self.project, Progress(PROGRESS)).write()
+        ReaderData(self.project).write_toc(Progress(PROGRESS))
         with open(self.project.toc_js(), encoding="utf-8") as handle:
             self.assertTrue(handle.read().startswith('window.TOC = {\n  "book": {\n    "slug": "demo",\n    "title": "Dönüşüm"'))
 
     def test_script_ends_the_statement(self):
-        TableOfContents(self.project, Progress(PROGRESS)).write()
+        ReaderData(self.project).write_toc(Progress(PROGRESS))
         with open(self.project.toc_js(), encoding="utf-8") as handle:
             self.assertTrue(handle.read().endswith("\n};\n"))
 

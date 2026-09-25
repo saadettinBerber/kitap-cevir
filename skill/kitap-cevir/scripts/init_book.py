@@ -25,7 +25,7 @@ from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from json_file import read_json
 from progress import Progress
 from project import PROGRESS_FILE, Project
-from reader_data import rebuild
+from reader_data import ReaderData
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE_DIR = os.path.join(SKILL_DIR, "templates", "project")
@@ -93,7 +93,7 @@ class BookSetup:
         self._fill_placeholders({"TITLE": self.args.title, "AUTHOR": self.args.author})
         project = Project(self.target)
         project.save_progress(Progress(self._progress(self._place_pdf())))
-        rebuild(project)
+        ReaderData(project).rebuild()
         return project
 
     def _ensure_empty_target(self):

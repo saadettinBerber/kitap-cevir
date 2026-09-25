@@ -31,42 +31,41 @@ class ReaderScript:
 
 
 class TableOfContents:
-    """data/toc.js: kitap bilgisi, bölüm aralıkları ve çevrilmiş sayfaların özeti."""
+    """data/toc.js'in içeriği: kitap bilgisi, bölüm aralıkları ve çevrilmiş sayfaların özeti."""
 
-    def __init__(self, project, progress):
-        self.script = ReaderScript(project.toc_js(), "TOC")
-        self.book = project.load_settings().book()
-        self.data = progress.as_json()
+    def __init__(self, settings, progress):
+        self._book = settings.book()
+        self._record = progress.as_json()
 
-    def write(self):
-        data = self.data
-        return self.script.write({
-            "book": self._book(),
-            "bookTotalPages": data["book_total_pages"],
-            "pdfOffset": data["pdf_offset"],
-            "lastTranslatedPage": data["last_translated_page"],
+    def payload(self):
+        record = self._record
+        return {
+            "book": self._book_fields(),
+            "bookTotalPages": record["book_total_pages"],
+            "pdfOffset": record["pdf_offset"],
+            "lastTranslatedPage": record["last_translated_page"],
             "chapters": self._chapters(),
-            "pages": {num: self._page(info) for num, info in data["pages"].items()},
-        })
+            "pages": {num: _page_summary(info) for num, info in record["pages"].items()},
+        }
 
-    def _book(self):
-        book = self.book
+    def _book_fields(self):
+        book = self._book
         return {"slug": book["slug"], "title": book["title"], "subtitle": book["subtitle"],
                 "subtitleTr": book["subtitle_tr"], "author": book["author"], "series": book["series"]}
 
     def _chapters(self):
         """Her bölüm bir sonrakinin başlangıcından bir önceki sayfada biter."""
-        chapters = self.data["chapters"]
-        return [{**chapter, "end": following["start"] - 1 if following else self.data["book_total_pages"]}
+        chapters = self._record["chapters"]
+        return [{**chapter, "end": following["start"] - 1 if following else self._record["book_total_pages"]}
                 for chapter, following in zip(chapters, chapters[1:] + [None])]
 
-    @staticmethod
-    def _page(info):
-        if info.get("blank"):
-            return {"blank": True}
-        return {"title": {"en": info.get("title_en", ""), "tr": info.get("title_tr", "")},
-                "section": {"en": info.get("section_en", ""), "tr": info.get("section_tr", "")},
-                "chapter": info.get("chapter")}
+
+def _page_summary(info):
+    if info.get("blank"):
+        return {"blank": True}
+    return {"title": {"en": info.get("title_en", ""), "tr": info.get("title_tr", "")},
+            "section": {"en": info.get("section_en", ""), "tr": info.get("section_tr", "")},
+            "chapter": info.get("chapter")}
 
 
 class Glossary:
@@ -123,13 +122,24 @@ class Glossary:
         return self.script.write(sorted(self.terms, key=self._key))
 
 
-def rebuild(project):
-    return TableOfContents(project, project.load_progress()).write(), Glossary(project).write_js()
+class ReaderData:
+    """Okuyucunun data/ altındaki betikleri; progress.json ile glossary.md'den yeniden yazılır."""
+
+    def __init__(self, project):
+        self._project = project
+
+    def rebuild(self):
+        """Yazılan yollar: önce toc.js, sonra glossary.js."""
+        return self.write_toc(self._project.load_progress()), Glossary(self._project).write_js()
+
+    def write_toc(self, progress):
+        toc = TableOfContents(self._project.load_settings(), progress)
+        return ReaderScript(self._project.toc_js(), "TOC").write(toc.payload())
 
 
 def main():
     project = Project.discover()
-    for path in rebuild(project):
+    for path in ReaderData(project).rebuild():
         print("yazıldı:", project.relative_to_root(path))
 
 
