@@ -143,8 +143,9 @@ class BookSetup:
         return read_json(self.args.chapters)
 
 
-def report(project, progress):
-    print(f"✓ Kitap projesi kuruldu: {project.root}")
+def report(root, project):
+    print(f"✓ Kitap projesi kuruldu: {root}")
+    progress = project.load_progress()
     settings, data = project.load_settings(), progress.as_json()
     book = settings.book()
     print(f"  kitap: {book['title']} — {book['author']}")
@@ -156,8 +157,8 @@ def report(project, progress):
 
 
 def main():
-    project = BookSetup(parse_args(), PyMuPdfDocument.open).run()
-    report(project, project.load_progress())
+    args = parse_args()
+    report(os.path.abspath(args.target), BookSetup(args, PyMuPdfDocument.open).run())
 
 
 if __name__ == "__main__":

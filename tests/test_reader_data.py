@@ -37,7 +37,7 @@ class ReaderDataTest(unittest.TestCase):
 
     def test_toc_contains_book_and_chapter_ends(self):
         TableOfContents(self.project, Progress(PROGRESS)).write()
-        toc = self._js_payload(self.project.toc_js, "window.TOC = ")
+        toc = self._js_payload(self.project.toc_js(), "window.TOC = ")
         self.assertEqual(toc["book"]["slug"], "demo")
         self.assertEqual([c["end"] for c in toc["chapters"]], [10, 30])
         self.assertTrue(toc["pages"]["2"]["blank"])
@@ -61,7 +61,7 @@ class ReaderDataTest(unittest.TestCase):
 
     def test_glossary_js_is_generated(self):
         Glossary(self.project).write_js()
-        entries = self._js_payload(self.project.glossary_js, "window.GLOSSARY = ")
+        entries = self._js_payload(self.project.glossary_js(), "window.GLOSSARY = ")
         self.assertEqual(entries[0]["en"], "Refactoring")
 
 

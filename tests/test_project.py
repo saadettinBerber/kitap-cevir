@@ -51,11 +51,11 @@ class LayoutTest(unittest.TestCase):
         return self.project.relative_to_root(path)
 
     def test_reader_data_files(self):
-        self.assertEqual([self._relative(path) for path in (self.project.toc_js, self.project.glossary_js)],
+        self.assertEqual([self._relative(path) for path in (self.project.toc_js(), self.project.glossary_js())],
                          ["data/toc.js", "data/glossary.js"])
 
     def test_glossary_source(self):
-        self.assertEqual(self._relative(self.project.glossary_md), "glossary.md")
+        self.assertEqual(self._relative(self.project.glossary_md()), "glossary.md")
 
     def test_translated_page_files(self):
         paths = (self.project.page_js(self.PAGE), self.project.page_images(self.PAGE))
@@ -70,8 +70,9 @@ class LayoutTest(unittest.TestCase):
     def test_card_work_files(self):
         self.assertEqual(self._relative(self.project.work_cards_file("in", self.PAGE)), "_work/cards/in/page-7.json")
 
-    def test_migration_work_folder(self):
-        self.assertEqual(self._relative(self.project.work_migrate), "_work/migrate")
+    def test_migration_work_files(self):
+        self.assertEqual(self._relative(self.project.work_migration_file("pending", self.PAGE)),
+                         "_work/migrate/pending-7.json")
 
     def test_epub_file(self):
         self.assertEqual(self._relative(self.project.epub_file("demo")), "dist/demo.epub")

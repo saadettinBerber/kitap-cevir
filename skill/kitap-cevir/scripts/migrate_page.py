@@ -69,7 +69,6 @@ class Migrator:
         self.pages = TranslatedPages(project)
         self.builder = builder
         self.finalizer = finalizer
-        self.migrate_dir = project.work_migrate
 
     @classmethod
     def for_project(cls, project):
@@ -90,7 +89,7 @@ class Migrator:
 
     def apply(self, page):
         """done-N.json'daki çevirileri ({path, tr} ve {path, latex}) yazar ve sonlandırır."""
-        done = read_json(os.path.join(self.migrate_dir, f"done-{page}.json"))
+        done = read_json(self.project.work_migration_file("done", page))
         document = read_json(self._out_path(page))
         for item in done.get("units", []):
             self._resolve(document, item["path"])["tr"] = item["tr"]
@@ -103,8 +102,8 @@ class Migrator:
         return self.project.work_output(page)
 
     def _write_pending(self, page, pending, latex_items):
-        os.makedirs(self.migrate_dir, exist_ok=True)
-        path = os.path.join(self.migrate_dir, f"pending-{page}.json")
+        path = self.project.work_migration_file("pending", page)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         if pending or latex_items:
             write_json(path, {"page": page, "units": pending, "latex": latex_items})
         elif os.path.exists(path):

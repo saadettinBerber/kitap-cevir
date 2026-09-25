@@ -50,8 +50,8 @@ class FinalizeTest(unittest.TestCase):
         self.assertEqual(progress["last_translated_page"], 3)
         self.assertEqual(progress["pages"]["3"]["title_tr"], "B")
         self.assertEqual(result["terms"], 1)
-        self.assertIn("Heading", open(self.project.glossary_md, encoding="utf-8").read())
-        self.assertTrue(os.path.isfile(self.project.toc_js))
+        self.assertIn("Heading", open(self.project.glossary_md(), encoding="utf-8").read())
+        self.assertTrue(os.path.isfile(self.project.toc_js()))
 
     def test_page_without_cards_waits_for_the_card_step(self):
         result = PageFinalizer(self.project).finalize(self.out)

@@ -34,7 +34,7 @@ class TableOfContents:
     """data/toc.js: kitap bilgisi, bölüm aralıkları ve çevrilmiş sayfaların özeti."""
 
     def __init__(self, project, progress):
-        self.script = ReaderScript(project.toc_js, "TOC")
+        self.script = ReaderScript(project.toc_js(), "TOC")
         self.book = project.load_settings().book()
         self.data = progress.as_json()
 
@@ -73,8 +73,8 @@ class Glossary:
     """glossary.md: önsöz satırları + terim tablosu (alfabetik); okuyucu için data/glossary.js."""
 
     def __init__(self, project):
-        self.path = project.glossary_md
-        self.script = ReaderScript(project.glossary_js, "GLOSSARY")
+        self.path = project.glossary_md()
+        self.script = ReaderScript(project.glossary_js(), "GLOSSARY")
         self.preamble, self.terms = self._read()
 
     def _read(self):

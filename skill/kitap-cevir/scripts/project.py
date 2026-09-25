@@ -43,18 +43,15 @@ class Project:
     """Bir kitap projesinin dosya yolları ve progress.json erişimi."""
 
     def __init__(self, root):
-        self.root = root
-        self.progress_path = os.path.join(self.root, PROGRESS_FILE)
-        self.glossary_md = os.path.join(self.root, GLOSSARY_FILE)
-        self._data_dir = os.path.join(self.root, "data")
+        self._root = root
+        self._progress_path = os.path.join(self._root, PROGRESS_FILE)
+        self._data_dir = os.path.join(self._root, "data")
         self._pages_dir = os.path.join(self._data_dir, "pages")
-        self.toc_js = os.path.join(self._data_dir, "toc.js")
-        self.glossary_js = os.path.join(self._data_dir, "glossary.js")
-        self._work_in = os.path.join(self.root, WORK_DIR, "in")
-        self._work_out = os.path.join(self.root, WORK_DIR, "out")
-        self._work_cards = os.path.join(self.root, WORK_DIR, "cards")
-        self.work_migrate = os.path.join(self.root, WORK_DIR, "migrate")
-        self._dist_dir = os.path.join(self.root, DIST_DIR)
+        self._work_in = os.path.join(self._root, WORK_DIR, "in")
+        self._work_out = os.path.join(self._root, WORK_DIR, "out")
+        self._work_cards = os.path.join(self._root, WORK_DIR, "cards")
+        self._work_migrate = os.path.join(self._root, WORK_DIR, "migrate")
+        self._dist_dir = os.path.join(self._root, DIST_DIR)
 
     @classmethod
     def discover(cls):
@@ -62,22 +59,31 @@ class Project:
         return cls(find_root())
 
     def load_progress(self):
-        return Progress(read_json(self.progress_path))
+        return Progress(read_json(self._progress_path))
 
     def load_settings(self):
-        return BookSettings(read_json(self.progress_path))
+        return BookSettings(read_json(self._progress_path))
 
     def save_progress(self, progress):
-        write_json(self.progress_path, progress.as_json())
+        write_json(self._progress_path, progress.as_json())
 
     def pdf_path(self):
         configured = self.load_settings().book_pdf()
         if os.path.isabs(configured):
             return configured
-        return os.path.join(self.root, configured)
+        return os.path.join(self._root, configured)
 
     def relative_to_root(self, path):
-        return os.path.relpath(path, self.root)
+        return os.path.relpath(path, self._root)
+
+    def glossary_md(self):
+        return os.path.join(self._root, GLOSSARY_FILE)
+
+    def toc_js(self):
+        return os.path.join(self._data_dir, "toc.js")
+
+    def glossary_js(self):
+        return os.path.join(self._data_dir, "glossary.js")
 
     def epub_file(self, slug):
         return os.path.join(self._dist_dir, f"{slug}.epub")
@@ -99,6 +105,10 @@ class Project:
 
     def work_cards_file(self, stage, page):
         return _page_path(os.path.join(self._work_cards, stage), page, ".json")
+
+    def work_migration_file(self, stage, page):
+        """Taşımada çevirisi bekleyen (pending) ve ajanın doldurduğu (done) birimler: pending-N.json, done-N.json."""
+        return os.path.join(self._work_migrate, f"{stage}-{page}.json")
 
 
 def _page_path(directory, page, suffix):
