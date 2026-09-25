@@ -47,8 +47,9 @@ class PdfInspectorTest(unittest.TestCase):
         self.assertEqual(PdfInspector(_book()).font_usage(OFFSET + 1), [(("Helvetica", 10.0), 25)])
 
     def test_most_used_font_comes_first(self):
-        page = FakePdfPage(lines=[(span("a", LINE_BOX, "Small"), span("bigger", LINE_BOX, "Large"))])
-        self.assertEqual([font for (font, _), _ in PdfInspector(FakePdfDocument([page])).font_usage(1)], ["Large", "Small"])
+        fonts = (span("bb", LINE_BOX, "Middle"), span("a", LINE_BOX, "Small"), span("cccc", LINE_BOX, "Large"))
+        usage = PdfInspector(FakePdfDocument([FakePdfPage(lines=[fonts])])).font_usage(1)
+        self.assertEqual([font for (font, _), _ in usage], ["Large", "Middle", "Small"])
 
     def test_zero_at_the_page_edge_is_not_a_page_number(self):
         document = FakePdfDocument([_text_page(("Body", 62), ("0", 790))])
