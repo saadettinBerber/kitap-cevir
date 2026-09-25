@@ -22,7 +22,8 @@ def _only(*blocks, math=()):
 
 
 def _html(block):
-    return _only(block).render(FIRST_NOTE)
+    fragment = _only(block)
+    return fragment.render(FIRST_NOTE)
 
 
 def _para(*sentences, style=None):
@@ -35,7 +36,8 @@ class TextBlockTest(unittest.TestCase):
         self.assertTrue(_html(_para(("One.", "Bir."), ("Two.", "İki."))).startswith('<p class="para">Bir. İki. <a'))
 
     def test_para_joins_english_sentences(self):
-        self.assertEqual(_only(_para(("One.", "Bir."), ("Two.", "İki."))).english(), ["One. Two."])
+        passage = _only(_para(("One.", "Bir."), ("Two.", "İki.")))
+        self.assertEqual(passage.english(), ["One. Two."])
 
     def test_para_is_a_para_passage(self):
         self.assertIsInstance(_only(_para(("One.", "Bir."))), ParaPassage)
