@@ -53,11 +53,16 @@ def _builder(settings):
 class BottomRunningHeaderTest(unittest.TestCase):
     """O'Reilly dizgisinde koşu başlığı sayfanın altındadır."""
 
+    TALL = (70, 150, 430, 200)
+
+    FOOTER = "Preventing Data Loss | 201"
+
     def test_section_name_is_read_from_the_footer(self):
-        elements = [_element("Body text", BODY_Y),
-                    _element("Preventing Data Loss | 201", FOOTER_Y)]
-        header, body = _split(PageZones(BOTTOM_HEADER), elements)
+        header, _ = _split(PageZones(BOTTOM_HEADER), [_element("Body text", BODY_Y), _element(self.FOOTER, FOOTER_Y)])
         self.assertEqual(header, {"text": "Preventing Data Loss", "is_chapter": False})
+
+    def test_footer_holding_the_header_leaves_the_body(self):
+        _, body = _split(PageZones(BOTTOM_HEADER), [_element("Body text", BODY_Y), _element(self.FOOTER, FOOTER_Y)])
         self.assertEqual([element.text for element in body], ["Body text"])
 
     def test_footer_split_into_separate_elements_is_joined(self):
@@ -77,9 +82,13 @@ class BottomRunningHeaderTest(unittest.TestCase):
 
     def test_top_header_is_unchanged_by_default(self):
         top = _element("Chapter 3: Modularity 41", (70, 160, 430, 180))
-        header, body = _split(PageZones(DEFAULTS), [top, _element("Body", BODY_Y)])
+        header, _ = _split(PageZones(DEFAULTS), [top, _element("Body", BODY_Y)])
         self.assertEqual(header["text"], "Chapter 3: Modularity")
-        self.assertEqual(len(body), 1)
+
+    def test_top_header_leaves_the_body(self):
+        top = _element("Chapter 3: Modularity 41", (70, 160, 430, 180))
+        _, body = _split(PageZones(DEFAULTS), [top, _element("Body", BODY_Y)])
+        self.assertEqual([element.text for element in body], ["Body"])
 
     def test_top_header_takes_only_the_first_element_in_its_zone(self):
         top = _element("Chapter 3: Modularity 41", (70, 60, 430, 80))
@@ -87,10 +96,13 @@ class BottomRunningHeaderTest(unittest.TestCase):
         _, body = _split(PageZones(DEFAULTS), [top, carried])
         self.assertEqual([element.text for element in body], ["continued paragraph"])
 
-    def test_element_reaching_below_the_header_line_is_body(self):
-        tall = _element("Paragraph that starts high", (70, 150, 430, 200))
-        header, body = _split(PageZones(DEFAULTS), [tall])
+    def test_element_reaching_below_the_header_line_is_no_header(self):
+        header, _ = _split(PageZones(DEFAULTS), [_element("Paragraph that starts high", self.TALL)])
         self.assertIsNone(header)
+
+    def test_element_reaching_below_the_header_line_is_body(self):
+        tall = _element("Paragraph that starts high", self.TALL)
+        _, body = _split(PageZones(DEFAULTS), [tall])
         self.assertEqual(body, [tall])
 
 
@@ -98,11 +110,15 @@ class NoRunningHeaderTest(unittest.TestCase):
     """E-kitap kökenli PDF'lerde (Effective Java) koşu başlığı yoktur: sayfanın
     en üstündeki öğe önceki sayfadan süren paragraf ya da tablo satırıdır."""
 
-    def test_first_element_at_page_top_stays_in_body(self):
-        carried = _element("to be avoided. Such examples...", PAGE_TOP_Y)
-        header, body = _split(PageZones(NO_HEADER), [carried, _element("Body", BODY_Y)])
+    CARRIED = "to be avoided. Such examples..."
+
+    def test_first_element_at_page_top_is_no_header(self):
+        header, _ = _split(PageZones(NO_HEADER), [_element(self.CARRIED, PAGE_TOP_Y), _element("Body", BODY_Y)])
         self.assertIsNone(header)
-        self.assertEqual([element.text for element in body], ["to be avoided. Such examples...", "Body"])
+
+    def test_first_element_at_page_top_stays_in_body(self):
+        _, body = _split(PageZones(NO_HEADER), [_element(self.CARRIED, PAGE_TOP_Y), _element("Body", BODY_Y)])
+        self.assertEqual([element.text for element in body], [self.CARRIED, "Body"])
 
     def test_footer_is_still_dropped(self):
         _, body = _split(PageZones(NO_HEADER), [_element("Body", BODY_Y), _element("21", FOOTER_Y)])
