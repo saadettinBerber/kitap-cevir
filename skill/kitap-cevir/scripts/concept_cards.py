@@ -47,3 +47,4 @@ def _inferred_kind(data):
 
 
 _CARD_CLASSES = {card_class.KIND: card_class for card_class in (ExplainCard, ContrastCard, TradeoffCard, CodeCard)}
+CARD_KINDS = tuple(_CARD_CLASSES)

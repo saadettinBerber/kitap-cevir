@@ -1,12 +1,12 @@
 """progress.json'daki kitap ayarları: PDF, çıkarım, kitap bilgisi, kavram
 kartları ve çevirmen. Salt okunurdur; ilerleme kaydı Progress'tedir.
 """
+from concept_cards import CARD_KINDS
 from extraction.settings import with_defaults
 
 DEFAULT_BOOK = {"slug": "kitap", "title": "", "subtitle": "", "subtitle_tr": "",
                 "author": "", "series": ""}
 
-CARD_KINDS = ("explain", "contrast", "tradeoff", "code")
 _LEGACY_MODE_KINDS = {"code": ["code"], "contrast": ["contrast", "code"], "explain": ["explain"]}
 DEFAULT_CODE_COMMENT_LANG = "en"
 
