@@ -17,11 +17,11 @@ class PageFills:
     """Sayfanın dolgu dikdörtgenleri (hücreler, arka planlar) ve dolgusuz yatay çizgileri."""
 
     def __init__(self, drawings, text_bottom):
-        self.rects = self._filled_rects(drawings)
-        self.rules = self._horizontal_rules(drawings)
-        self.backgrounds = [rect for rect in self.rects if self._is_background(rect)]
-        self.cells = [rect for rect in self.rects if rect not in self.backgrounds]
-        self.text_bottom = text_bottom
+        self._rects = self._filled_rects(drawings)
+        self._rules = self._horizontal_rules(drawings)
+        self._backgrounds = [rect for rect in self._rects if self._is_background(rect)]
+        self._cells = [rect for rect in self._rects if rect not in self._backgrounds]
+        self._text_bottom = text_bottom
 
     @staticmethod
     def _filled_rects(drawings):
@@ -34,15 +34,22 @@ class PageFills:
         rects = [drawing.box for drawing in drawings if not drawing.is_filled]
         return [r for r in rects if r.height <= RULE_MAX_HEIGHT and r.width >= MIN_CELL_WIDTH]
 
+    def is_empty(self):
+        return not self._rects
+
+    def grid_of(self, cells):
+        """Hücre kümesinin ızgarası; satır bantları sayfanın bütün dolgularından çıkar."""
+        return TableGrid.from_cells(cells, self._rects)
+
     def _is_background(self, rect):
-        return len([r for r in self.rects if r != rect and rect.contains(r)]) >= MIN_BACKGROUND_CELLS
+        return len([r for r in self._rects if r != rect and rect.contains(r)]) >= MIN_BACKGROUND_CELLS
 
     def table_groups(self):
         """Aynı arka plandaki hücreler tek tablodur; arka planı olmayanlar sütun
         kenarı paylaşımına göre kümelenir."""
         by_background, loose = {}, []
-        for rect in self.cells:
-            owner = next((i for i, b in enumerate(self.backgrounds) if b.contains(rect)), None)
+        for rect in self._cells:
+            owner = next((i for i, b in enumerate(self._backgrounds) if b.contains(rect)), None)
             if owner is None:
                 loose.append(rect)
             else:
@@ -72,7 +79,7 @@ class PageFills:
         """Arka plan varsa tablo odur. Yoksa zebra dolguda ilk satır beyaz
         kalabilir (bir hücre yukarı); alt sınır altındaki ilk yatay çizgidir."""
         union = Box.enclosing(cells)
-        for background in self.backgrounds:
+        for background in self._backgrounds:
             if background.contains(union):
                 return background
         row_height = sorted(r.height for r in cells)[len(cells) // 2]
@@ -82,9 +89,9 @@ class PageFills:
         """Tablo, altındaki ilk yatay çizgide biter; çizgi yoksa metin alanının
         sonunda. Sayfa sonuna dek uzatmak tablonun altındaki caption'ı, yan kutuyu
         ve koşu başlığını tabloya katıyordu."""
-        below = [rule.y0 for rule in self.rules
+        below = [rule.y0 for rule in self._rules
                  if rule.y0 > union.y1 and rule.x0 <= union.x1 and rule.x1 >= union.x0]
-        return min(below, default=self.text_bottom)
+        return min(below, default=self._text_bottom)
 
 
 class TableGrid:

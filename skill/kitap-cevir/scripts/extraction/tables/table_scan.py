@@ -10,7 +10,7 @@ import itertools
 
 from extraction.tables.aligned_tables import AlignedTableFinder
 from extraction.tables.table_cell import SUPERSCRIPT_RATIO, TableCell
-from extraction.tables.table_grid import MIN_COLUMNS, PageFills, TableGrid
+from extraction.tables.table_grid import MIN_COLUMNS, PageFills
 
 MIN_ROWS = 2
 MIN_MULTILINE_CELLS = 2      # bu kadar hücresi çok satırlı satırın hücre içi satırları liste niteliğindedir
@@ -54,7 +54,7 @@ class TableBuilder:
 
     def tables_in(self, cells):
         """Kümedeki tablo [{y0, y1, block}] olarak; tablo değilse boş liste."""
-        grid = TableGrid.from_cells(cells, self.fills.rects)
+        grid = self.fills.grid_of(cells)
         if not grid.has_columns():
             return []
         rows = self._table_rows(self._group_rows(self._spans_within(self.fills.extent(cells)), grid), grid)
@@ -132,7 +132,7 @@ class TableScanner:
         body_bottom = page.height - self.footer_zone_top
         fills = PageFills(page.drawings(), body_bottom)
         spans = self._page_spans(page)
-        if not fills.rects:
+        if fills.is_empty():
             return AlignedTableFinder.of_spans([span for span in spans if span.box.y1 <= body_bottom]).tables()
         builder = TableBuilder(spans, fills, self.row_gap_ratio)
         return [table for cells in fills.table_groups() for table in builder.tables_in(cells)]
