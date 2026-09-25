@@ -39,12 +39,26 @@ class PyMuPdfDocument:
 
 
 class PyMuPdfPage:
+    """Kütüphanenin sayfası; portun alanlarını ondan okur, kendisi kopya tutmaz."""
+
     def __init__(self, page):
-        self.pdf_path = page.parent.name
-        self.number = page.number + FIRST_PAGE_NUMBER
         self._page = page
-        self.width = page.rect.width
-        self.height = page.rect.height
+
+    @property
+    def pdf_path(self):
+        return self._page.parent.name
+
+    @property
+    def number(self):
+        return self._page.number + FIRST_PAGE_NUMBER
+
+    @property
+    def width(self):
+        return self._page.rect.width
+
+    @property
+    def height(self):
+        return self._page.rect.height
 
     def text_lines(self):
         lines = (line for block in self._page.get_text("dict")["blocks"] for line in block.get("lines", []))
