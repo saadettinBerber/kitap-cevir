@@ -4,7 +4,7 @@ import dataclasses
 import unittest
 
 from pdf_fakes import SIZE, span
-from extraction.equations.math_line import SIMPLE_MAX_SPANS, MathLine, SpanRun
+from extraction.equations.math_line import SIMPLE_MAX_SPANS, MathLine, MathRun, SpanRun
 
 MATH_FONT = "Helvetica-Oblique"
 LINE_BOX = (72, 90, 200, 102)
@@ -28,17 +28,6 @@ def _sized(size, piece):
     return dataclasses.replace(piece, size=size)
 
 
-def _inline_run(*spans):
-    [inline_run] = MathLine(spans, _is_math).inline_runs()
-    return inline_run.run
-
-
-def _is_simple(*math_spans):
-    """Cümle içinde, bir düz metin parçasından sonra gelen denklem basit mi?"""
-    run = _inline_run(_prose("a "), *math_spans)
-    return run.is_simple()
-
-
 def _neighbours(*spans):
     [inline_run] = MathLine(spans, _is_math).inline_runs()
     return inline_run.before, inline_run.after
@@ -54,19 +43,19 @@ class SimpleRunTest(unittest.TestCase):
     """Az parçalı, tek puntolu denklem düz metne çevrilebilir bir semboldür."""
 
     def test_run_of_the_most_spans_in_one_size_is_simple(self):
-        self.assertTrue(_is_simple(*[_math("x")] * SIMPLE_MAX_SPANS))
+        self.assertTrue(MathRun([_math("x")] * SIMPLE_MAX_SPANS).is_simple())
 
     def test_run_of_more_spans_is_not_simple(self):
-        self.assertFalse(_is_simple(*[_math("x")] * (SIMPLE_MAX_SPANS + 1)))
+        self.assertFalse(MathRun([_math("x")] * (SIMPLE_MAX_SPANS + 1)).is_simple())
 
     def test_sizes_equal_to_a_tenth_are_one_size(self):
-        self.assertTrue(_is_simple(_math("x"), _sized(SIZE + PRINT_NOISE, _math("y"))))
+        self.assertTrue(MathRun([_math("x"), _sized(SIZE + PRINT_NOISE, _math("y"))]).is_simple())
 
     def test_sizes_a_tenth_apart_are_two_sizes(self):
-        self.assertFalse(_is_simple(_math("x"), _sized(SIZE + SIZE_STEP, _math("y"))))
+        self.assertFalse(MathRun([_math("x"), _sized(SIZE + SIZE_STEP, _math("y"))]).is_simple())
 
     def test_run_text_has_single_spaces(self):
-        self.assertEqual(_inline_run(_prose("a "), _math("π "), _math(" r")).text, "π r")
+        self.assertEqual(MathRun([_math("π "), _math(" r")]).text, "π r")
 
 
 class MathLineTest(unittest.TestCase):
