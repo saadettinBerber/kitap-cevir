@@ -75,7 +75,8 @@ def _windows(units, start):
 
 
 class TranslationFiller:
-    """Yeni birimlere eski çevirileri yazar; bulunamayanlar `pending`'e düşer."""
+    """Yeni birimlere eski çevirileri yazar; bulunamayanlar pending'e düşer. Blok türleri onu
+    Block.fill üzerinden birim birim çağırır."""
 
     def __init__(self, translations):
         self._translations = translations
@@ -89,22 +90,14 @@ class TranslationFiller:
         Block.of(block).fill(self, path)
 
     def fill_unit(self, unit, path):
-        """Birime tr yazar; bulunamazsa ya da yer tutucu eksikse pending'e ekler."""
+        """Birime tr yazar; bulunamazsa ya da yer tutucu eksikse tr boş kalır, birim pending'e düşer."""
         if not (unit["en"] or "").strip():
             unit["tr"] = ""
             return
-        translation = self._translations.lookup(unit["en"])
-        if not translation and NUMERIC_CELL.match(unit["en"]):
-            translation = unit["en"]
-        if translation and not self._drops_placeholder(unit, translation):
-            unit["tr"] = translation
-            return
-        unit["tr"] = ""
-        self._pending.append({"path": path, "en": unit["en"], "tr_hint": translation})
-
-    @staticmethod
-    def _drops_placeholder(unit, translation):
-        return bool(PLACEHOLDER.search(unit["en"])) and not PLACEHOLDER.search(translation)
+        translation = self._translation(unit["en"])
+        unit["tr"] = translation if _keeps_placeholders(unit["en"], translation) else ""
+        if not unit["tr"]:
+            self._pending.append({"path": path, "en": unit["en"], "tr_hint": translation})
 
     def fill_sentences(self, sentences, path):
         """Ardışık yeni cümlelerin birleşimi eski bir birime eşitse tek cümle olur."""
@@ -116,12 +109,25 @@ class TranslationFiller:
             index += taken
         return merged
 
+    def _translation(self, en):
+        """Eski çeviri; bulunamazsa ve hücre yalnız sayıysa İngilizcesi aynen kalır."""
+        translation = self._translations.lookup(en)
+        if not translation and NUMERIC_CELL.match(en):
+            return en
+        return translation
+
     def _merge_run(self, sentences, index):
+        """(birim, kapsadığı cümle sayısı): tek başına bulunan cümle kendisidir; değilse eski bir
+        birime eşit en uzun birleşim, o da yoksa yine kendisi."""
         if self._translations.lookup(sentences[index]["en"]):
             return sentences[index], 1
-        for count in range(MAX_JOIN, 1, -1):
-            window = sentences[index:index + count]
-            joined = " ".join(s["en"] for s in window)
-            if len(window) == count and self._translations.lookup_single(joined):
+        for count in range(min(MAX_JOIN, len(sentences) - index), 1, -1):
+            joined = " ".join(sentence["en"] for sentence in sentences[index:index + count])
+            if self._translations.lookup_single(joined):
                 return {**sentences[index], "en": joined}, count
         return sentences[index], 1
+
+
+def _keeps_placeholders(en, translation):
+    """⟦eq-N⟧ taşıyan metnin çevirisi de yer tutucuyu taşımalı; yoksa denklem kaybolur."""
+    return not PLACEHOLDER.search(en) or bool(PLACEHOLDER.search(translation))
