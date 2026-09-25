@@ -70,6 +70,9 @@ class CardProblemsTest(unittest.TestCase):
         card = _card("contrast", id="yarim", bad={}, good={"text": _pair(), "why": _pair()})
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["yarim: bad.text yok", "yarim: bad.why yok"])
 
+    def test_card_without_id_is_named_by_its_position(self):
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, _card("explain")]), ["#2: id yok"])
+
     def test_three_options_are_allowed(self):
         card = _card("tradeoff", id="uc", options=[_option("A"), _option("B"), _option("C")])
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), [])
