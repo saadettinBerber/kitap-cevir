@@ -165,9 +165,13 @@ class ImageBackfillerTest(unittest.TestCase):
     def _page_blocks(self):
         return self.pages.get(self.PAGE).data["blocks"]
 
-    def test_missing_image_goes_below_its_text(self):
+    def test_missing_image_is_counted(self):
         self._write_page([_para("Layers separate concerns."), _para("Microservices are small.")])
         self.assertEqual(self.backfiller.backfill_page(self.PAGE), 1)
+
+    def test_missing_image_goes_below_its_text(self):
+        self._write_page([_para("Layers separate concerns."), _para("Microservices are small.")])
+        self.backfiller.backfill_page(self.PAGE)
         self.assertEqual(self._page_blocks()[1], _image("fig.png"))
 
     def test_added_image_is_copied_next_to_the_page(self):
