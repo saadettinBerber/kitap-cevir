@@ -1,47 +1,65 @@
+"""Metin satırı (TextLine) ve simge (ScriptMark) kuralları. Parçalar aynı taban çizgisinde,
+10 puntoda ve karakter başına 6 punto genişliğindedir."""
 import unittest
 
 from pdf_fakes import span
 from extraction.text_layer.script_marks import ScriptMark
-from extraction.text_layer.text_line import LineSpan, TextLine
+from extraction.text_layer.text_line import MONO_CHAR_WIDTH_RATIO, LineSpan, TextLine
 
 BASELINE = 100.0
+SIZE = 10.0
+CHAR_WIDTH = SIZE * MONO_CHAR_WIDTH_RATIO
+LEFT = 10.0
 
 
-def _span(text, x0, is_code, size=10.0, baseline=BASELINE):
-    width = len(text) * size * 0.6
-    return LineSpan.marked(span(text, (x0, baseline - size, x0 + width, baseline), size=size), is_code)
+def _span(text, left):
+    return span(text, (left, BASELINE - SIZE, left + len(text) * CHAR_WIDTH, BASELINE), size=SIZE)
+
+
+def _code(*pieces):
+    """pieces: (metin, sol kenar); kod fontuyla dizilmiş parçalar."""
+    return [LineSpan.marked(_span(*piece), True) for piece in pieces]
+
+
+def _prose(*pieces):
+    """pieces: (metin, sol kenar); düz metin parçaları."""
+    return [LineSpan.marked(_span(*piece), False) for piece in pieces]
+
+
+def _end(text):
+    """Soldan başlayan metnin hemen sağındaki konum."""
+    return LEFT + len(text) * CHAR_WIDTH
 
 
 class TextLineTest(unittest.TestCase):
-    def test_bbox_and_code_flag_come_from_spans(self):
-        line = TextLine.of_spans([_span("int x", 10, True), _span(" = 1;", 40, True)])
-        self.assertTrue(line.is_code)
-        self.assertEqual((line.left, line.top, line.right), (10, BASELINE - 10, 70))
+    def test_line_of_code_spans_is_code(self):
+        self.assertTrue(TextLine.of_spans(_code(("int x", LEFT), (" = 1;", _end("int x")))).is_code)
+
+    def test_box_covers_the_spans(self):
+        line = TextLine.of_spans(_code(("int x", LEFT), (" = 1;", _end("int x"))))
+        self.assertEqual((line.left, line.top, line.right), (LEFT, BASELINE - SIZE, _end("int x = 1;")))
 
     def test_long_leading_code_is_split_from_prose(self):
-        line = TextLine.of_spans([_span("count(items) + 1", 10, True), _span(", or more", 110, False)])
-        code, prose = line.split_leading_code()
-        self.assertEqual((code.is_code, code.raw_text), (True, "count(items) + 1"))
-        self.assertEqual((prose.is_code, prose.raw_text), (False, ", or more"))
+        line = TextLine.of_spans(_code(("count(items) + 1", LEFT)) + _prose((", or more", _end("count(items) + 1"))))
+        parts = [(part.is_code, part.raw_text) for part in line.split_leading_code()]
+        self.assertEqual(parts, [(True, "count(items) + 1"), (False, ", or more")])
 
     def test_short_leading_code_stays_inline(self):
-        line = TextLine.of_spans([_span("W", 10, True), _span(" is the key", 16, False)])
+        line = TextLine.of_spans(_code(("W", LEFT)) + _prose((" is the key", _end("W"))))
         self.assertEqual(line.split_leading_code(), [line])
 
     def test_absorb_merges_fragments_on_one_baseline(self):
-        line = TextLine.of_spans([_span("a = ", 10, True)])
-        line.absorb(TextLine.of_spans([_span("b", 60, True)]))
-        self.assertEqual((line.raw_text, line.right), ("a = b", 66))
+        line = TextLine.of_spans(_code(("a = ", LEFT)))
+        line.absorb(TextLine.of_spans(_code(("b", _end("a = ")))))
+        self.assertEqual((line.raw_text, line.right), ("a = b", _end("a = b")))
 
 
 class ScriptMarkTest(unittest.TestCase):
     def test_known_characters_become_unicode(self):
-        part = TextLine.of_spans([_span("23", 10, False, size=7)])
-        self.assertEqual(ScriptMark(part, "^").as_unicode(), "²³")
+        self.assertEqual(ScriptMark(TextLine.of_spans(_prose(("23", LEFT))), "^").as_unicode(), "²³")
 
     def test_unknown_characters_keep_marker_notation(self):
-        part = TextLine.of_spans([_span("K", 10, False, size=7)])
-        self.assertEqual(ScriptMark(part, "_").as_unicode(), "_K")
+        self.assertEqual(ScriptMark(TextLine.of_spans(_prose(("K", LEFT))), "_").as_unicode(), "_K")
 
 
 if __name__ == "__main__":
