@@ -57,14 +57,40 @@ class EpubMetadata:
         return cls(title, book["author"], identifier, modified.strftime(MODIFIED_FORMAT))
 
 
-def content_opf(metadata, chapters, image_hrefs):
-    items = [NAV_ITEM, _item("css", STYLESHEET)]
-    items += [_item(_chapter_id(chapter), f"text/{chapter.href()}") for chapter in chapters]
-    items += [_item(f"img-{index}", href) for index, href in enumerate(image_hrefs, 1)]
-    spine = [f'<itemref idref="{_chapter_id(chapter)}"/>' for chapter in chapters]
+def content_opf(metadata, manifest):
+    """Paket belgesi: kitabın bilgisi, paketteki dosyalar ve okuma sırası."""
     return CONTENT_OPF.format(identifier=metadata.identifier, title=escape(metadata.title),
                               author=escape(metadata.author), modified=metadata.modified,
-                              items="\n".join(items), spine="\n".join(spine))
+                              items=manifest.items(), spine=manifest.spine())
+
+
+class Manifest:
+    """Paketteki dosyaların listesi (manifest) ve bölümlerin okuma sırası (spine)."""
+
+    def __init__(self, chapters, image_hrefs):
+        self._chapters = chapters
+        self._image_hrefs = image_hrefs
+
+    def items(self):
+        chapters = [_item(_chapter_id(chapter), f"text/{chapter.href()}") for chapter in self._chapters]
+        images = [_item(f"img-{index}", href) for index, href in enumerate(self._image_hrefs, 1)]
+        return "\n".join([NAV_ITEM, _item("css", STYLESHEET), *chapters, *images])
+
+    def spine(self):
+        return "\n".join(f'<itemref idref="{_chapter_id(chapter)}"/>' for chapter in self._chapters)
+
+
+def _item(item_id, href):
+    return f'<item id="{item_id}" href="{quote(href)}" media-type="{_media_type(href)}"/>'
+
+
+def _media_type(href):
+    """Bölümün ve stilin türü sabittir; görselinki uzantısından tahmin edilir."""
+    return FIXED_MEDIA_TYPES.get(Path(href).suffix) or mimetypes.guess_type(href)[0] or UNKNOWN_MEDIA_TYPE
+
+
+def _chapter_id(chapter):
+    return Path(chapter.href()).stem
 
 
 def nav_xhtml(chapters):
@@ -84,16 +110,3 @@ def _toc_item(chapter):
                       for text, anchor in chapter.toc_entries())
     nested = f"<ol>{entries}</ol>" if entries else ""
     return f'<li><a href="{chapter.href()}">{escape(chapter.title())}</a>{nested}</li>'
-
-
-def _item(item_id, href):
-    return f'<item id="{item_id}" href="{quote(href)}" media-type="{_media_type(href)}"/>'
-
-
-def _chapter_id(chapter):
-    return Path(chapter.href()).stem
-
-
-def _media_type(href):
-    """Bölümün ve stilin türü sabittir; görselinki uzantısından tahmin edilir."""
-    return FIXED_MEDIA_TYPES.get(Path(href).suffix) or mimetypes.guess_type(href)[0] or UNKNOWN_MEDIA_TYPE

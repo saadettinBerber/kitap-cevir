@@ -4,7 +4,7 @@ Disk bilmez: stil ve görseller içerik olarak verilir, arşiv verilen akışa y
 import zipfile
 from xml.etree import ElementTree
 
-from epub.manifest import CONTAINER_XML, NAV_FILE, STYLESHEET, content_opf, nav_xhtml
+from epub.manifest import CONTAINER_XML, NAV_FILE, STYLESHEET, Manifest, content_opf, nav_xhtml
 
 MIMETYPE = "application/epub+zip"
 CONTENT_DIR = "OEBPS"
@@ -41,8 +41,8 @@ class EpubPackage:
         texts[f"text/{NAV_FILE}"] = nav_xhtml(self._chapters)
         for name, text in texts.items():
             _check_well_formed(name, text)
-        return {**texts, "content.opf": content_opf(self._metadata, self._chapters, list(self._images)),
-                STYLESHEET: self._stylesheet}
+        opf = content_opf(self._metadata, Manifest(self._chapters, list(self._images)))
+        return {**texts, "content.opf": opf, STYLESHEET: self._stylesheet}
 
 
 def _check_well_formed(name, text):
