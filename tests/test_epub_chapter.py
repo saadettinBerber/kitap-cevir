@@ -23,8 +23,12 @@ def _para(en, tr):
     return ParaPassage("para", tr, en)
 
 
-def _page(number, blocks, concepts=()):
-    return PageDocument({"page": number, "chapter": CHAPTER, "blocks": blocks, "concepts": list(concepts)})
+def _page(number, blocks):
+    return PageDocument({"page": number, "chapter": CHAPTER, "blocks": blocks})
+
+
+def _page_with_cards(number, cards):
+    return PageDocument({"page": number, "chapter": CHAPTER, "blocks": [_para_block("A.", "B.")], "concepts": cards})
 
 
 def _flow_ending_with_page_end(first_page):
@@ -123,22 +127,22 @@ class ChapterTest(unittest.TestCase):
 
     def test_cards_add_a_toc_entry(self):
         card = {"kind": "explain", "title": {"en": "A", "tr": "B"}, "summary": {"en": "S", "tr": "Ö"}}
-        self.chapter.add(_page(PAGE, [], concepts=[card]))
+        self.chapter.add(_page_with_cards(PAGE, [card]))
         self.assertEqual(self.chapter.toc_entries()[-1][0], "Kavram kartları")
 
     def test_card_without_summary_is_left_out_of_the_chapter(self):
         empty = {"kind": "explain", "title": {"en": "A", "tr": "B"}}
-        self.chapter.add(_page(PAGE, [_para_block("A.", "B.")], concepts=[empty]))
+        self.chapter.add(_page_with_cards(PAGE, [empty]))
         self.assertNotIn('<section class="cards">', self.chapter.xhtml())
 
     def test_page_with_cards_ends_with_its_card_line(self):
-        self.chapter.add(_page(PAGE, [_para_block("A.", "B.")], concepts=[CARD]))
+        self.chapter.add(_page_with_cards(PAGE, [CARD]))
         self.chapter.add(_page(NEXT_PAGE, [_para_block("C.", "D.")]))
         xhtml = self.chapter.xhtml()
         self.assertLess(xhtml.index('class="card-links"'), xhtml.index(page_mark(NEXT_PAGE)))
 
     def test_card_return_link_lands_on_its_card_line(self):
-        self.chapter.add(_page(PAGE, [_para_block("A.", "B.")], concepts=[CARD]))
+        self.chapter.add(_page_with_cards(PAGE, [CARD]))
         xhtml = self.chapter.xhtml()
         self.assertIn(f'<p class="card-links" id="{_return_target(xhtml)}">', xhtml)
 
@@ -147,7 +151,7 @@ class ChapterTest(unittest.TestCase):
         self.assertNotIn('class="card-links"', self.chapter.xhtml())
 
     def test_card_without_summary_gets_no_card_line(self):
-        self.chapter.add(_page(PAGE, [_para_block("A.", "B.")], concepts=[{"kind": "explain", "title": {"en": "A", "tr": "B"}}]))
+        self.chapter.add(_page_with_cards(PAGE, [{"kind": "explain", "title": {"en": "A", "tr": "B"}}]))
         self.assertNotIn('class="card-links"', self.chapter.xhtml())
 
     def test_chapter_without_cards_has_no_cards_entry(self):
