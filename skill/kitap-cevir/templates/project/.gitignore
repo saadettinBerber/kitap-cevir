@@ -4,6 +4,9 @@
 # Çeviri çalışma dizini (geçici girdi/çıktı JSON ve görseller)
 _work/
 
+# Kindle için üretilen EPUB (export_epub.py)
+dist/
+
 # Claude Code yerel ayarları
 .claude/settings.local.json
 
