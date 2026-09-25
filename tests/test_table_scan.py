@@ -5,6 +5,7 @@ import dataclasses
 import unittest
 
 from pdf_fakes import FakePdfPage, fill, span, stroke
+from extraction.pdf.geometry import Box
 from extraction.settings import with_defaults
 from extraction.tables.table_grid import MAX_BAND_GAP_RATIO, MIN_CELL_WIDTH, RULE_MAX_HEIGHT, PageFills
 from extraction.tables.table_scan import TableScanner
@@ -336,6 +337,11 @@ def _cell_lines(top, texts):
             for (left, _), text in zip(TERM_COLUMNS, texts)]
 
 
+def _with_height(line, height):
+    return tuple(dataclasses.replace(piece, box=Box(piece.box.x0, piece.box.y0, piece.box.x1, piece.box.y0 + height))
+                 for piece in line)
+
+
 def _bold_lines(lines):
     return [_bold(line) for line in lines]
 
@@ -412,37 +418,41 @@ class RowGapTest(unittest.TestCase):
 
 
 class RowGapBoundaryTest(unittest.TestCase):
-    """Satırın başlangıcı öncekinin tepesinden, metin yüksekliği × oran kadar aşağıdaysa yeni satırdır."""
+    """Satırın başlangıcı öncekinin tepesinden, önceki metnin yüksekliği × oran kadar aşağıdaysa
+    yeni satırdır."""
 
     RATIO = 1.25
     TEXT_HEIGHT = 12
     BODY_TOP = TABLE_TOP + CELL_HEIGHT
-    RULE_DROP = 20
+    RULE_Y = BODY_TOP + 5 * TEXT_HEIGHT
+    FIRST_ROW, SECOND_ROW = ("Latency", "Time to answer"), ("Load", "Requests per second")
 
-    def _body_lines(self, top, texts):
+    def _row(self, top, texts):
         return [(span(text, (left + CELL_INSET, top, left + CELL_INSET + CELL_CHAR_WIDTH * len(text),
                              top + self.TEXT_HEIGHT), size=CELL_SIZE),)
                 for (left, _), text in zip(TERM_COLUMNS, texts)]
 
-    def _rules(self, second_top):
-        rule_y = second_top + self.RULE_DROP
-        return [stroke(left, rule_y, right, rule_y) for left, right in TERM_COLUMNS]
-
-    def _row_count(self, second_top):
-        """Başlık + iki gövde satırı; ikinci gövde satırı second_top'ta başlar."""
-        lines = _bold_lines(_cell_lines(TABLE_TOP, TERM_HEADER))
-        lines += self._body_lines(self.BODY_TOP, ("Latency", "Time to answer"))
-        lines += self._body_lines(second_top, ("Load", "Requests per second"))
-        shapes = [fill(left, TABLE_TOP, right, TABLE_TOP + CELL_HEIGHT) for left, right in TERM_COLUMNS]
-        scanner = TableScanner(with_defaults({"table_row_gap_ratio": self.RATIO}))
-        [table] = scanner.scan(FakePdfPage(lines=lines, shapes=shapes + self._rules(second_top)))
+    def _row_count(self, second_row):
+        """Başlık, bir gövde satırı ve verilen ikinci gövde satırı."""
+        lines = _bold_lines(_cell_lines(TABLE_TOP, TERM_HEADER)) + self._row(self.BODY_TOP, self.FIRST_ROW)
+        rules = [stroke(left, self.RULE_Y, right, self.RULE_Y) for left, right in TERM_COLUMNS]
+        page = FakePdfPage(lines=lines + second_row, shapes=TermTableLayout(TABLE_TOP, []).header_fills() + rules)
+        [table] = TableScanner(with_defaults({"table_row_gap_ratio": self.RATIO})).scan(page)
         return len(_texts(table))
 
     def test_line_at_the_ratio_continues_the_row(self):
-        self.assertEqual(self._row_count(self.BODY_TOP + self.TEXT_HEIGHT * self.RATIO), 2)
+        second_top = self.BODY_TOP + self.TEXT_HEIGHT * self.RATIO
+        self.assertEqual(self._row_count(self._row(second_top, self.SECOND_ROW)), 2)
 
     def test_line_just_below_the_ratio_starts_a_row(self):
-        self.assertEqual(self._row_count(self.BODY_TOP + self.TEXT_HEIGHT * self.RATIO + STEP), 3)
+        second_top = self.BODY_TOP + self.TEXT_HEIGHT * self.RATIO + STEP
+        self.assertEqual(self._row_count(self._row(second_top, self.SECOND_ROW)), 3)
+
+    def test_gap_is_measured_by_the_previous_line_height(self):
+        """Alttaki satır daha yüksek olsa da ölçü üstteki satırdır."""
+        second_top = self.BODY_TOP + self.TEXT_HEIGHT * self.RATIO + STEP
+        tall = [_with_height(line, self.TEXT_HEIGHT * 2) for line in self._row(second_top, self.SECOND_ROW)]
+        self.assertEqual(self._row_count(tall), 3)
 
 
 class TableGroupTest(unittest.TestCase):
