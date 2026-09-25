@@ -39,34 +39,32 @@ class ContextSnippetsTest(unittest.TestCase):
                          {"prev_tail": CONTEXT_CHARS, "next_head": CONTEXT_CHARS})
 
 
-class _RecordingExtractor:
-    """Hangi sayfanın çıkarıldığını kaydeder."""
-
-    def __init__(self):
-        self.pages = []
+class _EchoExtractor:
+    """Aldığı sayfanın numarasını ve görsel klasörünü çıkarım sonucu olarak geri verir."""
 
     def extract(self, page, image_dir):
-        self.pages.append((page.number, image_dir))
-        return {"blocks": [], "math": [], "running_header": None}
+        return {"page": page.number, "image_dir": image_dir}
 
     def hyphen_fixes(self, page):
         return {"McGrawHill": f"McGraw-Hill@{page.number}"}
 
 
+def _opens_once(document):
+    """İkinci açılışta StopIteration fırlatan açıcı: belgenin tek açılışla okunduğunu testler böyle görür."""
+    return iter([document]).__next__
+
+
 class BookPdfTest(unittest.TestCase):
     def setUp(self):
-        self.opened = 0
-        self.extractor = _RecordingExtractor()
-        self.book = BookPdf(self._open, self.extractor)
+        self.book = BookPdf(_opens_once(_document(PAGE_COUNT)), _EchoExtractor())
 
-    def _open(self):
-        self.opened += 1
-        return _document(PAGE_COUNT)
-
-    def test_extraction_and_context_share_one_opening(self):
+    def test_extractor_reads_the_asked_page_into_the_image_dir(self):
         extracted = self.book.extract(MIDDLE_PAGE, IMAGE_DIR)
-        self.assertEqual((self.opened, self.extractor.pages), (1, [(MIDDLE_PAGE, IMAGE_DIR)]))
-        self.assertEqual(extracted["context"], {"prev_tail": "Sayfa 1", "next_head": "Sayfa 3"})
+        self.assertEqual((extracted["page"], extracted["image_dir"]), (MIDDLE_PAGE, IMAGE_DIR))
+
+    def test_context_comes_from_the_same_opening(self):
+        self.assertEqual(self.book.extract(MIDDLE_PAGE, IMAGE_DIR)["context"],
+                         {"prev_tail": "Sayfa 1", "next_head": "Sayfa 3"})
 
     def test_hyphen_fixes_come_from_the_asked_page(self):
         self.assertEqual(self.book.hyphen_fixes(LAST_PAGE), {"McGrawHill": "McGraw-Hill@3"})
