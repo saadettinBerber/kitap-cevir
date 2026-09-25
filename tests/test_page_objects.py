@@ -9,15 +9,31 @@ from extraction.text_layer.layout_scan import CodeImageLinkLines, CodeListing, P
 from page_document import PageDocument
 
 
-class _Line:
-    """TextLine'ın satır nesnelerinin (CodeListing, ProseRepairs, CodeImageLinkLines) gördüğü yüzü."""
+LINE_HEIGHT = 10.0
+MONO_CHAR_WIDTH = 6.0
 
-    def __init__(self, text, top=0.0, left=0.0, is_code=False):
-        self.text, self.top, self.left, self.is_code = text, top, left, is_code
-        self.height, self.bottom, self.char_width, self.spans = 10.0, top + 10.0, 6.0, []
+
+class _Line:
+    """TextLine'ın satır nesnelerinin (CodeListing, ProseRepairs, CodeImageLinkLines) gördüğü yüzü:
+    düz metin satırı."""
+
+    is_code = False
+
+    def __init__(self, text, corner=(0.0, 0.0)):
+        """corner: satırın (sol, üst) köşesi."""
+        self.text = text
+        self.left, self.top = corner
+        self.height, self.bottom = LINE_HEIGHT, self.top + LINE_HEIGHT
+        self.char_width, self.spans = MONO_CHAR_WIDTH, []
 
     def uses_script_layout(self):
         return False
+
+
+class _CodeLine(_Line):
+    """Kod satırı."""
+
+    is_code = True
 
 
 class PageDocumentTest(unittest.TestCase):
@@ -98,9 +114,7 @@ class TableCellTest(unittest.TestCase):
 
 class LayoutObjectsTest(unittest.TestCase):
     def test_code_listing_keeps_indent_and_blank_line(self):
-        lines = [_Line("def f():", top=100, left=72, is_code=True),
-                 _Line("return 1", top=112, left=84, is_code=True),
-                 _Line("x = f()", top=140, left=72, is_code=True)]
+        lines = [_CodeLine("def f():", (72, 100)), _CodeLine("return 1", (84, 112)), _CodeLine("x = f()", (72, 140))]
         [listing] = CodeListing.group(lines)
         self.assertEqual(listing.region()["code"], "def f():\n  return 1\n\nx = f()")
 
@@ -113,21 +127,27 @@ class CodeImageLinkLinesTest(unittest.TestCase):
     """E-kitabın kod görseli bağlantısı bir satırdır; şeridi komşu satırlara kadar uzanır."""
 
     LINK = "Click here to view code image"
+    PROSE_ABOVE = (0.0, 40)
+    LINK_LINE = (0.0, 60)
+    CODE_BELOW = (0.0, 80)
 
     def test_link_slot_reaches_the_neighbouring_lines(self):
-        lines = [_Line("prose", top=40), _Line(self.LINK, top=60), _Line("// code", top=80, is_code=True)]
-        self.assertEqual(CodeImageLinkLines(lines, self.LINK).slots(), [{"text": self.LINK, "y0": 50, "y1": 80}])
+        lines = [_Line("prose", self.PROSE_ABOVE), _Line(self.LINK, self.LINK_LINE),
+                 _CodeLine("// code", self.CODE_BELOW)]
+        slot = {"text": self.LINK, "y0": self.PROSE_ABOVE[1] + LINE_HEIGHT, "y1": self.CODE_BELOW[1]}
+        self.assertEqual(CodeImageLinkLines(lines, self.LINK).slots(), [slot])
 
     def test_link_without_neighbours_keeps_its_own_height(self):
-        self.assertEqual(CodeImageLinkLines([_Line(self.LINK, top=60)], self.LINK).slots(),
-                         [{"text": self.LINK, "y0": 60, "y1": 70}])
+        link_top = self.LINK_LINE[1]
+        self.assertEqual(CodeImageLinkLines([_Line(self.LINK, self.LINK_LINE)], self.LINK).slots(),
+                         [{"text": self.LINK, "y0": link_top, "y1": link_top + LINE_HEIGHT}])
 
     def test_line_quoting_the_link_in_prose_is_not_a_link(self):
-        lines = [_Line(f"you will see a “{self.LINK}” link", top=60)]
+        lines = [_Line(f"you will see a “{self.LINK}” link", self.LINK_LINE)]
         self.assertEqual(CodeImageLinkLines(lines, self.LINK).slots(), [])
 
     def test_no_links_without_a_pattern(self):
-        self.assertEqual(CodeImageLinkLines([_Line(self.LINK, top=60)], "").slots(), [])
+        self.assertEqual(CodeImageLinkLines([_Line(self.LINK, self.LINK_LINE)], "").slots(), [])
 
 
 if __name__ == "__main__":
