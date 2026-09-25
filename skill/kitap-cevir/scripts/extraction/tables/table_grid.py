@@ -96,34 +96,12 @@ class TableGrid:
 
     @classmethod
     def from_cells(cls, cells, page_rects):
-        columns = cls._columns(cells)
+        columns = ColumnTiling(cells).columns()
         bands = cls._bands(page_rects, columns) if len(columns) >= MIN_COLUMNS else []
         return cls(columns, bands)
 
     def has_columns(self):
         return len(self.columns) >= MIN_COLUMNS
-
-    @classmethod
-    def _columns(cls, cells):
-        """Tablo sol kenarından sağa doğru sütunları döşer."""
-        columns, left, right_edge = [], min(r.x0 for r in cells), max(r.x1 for r in cells)
-        while left < right_edge - EDGE_TOLERANCE:
-            end = cls._column_end(cells, left)
-            if end is None:
-                left = min((r.x0 for r in cells if r.x0 > left + EDGE_TOLERANCE), default=right_edge)
-            else:
-                columns.append((left, end))
-                left = end
-        return columns
-
-    @staticmethod
-    def _column_end(cells, left):
-        """left'ten başlayan hücrelerin en sık görülen sağ kenarı; satır içi kod
-        vurguları gibi kenardan içeride başlayan dolgular böylece sütun olmaz."""
-        ends = [round(r.x1) for r in cells if abs(r.x0 - left) <= EDGE_TOLERANCE]
-        if not ends:
-            return None
-        return max(set(ends), key=lambda x1: (ends.count(x1), -x1))
 
     @classmethod
     def _bands(cls, rects, columns):
@@ -162,3 +140,30 @@ class TableGrid:
 
     def in_band(self, row):
         return any(self.band_of(span) is not None for span in row)
+
+
+class ColumnTiling:
+    """Hücrelerden sütun döşemesi: tablonun sol kenarından sağa, her sütun kendi sol kenarından
+    başlayan hücrelerin en sık görülen sağ kenarına uzanır."""
+
+    def __init__(self, cells):
+        self._cells = cells
+        self._right_edge = max(r.x1 for r in cells)
+
+    def columns(self):
+        columns, left = [], min(r.x0 for r in self._cells)
+        while left < self._right_edge - EDGE_TOLERANCE:
+            column = self._column_from(left)
+            columns += column
+            left = column[0][1] if column else self._next_start(left)
+        return columns
+
+    def _column_from(self, left):
+        """left'ten başlayan sütun; hiçbir hücre left'ten başlamıyorsa boş liste. Satır içi kod
+        vurguları gibi kenardan içeride başlayan dolgular böylece sütun olmaz. Eşit sıklıkta
+        sağ kenarlardan yakın olanı seçilir."""
+        ends = [round(r.x1) for r in self._cells if abs(r.x0 - left) <= EDGE_TOLERANCE]
+        return [(left, max(set(ends), key=lambda x1: (ends.count(x1), -x1)))] if ends else []
+
+    def _next_start(self, left):
+        return min((r.x0 for r in self._cells if r.x0 > left + EDGE_TOLERANCE), default=self._right_edge)
