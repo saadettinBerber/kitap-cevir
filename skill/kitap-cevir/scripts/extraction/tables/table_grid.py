@@ -125,16 +125,20 @@ class TableGrid:
     def _row_bands(cls, rects, columns):
         """Sütun kenarlarına oturan (tüm tabloyu kaplamayan) dolguların y aralıkları
         satır bantlarıdır; içindeki metin tek satıra aittir."""
-        full_width = [(columns[0][0], columns[-1][1])]
         bands = []
-        for rect in sorted(rects, key=lambda r: r.y0):
-            if not cls._on_edges(rect, columns) or cls._on_edges(rect, full_width):
-                continue
+        for rect in cls._band_fills(rects, columns):
             if bands and rect.y0 < bands[-1][1] - EDGE_TOLERANCE:
                 bands[-1] = (bands[-1][0], max(bands[-1][1], rect.y1))
             else:
                 bands.append((rect.y0, rect.y1))
         return bands
+
+    @classmethod
+    def _band_fills(cls, rects, columns):
+        """Sütun kenarlarına oturan ama tüm tabloyu kaplamayan dolgular, yukarıdan aşağı."""
+        full_width = [(columns[0][0], columns[-1][1])]
+        return [rect for rect in sorted(rects, key=lambda r: r.y0)
+                if cls._on_edges(rect, columns) and not cls._on_edges(rect, full_width)]
 
     @staticmethod
     def _on_edges(rect, columns):
