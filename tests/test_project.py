@@ -32,11 +32,23 @@ class FindRootTest(unittest.TestCase):
 
 
 class PdfPathTest(unittest.TestCase):
-    def test_pdf_path_absolute_is_kept(self):
-        with tempfile.TemporaryDirectory() as root:
-            open(os.path.join(root, "progress.json"), "w").write(json.dumps({"book_pdf": "/x/y.pdf"}))
-            project = Project(root)
-            self.assertEqual(project.pdf_path(), "/x/y.pdf")
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.project = Project(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _configure_pdf(self, book_pdf):
+        self.project.save_progress(Progress({"book_pdf": book_pdf}))
+
+    def test_absolute_pdf_path_is_kept(self):
+        self._configure_pdf("/x/y.pdf")
+        self.assertEqual(self.project.pdf_path(), "/x/y.pdf")
+
+    def test_relative_pdf_path_is_inside_the_project(self):
+        self._configure_pdf("kaynak/kitap.pdf")
+        self.assertEqual(self.project.relative_to_root(self.project.pdf_path()), "kaynak/kitap.pdf")
 
 
 class LayoutTest(unittest.TestCase):
