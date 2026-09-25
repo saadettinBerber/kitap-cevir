@@ -7,7 +7,7 @@ import os
 
 from page_document import PageDocument
 
-PRIVATE_FIELDS = ("context", "concepts_spec", "glossary_new")   # agent girdisinde var, okuyucuya gitmez
+AGENT_ONLY_FIELDS = ("context", "concepts_spec", "glossary_new")
 
 
 class TranslatedPages:
@@ -42,4 +42,4 @@ def _page_js(data):
 
 
 def _reader_fields(data):
-    return {key: value for key, value in data.items() if key not in PRIVATE_FIELDS}
+    return {key: value for key, value in data.items() if key not in AGENT_ONLY_FIELDS}
