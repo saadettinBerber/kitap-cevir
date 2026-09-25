@@ -58,13 +58,14 @@ def _title():
 
 
 class ChapterOpenerTest(unittest.TestCase):
-    NUMBER = {"type": "chapter_number", "num": 3}
+    CHAPTER = 3
+    NUMBER = {"type": "chapter_number", "num": CHAPTER}
     AUTHOR = "by Jane Doe"
 
     def test_number_title_and_author_become_one_block(self):
         blocks = [self.NUMBER, _title(), _para(self.AUTHOR)]
         self.assertEqual(ChapterOpener(blocks).merged(),
-                         [{"type": "chapter", "en": "Modularity", "num": 3, "author": self.AUTHOR}])
+                         [{"type": "chapter", "en": "Modularity", "num": self.CHAPTER, "author": self.AUTHOR}])
 
     def test_title_without_a_number_has_an_empty_number(self):
         self.assertEqual(ChapterOpener([_title()]).merged(), [{"type": "chapter", "en": "Modularity", "num": None}])
@@ -88,16 +89,19 @@ class ChapterOpenerTest(unittest.TestCase):
 class TableGridTest(unittest.TestCase):
     CELLS = [Box(70, 100, 170, 120), Box(170, 100, 400, 120),
              Box(70, 140, 170, 160), Box(170, 140, 400, 160)]
+    COLUMNS = [(70, 170), (170, 400)]
+    IN_THE_SECOND_COLUMN = (180, 100, 220, 110)
+    SECOND_COLUMN = 1
 
     def test_columns_are_tiled_from_cell_edges(self):
-        self.assertEqual(TableGrid.from_cells(self.CELLS, self.CELLS).columns, [(70, 170), (170, 400)])
+        self.assertEqual(TableGrid.from_cells(self.CELLS, self.CELLS).columns, self.COLUMNS)
 
     def test_grid_tiled_from_cells_has_columns(self):
         self.assertTrue(TableGrid.from_cells(self.CELLS, self.CELLS).has_columns())
 
     def test_span_is_placed_by_its_center(self):
-        grid = TableGrid([(70, 170), (170, 400)], [])
-        self.assertEqual(grid.column_of(span("x", (180, 100, 220, 110))), 1)
+        grid = TableGrid(self.COLUMNS, [])
+        self.assertEqual(grid.column_of(span("x", self.IN_THE_SECOND_COLUMN)), self.SECOND_COLUMN)
 
 
 class TableCellTest(unittest.TestCase):
@@ -122,8 +126,14 @@ class TableCellTest(unittest.TestCase):
 
 
 class LayoutObjectsTest(unittest.TestCase):
+    LEFT, TOP = 72, 100
+    TWO_CHARACTERS_IN = LEFT + 2 * MONO_CHAR_WIDTH
+    NEXT_LINE, AFTER_A_GAP = TOP + 12, TOP + 40
+
     def test_code_listing_keeps_indent_and_blank_line(self):
-        lines = [_CodeLine("def f():", (72, 100)), _CodeLine("return 1", (84, 112)), _CodeLine("x = f()", (72, 140))]
+        lines = [_CodeLine("def f():", (self.LEFT, self.TOP)),
+                 _CodeLine("return 1", (self.TWO_CHARACTERS_IN, self.NEXT_LINE)),
+                 _CodeLine("x = f()", (self.LEFT, self.AFTER_A_GAP))]
         [listing] = CodeListing.group(lines)
         self.assertEqual(listing.region()["code"], "def f():\n  return 1\n\nx = f()")
 
