@@ -15,8 +15,8 @@ PAGE = 5
 class _Chapter:
     """Pakete yalnız bağlantılar, başlık, içindekiler ve XHTML lazım."""
 
-    def __init__(self, file_name, xhtml="<html/>"):
-        self._file_name, self._xhtml = file_name, xhtml
+    def __init__(self, file_name):
+        self._file_name = file_name
 
     def href(self, anchor=""):
         return f"{self._file_name}#{anchor}" if anchor else self._file_name
@@ -31,7 +31,12 @@ class _Chapter:
         return [("Giriş", "h-5-1")]
 
     def xhtml(self):
-        return self._xhtml
+        return "<html/>"
+
+
+class _MalformedChapter(_Chapter):
+    def xhtml(self):
+        return "<p>"
 
 
 def _opf(chapters=(), image_hrefs=()):
@@ -85,7 +90,7 @@ class ArchiveTest(unittest.TestCase):
 
     def test_malformed_chapter_is_refused_with_its_name(self):
         with self.assertRaisesRegex(MalformedXhtml, "chapter-01"):
-            _archive(_package(_Chapter("chapter-01.xhtml", xhtml="<p>")))
+            _archive(_package(_MalformedChapter("chapter-01.xhtml")))
 
 
 class ManifestTest(unittest.TestCase):
