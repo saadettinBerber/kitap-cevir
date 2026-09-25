@@ -2,7 +2,7 @@ import contextlib
 import io
 import unittest
 
-from pdf_fakes import PAGE_HEIGHT, FakePdfDocument, FakePdfPage, span
+from pdf_fakes import PAGE_HEIGHT, PAGE_WIDTH, FakePdfDocument, FakePdfPage, span
 from inspect_pdf import FolioOffsets, InspectionReport, PdfInspector
 
 OFFSET = 2
@@ -66,6 +66,14 @@ class InspectionReportTest(unittest.TestCase):
         best = self._report(lambda report: report.offset(1, 20)).splitlines()[1]
         self.assertTrue(best.startswith(f"  offset={OFFSET:4}"), best)
         self.assertTrue(best.endswith(f"PDF {OFFSET + 1} = kitap 1"), best)
+
+    def test_info_prints_page_count_size_and_filled_metadata(self):
+        document = FakePdfDocument([_text_page(("x", 62))], metadata={"title": "Book", "author": ""})
+        self.assertEqual(self._report(lambda report: report.info(), document),
+                         f"PDF sayfa sayısı: 1\nSayfa boyutu (pt): {PAGE_WIDTH:.1f} x {PAGE_HEIGHT:.1f}\n  title: Book\n")
+
+    def test_text_prints_each_page_under_its_number(self):
+        self.assertEqual(self._report(lambda report: report.text(str(OFFSET))), f"===== PDF sayfa {OFFSET} =====\nPreface\n")
 
     def test_missing_page_numbers_are_reported(self):
         document = FakePdfDocument([_text_page(("No numbers here", 62))])
