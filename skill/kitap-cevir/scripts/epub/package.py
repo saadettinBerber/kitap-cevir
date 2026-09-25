@@ -18,31 +18,31 @@ class EpubPackage:
     """Bölümler ve görseller toplanır, write_to ile tek seferde arşive yazılır."""
 
     def __init__(self, metadata, stylesheet):
-        self.metadata = metadata
-        self.stylesheet = stylesheet
-        self.chapters = []
-        self.images = {}
+        self._metadata = metadata
+        self._stylesheet = stylesheet
+        self._chapters = []
+        self._images = {}
 
     def add_chapter(self, chapter):
-        self.chapters.append(chapter)
+        self._chapters.append(chapter)
 
     def add_image(self, href, content):
-        self.images[href] = content
+        self._images[href] = content
 
     def write_to(self, stream):
         with zipfile.ZipFile(stream, "w", zipfile.ZIP_DEFLATED) as archive:
             archive.writestr("mimetype", MIMETYPE, compress_type=zipfile.ZIP_STORED)
             archive.writestr("META-INF/container.xml", CONTAINER_XML)
-            for name, content in {**self._documents(), **self.images}.items():
+            for name, content in {**self._documents(), **self._images}.items():
                 archive.writestr(f"{CONTENT_DIR}/{name}", content)
 
     def _documents(self):
-        texts = {f"text/{chapter.href()}": chapter.xhtml() for chapter in self.chapters}
-        texts[f"text/{NAV_FILE}"] = nav_xhtml(self.chapters)
+        texts = {f"text/{chapter.href()}": chapter.xhtml() for chapter in self._chapters}
+        texts[f"text/{NAV_FILE}"] = nav_xhtml(self._chapters)
         for name, text in texts.items():
             _check_well_formed(name, text)
-        return {**texts, "content.opf": content_opf(self.metadata, self.chapters, list(self.images)),
-                STYLESHEET: self.stylesheet}
+        return {**texts, "content.opf": content_opf(self._metadata, self._chapters, list(self._images)),
+                STYLESHEET: self._stylesheet}
 
 
 def _check_well_formed(name, text):
