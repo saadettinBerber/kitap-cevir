@@ -3,7 +3,7 @@ import unittest
 
 from pdf_fakes import FakePdfPage, fill, span
 from extraction.tables.aligned_tables import COLUMN_GUTTER, AlignedTableFinder, SpanRow, TableColumns
-from extraction.settings import with_defaults
+from extraction.settings import DEFAULT_EXTRACTION, with_defaults
 from extraction.tables.table_scan import TableScanner
 
 BOLD, REGULAR = "Helvetica-Bold", "Helvetica"
@@ -176,6 +176,24 @@ class ScanTablesTest(unittest.TestCase):
 
     def test_page_with_fills_skips_aligned_scan(self):
         self.assertEqual(self._scan(shapes=[FILL]), [])
+
+
+BODY_BOTTOM = A4_HEIGHT - DEFAULT_EXTRACTION["footer_zone_top"]
+
+
+def _mark_ending_at(bottom):
+    return span("21", (300, bottom - 10, 312, bottom))
+
+
+class BodyBottomTest(unittest.TestCase):
+    """Alt kenarı gövdenin sınırında biten parça gövdededir: sayfa sonuna düşen kısa tabloyu
+    sayfanın son satırı olmaktan çıkarır. Sınırı aşan parça alt bilgidir."""
+
+    def test_line_ending_on_the_body_bottom_belongs_to_the_body(self):
+        self.assertEqual(ScanTablesTest._scan([_mark_ending_at(BODY_BOTTOM)], body_rows=1), [])
+
+    def test_line_ending_just_below_the_body_bottom_is_footer(self):
+        self.assertEqual(len(ScanTablesTest._scan([_mark_ending_at(BODY_BOTTOM + 0.1)], body_rows=1)), 1)
 
 
 if __name__ == "__main__":
