@@ -6,7 +6,7 @@ import unittest
 
 from pdf_fakes import FakePdfPage, fill, span, stroke
 from extraction.settings import with_defaults
-from extraction.tables.table_grid import MAX_BAND_GAP_RATIO, PageFills
+from extraction.tables.table_grid import MAX_BAND_GAP_RATIO, MIN_CELL_WIDTH, RULE_MAX_HEIGHT, PageFills
 from extraction.tables.table_scan import TableScanner
 
 BOLD = "Helvetica-Bold"
@@ -209,6 +209,49 @@ class LineBreakTest(unittest.TestCase):
         self.assertEqual(rows[1][0], {"en": "Hello World"})
 
 
+class RowBandTest(unittest.TestCase):
+    """Sütun kenarlarına oturan dolguların dikey aralıkları satır bantlarıdır; örtüşen dolgular
+    tek banttır. Bandın içindeki metin tek satıra aittir."""
+
+    BODY_TOP = TABLE_TOP + ROW_HEIGHT
+    LOW_LINE = BODY_TOP + ROW_HEIGHT + TEXT_DROP / 2    # ilk gövde bandının hemen altından başlayan alt satır
+
+    def _first_body_cell(self, *extra_fills):
+        layout = ZebraLayout([])
+        lines = [_bold(_cell_row(TABLE_TOP + TEXT_DROP, HEADER)), _cell_row(self.BODY_TOP + TEXT_DROP, ("a", "c", "e")),
+                 _cell_row(self.LOW_LINE, ("b", "", ""))]
+        [table] = _scan(FakePdfPage(lines=lines, shapes=list(extra_fills) + layout.shading(0) + layout.shading(1)))
+        return table["block"]["rows"][1][0]
+
+    def test_fill_overlapping_a_band_widens_it(self):
+        column = COLUMNS[0]
+        lower = fill(column[0], self.BODY_TOP + ROW_HEIGHT - TEXT_DROP, column[1], self.LOW_LINE + ROW_HEIGHT)
+        self.assertEqual(self._first_body_cell(lower), {"en": "a b"})
+
+    def test_fill_inside_a_taller_band_does_not_shrink_it(self):
+        column = COLUMNS[0]
+        taller = fill(column[0], self.BODY_TOP, column[1], self.LOW_LINE + ROW_HEIGHT)
+        self.assertEqual(self._first_body_cell(taller), {"en": "a b"})
+
+    def test_text_centred_on_the_band_edge_belongs_to_the_band(self):
+        """Başlık metninin ortası başlık bandının alt kenarında: bant kenarı banda dahildir."""
+        layout = ZebraLayout(ROWS[:1])
+        centred = _bold(_cell_row(layout.top(1) - TEXT_HEIGHT / 2, HEADER))
+        body = _cell_row(layout.top(1) + TEXT_DROP, ROWS[0])
+        [table] = _scan(FakePdfPage(lines=[centred, body], shapes=layout.shading(0) + layout.shading(1)))
+        self.assertEqual(_texts(table), [HEADER, ROWS[0]])
+
+
+class WideSpanTest(unittest.TestCase):
+    def test_row_with_a_span_wider_than_the_widest_column_ends_the_table(self):
+        layout = ZebraLayout(ROWS)
+        y0 = layout.bottom() + TEXT_DROP
+        wide = span("A sentence across two columns", (COLUMNS[0][0], y0, COLUMNS[1][1] - PADDING, y0 + TEXT_HEIGHT))
+        row = (wide,) + _cell_row(y0, ("", "", "x"))
+        [table] = _scan(FakePdfPage(lines=layout.lines() + [row], shapes=layout.shading(0) + layout.shading(2)))
+        self.assertEqual(_texts(table), [HEADER] + ROWS)
+
+
 AREA_TOP_SHIFT = 0.5         # parçanın tepesi tablo alanının bu kadar üstünde
 
 
@@ -231,6 +274,7 @@ BOOK_SETTINGS = {"table_row_gap_ratio": 1.1}
 CELL_INSET, CELL_TEXT_DROP, CELL_TEXT_BOTTOM, CELL_CHAR_WIDTH = 4, 0.4, 12.8, 5
 CELL_SIZE = 9
 RULE_GAP = 4
+RULE_TOP = TABLE_TOP + CELL_HEIGHT * 2 + RULE_GAP   # tek gövde satırlı terim tablosunun alt çizgisi
 
 
 def _cell_lines(top, texts):
@@ -264,9 +308,14 @@ class TermTableLayout:
         return _bold_lines(_cell_lines(self._top, TERM_HEADER)) + body
 
     def shapes(self):
+        return self.header_fills() + self.bottom_rules()
+
+    def header_fills(self):
+        return [fill(left, self._top, right, self._top + CELL_HEIGHT) for left, right in TERM_COLUMNS]
+
+    def bottom_rules(self):
         rule_y = self.bottom() + RULE_GAP
-        header = [fill(left, self._top, right, self._top + CELL_HEIGHT) for left, right in TERM_COLUMNS]
-        return header + [stroke(left, rule_y, right, rule_y) for left, right in TERM_COLUMNS]
+        return [stroke(left, rule_y, right, rule_y) for left, right in TERM_COLUMNS]
 
     def bottom(self):
         return self._row_top(len(self._rows) + 1)
@@ -382,6 +431,40 @@ class SingleColumnEdgeTest(unittest.TestCase):
     def test_single_column_line_after_the_last_row_is_left_out(self):
         [found] = _scan_book(TermTableLayout(TABLE_TOP, [self.ROW, ("a Estimated.",)]).page())
         self.assertEqual(_texts(found), [list(TERM_HEADER), list(self.ROW)])
+
+
+class BottomRuleTest(unittest.TestCase):
+    """Tablo altındaki ilk yatay çizgide biter. Çizgi sayılan: en çok RULE_MAX_HEIGHT kalınlığında, en az
+    MIN_CELL_WIDTH uzunluğunda ve tablonun altında yatayda onunla örtüşen dolgusuz çizim."""
+
+    ROW = ("Availability", "How long the system is available")
+    EXTRA = ("Extra", "Row after the table")
+
+    def _rows_under(self, rule):
+        """Tablo, altında bir çizgi ve çizginin altında sütunlara oturan bir satır."""
+        table = TermTableLayout(TABLE_TOP, [self.ROW])
+        extra = _cell_lines(table.bottom() + CELL_HEIGHT * 2, self.EXTRA)
+        [found] = _scan_book(FakePdfPage(lines=table.lines() + extra, shapes=table.header_fills() + [rule]))
+        return _texts(found)
+
+    def _rule(self, height=0, span=None):
+        left, right = TERM_COLUMNS[0][0], TERM_COLUMNS[-1][1]
+        return stroke(left, RULE_TOP, span or right, RULE_TOP + height)
+
+    def test_rule_as_thick_as_the_limit_ends_the_table(self):
+        self.assertEqual(self._rows_under(self._rule(height=RULE_MAX_HEIGHT)), [list(TERM_HEADER), list(self.ROW)])
+
+    def test_thicker_stroke_is_not_a_rule(self):
+        self.assertIn(list(self.EXTRA), self._rows_under(self._rule(height=RULE_MAX_HEIGHT + STEP)))
+
+    def test_stroke_shorter_than_a_cell_is_not_a_rule(self):
+        left = TERM_COLUMNS[0][0]
+        self.assertIn(list(self.EXTRA), self._rows_under(self._rule(span=left + MIN_CELL_WIDTH - STEP)))
+
+    def test_rule_beside_the_table_does_not_end_it(self):
+        right = TERM_COLUMNS[-1][1]
+        beside = stroke(right + MIN_CELL_WIDTH, RULE_TOP, right + 3 * MIN_CELL_WIDTH, RULE_TOP)
+        self.assertIn(list(self.EXTRA), self._rows_under(beside))
 
 
 class TableEndTest(unittest.TestCase):
