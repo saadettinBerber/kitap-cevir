@@ -24,17 +24,20 @@ class FakeImageFolder:
     """ImageFolder gibi; dosyalar {src: (genişlik, yükseklik)} olarak verilir."""
 
     def __init__(self, sizes):
-        self.sizes = sizes
-        self.copied = []
+        self._sizes = sizes
+        self._copies = []
 
     def has(self, src):
-        return src in self.sizes
+        return src in self._sizes
 
     def size(self, src):
-        return self.sizes[src]
+        return self._sizes[src]
 
     def copy(self, sources, target_dir):
-        self.copied += [(src, target_dir) for src in sources]
+        self._copies += [(src, target_dir) for src in sources]
+
+    def copied(self):
+        return list(self._copies)
 
 
 def _anchored(blocks, sizes):
@@ -129,11 +132,11 @@ class FakeExtractedImages:
     """ExtractedImages gibi; sayfayı PDF'ten çıkarmak yerine hazır blokları verir."""
 
     def __init__(self, blocks, folder):
-        self.blocks = blocks
-        self.folder = folder
+        self._blocks = blocks
+        self._folder = folder
 
     def of(self, page):
-        return PageImages(self.blocks, self.folder)
+        return PageImages(self._blocks, self._folder)
 
 
 class ImageBackfillerTest(unittest.TestCase):
@@ -166,7 +169,7 @@ class ImageBackfillerTest(unittest.TestCase):
     def test_added_image_is_copied_next_to_the_page(self):
         self._write_page([_para("Layers separate concerns.")])
         self.backfiller.backfill_page(self.PAGE)
-        self.assertEqual(self.folder.copied, [("fig.png", self.pages.images_dir(self.PAGE))])
+        self.assertEqual(self.folder.copied(), [("fig.png", self.pages.images_dir(self.PAGE))])
 
     def test_second_run_adds_nothing(self):
         self._write_page([_para("Layers separate concerns.")])
@@ -181,6 +184,7 @@ class ImageBackfillerTest(unittest.TestCase):
         self.backfiller.backfill_page(self.PAGE)
         with open(path, encoding="utf-8") as page_js:
             self.assertTrue(page_js.read().endswith("// elle eklenmiş satır\n"))
+
 
 if __name__ == "__main__":
     unittest.main()
