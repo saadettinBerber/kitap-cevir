@@ -103,9 +103,10 @@ class TableColumns:
     def buckets(self, row):
         """Her sütuna düşen parçalar. İki sütunun payına giren parça soldakine gider;
         hiçbir sütuna düşmeyen parça atılır (sahipsiz boş listeye eklenir)."""
-        buckets = [[] for _ in self.columns]
-        for span in row.spans:
-            next((bucket for bucket, column in zip(buckets, self.columns) if self._holds(column, span)), []).append(span)
+        buckets, unplaced = [], list(row.spans)
+        for column in self.columns:
+            buckets.append([span for span in unplaced if self._holds(column, span)])
+            unplaced = [span for span in unplaced if span not in buckets[-1]]
         return buckets
 
     @staticmethod
