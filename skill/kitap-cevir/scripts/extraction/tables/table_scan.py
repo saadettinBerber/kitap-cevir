@@ -66,24 +66,24 @@ class TableRow:
 
 
 class TableBuilder:
-    """Bir hücre kümesinden (tek tablo) satırları, başlığı ve hücreleri kurar."""
+    """Sayfanın dolgularından hücre kümesi başına (tek tablo) satırları, başlığı ve hücreleri kurar."""
 
-    def __init__(self, page_spans, fills, row_gap_ratio):
-        self.page_spans = page_spans
-        self.fills = fills
-        self.row_gap_ratio = row_gap_ratio
+    def __init__(self, fills, row_gap_ratio):
+        self._fills = fills
+        self._row_gap_ratio = row_gap_ratio
 
-    def tables_in(self, cells):
+    def tables_in(self, cells, page_spans):
         """Kümedeki tablo [{y0, y1, block}] olarak; tablo değilse boş liste."""
-        grid = self.fills.grid_of(cells)
+        grid = self._fills.grid_of(cells)
         if not grid.has_columns():
             return []
-        spans = self._spans_within(self.fills.extent(cells))
-        table = FilledTable.trimmed(RowSplitter(grid, self.row_gap_ratio).rows(spans), grid)
+        spans = _spans_within(self._fills.extent(cells), page_spans)
+        table = FilledTable.trimmed(RowSplitter(grid, self._row_gap_ratio).rows(spans), grid)
         return [table.region()] if table.is_table() else []
 
-    def _spans_within(self, area):
-        return [s for s in self.page_spans if area.contains_point(s.box.x0 + CORNER_TOLERANCE, s.box.y0 + CORNER_TOLERANCE)]
+
+def _spans_within(area, spans):
+    return [s for s in spans if area.contains_point(s.box.x0 + CORNER_TOLERANCE, s.box.y0 + CORNER_TOLERANCE)]
 
 
 class FilledTable:
@@ -162,8 +162,8 @@ class TableScanner:
         spans = self._page_spans(page)
         if fills.is_empty():
             return AlignedTableFinder.of_spans([span for span in spans if span.box.y1 <= body_bottom]).tables()
-        builder = TableBuilder(spans, fills, self.row_gap_ratio)
-        return [table for cells in fills.table_groups() for table in builder.tables_in(cells)]
+        builder = TableBuilder(fills, self.row_gap_ratio)
+        return [table for cells in fills.table_groups() for table in builder.tables_in(cells, spans)]
 
     @staticmethod
     def _page_spans(page):
