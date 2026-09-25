@@ -49,6 +49,10 @@ class PdfInspectorTest(unittest.TestCase):
         texts = PdfInspector(_book()).page_texts("1-2")
         self.assertEqual([number for number, _ in texts], [1, 2])
 
+    def test_each_page_comes_with_its_own_text(self):
+        self.assertEqual(PdfInspector(_book()).page_texts(f"{OFFSET}-{OFFSET + 1}"),
+                         [(OFFSET, "Preface"), (OFFSET + 1, "Body text of the chapter\n1")])
+
     def test_empty_metadata_fields_are_left_out(self):
         document = FakePdfDocument([_text_page(("x", 62))], metadata={"title": "Book", "author": ""})
         self.assertEqual(PdfInspector(document).metadata(), {"title": "Book"})
