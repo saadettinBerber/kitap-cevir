@@ -29,9 +29,9 @@ class PageFinalizer:
     """Çevirmen çıktısını projeye işler: sayfa dosyası, görseller, ilerleme, sözlük, içindekiler."""
 
     def __init__(self, project, settings):
-        self.project = project
-        self.settings = settings
-        self.pages = TranslatedPages(project)
+        self._project = project
+        self._settings = settings
+        self._pages = TranslatedPages(project)
 
     @classmethod
     def for_project(cls, project):
@@ -40,7 +40,7 @@ class PageFinalizer:
     def finalize(self, translated_path):
         """Sayfayı projeye işler; dönen özet, CLI'ın basacağı uyarıları taşır."""
         page = self._read(translated_path)
-        page_js = self.pages.save(page)
+        page_js = self._pages.save(page)
         images = self._copy_images(page)
         progress = self._register(page.data)
         cards = page.data.get("concepts", [])
@@ -52,7 +52,7 @@ class PageFinalizer:
         """Kartlar çeviriden sonra ayrı üretilir; kartsız sayfa sorun değil, bekleyen iştir."""
         if not cards:
             return []
-        return CardChecker(self.settings.concepts()).problems(cards)
+        return CardChecker(self._settings.concepts()).problems(cards)
 
     def _read(self, translated_path):
         page = PageDocument(read_json(translated_path))
@@ -61,10 +61,10 @@ class PageFinalizer:
 
     def _rebuild_reader_data(self, page, progress):
         """Yeni terimleri sözlüğe ekler, toc.js ve glossary.js'i yeniden yazar; eklenen terim sayısı."""
-        glossary = Glossary(self.project.glossary_md())
+        glossary = Glossary(self._project.glossary_md())
         new_terms = glossary.unknown(page.data.get("glossary_new", []))
         glossary.add(new_terms)
-        reader_data = ReaderData(self.project)
+        reader_data = ReaderData(self._project)
         reader_data.write_toc(progress)
         reader_data.write_glossary(glossary)
         return len(new_terms)
@@ -79,16 +79,16 @@ class PageFinalizer:
         sources = page.media_sources()
         if not sources:
             return 0
-        work_images = ImageFolder(self.project.work_images(page.number()))
+        work_images = ImageFolder(self._project.work_images(page.number()))
         present = [src for src in sources if work_images.has(src)]
-        work_images.copy(present, self.pages.images_dir(page.number()))
+        work_images.copy(present, self._pages.images_dir(page.number()))
         return len(present)
 
     def _register(self, document):
         """Sayfayı progress.json'a kaydeder, last_translated_page'i ilerletir."""
-        progress = self.project.load_progress()
+        progress = self._project.load_progress()
         progress.record_translation(document)
-        self.project.save_progress(progress)
+        self._project.save_progress(progress)
         return progress
 
 
