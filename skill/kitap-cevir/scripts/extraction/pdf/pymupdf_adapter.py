@@ -5,6 +5,8 @@ import fitz
 from extraction.pdf.geometry import Box
 from extraction.pdf.model import Drawing, Span
 
+FIRST_PAGE_NUMBER = 1       # PdfPage sayfaları 1'den, PyMuPDF 0'dan sayar
+
 
 class PyMuPdfDocument:
     """Açık bir PDF; sayfalarını `PdfPage` olarak verir. `with` bloğunun sonunda kapanır."""
@@ -32,13 +34,13 @@ class PyMuPdfDocument:
         return self._document.metadata or {}
 
     def page(self, number):
-        return PyMuPdfPage(self.pdf_path, number, self._document[number - 1])
+        return PyMuPdfPage(self._document[number - FIRST_PAGE_NUMBER])
 
 
 class PyMuPdfPage:
-    def __init__(self, pdf_path, number, page):
-        self.pdf_path = pdf_path
-        self.number = number
+    def __init__(self, page):
+        self.pdf_path = page.parent.name
+        self.number = page.number + FIRST_PAGE_NUMBER
         self._page = page
         self.width = page.rect.width
         self.height = page.rect.height
