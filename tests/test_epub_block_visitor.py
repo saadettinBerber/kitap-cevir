@@ -89,6 +89,10 @@ class MediaBlockTest(unittest.TestCase):
         passage = _only(_para(("x ⟦eq-2⟧ y", "x ⟦eq-2⟧ y")), math=[{"id": "eq-2", "src": "eq-2.png", "text": "z"}])
         self.assertIn('<img class="math-inline" src="../images/page-12/eq-2.png" alt="z"/>', passage.render(FIRST_NOTE))
 
+    def test_inline_equation_in_the_english_note_becomes_png(self):
+        passage = _only(_para(("x ⟦eq-2⟧", "y ⟦eq-2⟧")), math=[{"id": "eq-2", "src": "eq-2.png", "text": "z"}])
+        self.assertEqual(passage.english(), ['x <img class="math-inline" src="../images/page-12/eq-2.png" alt="z"/>'])
+
     def test_unknown_inline_placeholder_stays(self):
         self.assertEqual(_html(_para(("x ⟦eq-9⟧", "x ⟦eq-9⟧"))), '<p class="para">x ⟦eq-9⟧</p>')
 
