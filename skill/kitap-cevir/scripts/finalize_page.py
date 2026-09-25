@@ -8,11 +8,10 @@
 
 Kullanım (proje dizininde): python3 finalize_page.py _work/out/page-N.json
 """
-import os
-import shutil
 import sys
 
 from concept_check import CardChecker
+from image_folder import ImageFolder
 from json_file import read_json
 from page_document import PageDocument
 from project import Project
@@ -75,12 +74,9 @@ class PageFinalizer:
         sources = page.media_sources()
         if not sources:
             return 0
-        src_dir = self.project.work_images(page.data["page"])
-        dst_dir = self.pages.images_dir(page.data["page"])
-        os.makedirs(dst_dir, exist_ok=True)
-        present = [name for name in sources if os.path.isfile(os.path.join(src_dir, name))]
-        for name in present:
-            shutil.copy2(os.path.join(src_dir, name), os.path.join(dst_dir, name))
+        work_images = ImageFolder(self.project.work_images(page.number()))
+        present = [src for src in sources if work_images.has(src)]
+        work_images.copy(present, self.pages.images_dir(page.number()))
         return len(present)
 
     def _register(self, document):
