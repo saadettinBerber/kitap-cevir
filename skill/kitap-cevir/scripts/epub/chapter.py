@@ -6,7 +6,8 @@ from epub.cards import ChapterCards, PageCards
 from epub.fragments import Fragment, notes_section
 from epub.xhtml import document
 
-PAGE_MARK = '<span epub:type="pagebreak" role="doc-pagebreak" id="page-{n}" title="{n}"/>'
+PAGE_ANCHOR = "page-{n}"
+PAGE_MARK = '<span epub:type="pagebreak" role="doc-pagebreak" id="' + PAGE_ANCHOR + '" title="{n}"/>'
 
 
 def page_mark(page):
@@ -70,21 +71,29 @@ class Chapter:
     """Bölüm dosyası; bölüm bilgisi ({num, en, tr}) ilk sayfasının belgesinden gelir."""
 
     def __init__(self, file_name, info):
-        self.file_name = file_name
+        self._file_name = file_name
         self._info = info
         self._flow = ChapterFlow()
-        self.pages = []
+        self._pages = []
         self._cards = ChapterCards()
 
     def add(self, page_document):
         page = page_document.number()
-        self.pages.append(page)
+        self._pages.append(page)
         self._flow.add_page(page, EpubBlockVisitor(page_document).fragments())
         self._add_cards(PageCards(page, page_document.concepts()))
 
     def _add_cards(self, cards):
         self._flow.end_page(cards.page_end())
         self._cards.add(cards)
+
+    def href(self, anchor=""):
+        """Bölüm dosyasına, çapa verilirse dosyadaki o yere bağlantı."""
+        return f"{self._file_name}#{anchor}" if anchor else self._file_name
+
+    def page_links(self):
+        """(basılı sayfa, bağlantı) çiftleri; Kindle'ın sayfa listesi bunlardan kurulur."""
+        return [(page, self.href(PAGE_ANCHOR.format(n=page))) for page in self._pages]
 
     def title(self):
         return self._info.get("tr") or self._info.get("en") or ""

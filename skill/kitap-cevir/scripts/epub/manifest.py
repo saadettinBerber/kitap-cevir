@@ -3,6 +3,7 @@ import mimetypes
 import uuid
 from dataclasses import dataclass
 from html import escape
+from pathlib import Path
 from urllib.parse import quote
 
 from epub.xhtml import document
@@ -56,7 +57,7 @@ class EpubMetadata:
 
 def content_opf(metadata, chapters, image_hrefs):
     items = [NAV_ITEM, _item("css", STYLESHEET, "text/css")]
-    items += [_item(_chapter_id(chapter), f"text/{chapter.file_name}", XHTML_TYPE) for chapter in chapters]
+    items += [_item(_chapter_id(chapter), f"text/{chapter.href()}", XHTML_TYPE) for chapter in chapters]
     items += [_item(f"img-{index}", href, _media_type(href)) for index, href in enumerate(image_hrefs, 1)]
     spine = [f'<itemref idref="{_chapter_id(chapter)}"/>' for chapter in chapters]
     return CONTENT_OPF.format(identifier=metadata.identifier, title=escape(metadata.title),
@@ -67,9 +68,8 @@ def content_opf(metadata, chapters, image_hrefs):
 def nav_xhtml(chapters):
     """İçindekiler, başlangıç yeri ve basılı sayfa listesi."""
     toc = "".join(_toc_item(chapter) for chapter in chapters)
-    pages = "".join(f'<li><a href="{chapter.file_name}#page-{page}">{page}</a></li>'
-                    for chapter in chapters for page in chapter.pages)
-    start = f'<li><a epub:type="bodymatter" href="{chapters[0].file_name}">Başla</a></li>' if chapters else ""
+    pages = "".join(f'<li><a href="{href}">{page}</a></li>' for chapter in chapters for page, href in chapter.page_links())
+    start = f'<li><a epub:type="bodymatter" href="{chapters[0].href()}">Başla</a></li>' if chapters else ""
     return document("İçindekiler", (
         f'<nav epub:type="toc" id="toc"><h1>İçindekiler</h1><ol>{toc}</ol></nav>\n'
         f'<nav epub:type="landmarks" hidden="hidden"><ol>'
@@ -78,10 +78,10 @@ def nav_xhtml(chapters):
 
 
 def _toc_item(chapter):
-    entries = "".join(f'<li><a href="{chapter.file_name}#{anchor}">{escape(text)}</a></li>'
+    entries = "".join(f'<li><a href="{chapter.href(anchor)}">{escape(text)}</a></li>'
                       for text, anchor in chapter.toc_entries())
     nested = f"<ol>{entries}</ol>" if entries else ""
-    return f'<li><a href="{chapter.file_name}">{escape(chapter.title())}</a>{nested}</li>'
+    return f'<li><a href="{chapter.href()}">{escape(chapter.title())}</a>{nested}</li>'
 
 
 def _item(item_id, href, media_type):
@@ -89,7 +89,7 @@ def _item(item_id, href, media_type):
 
 
 def _chapter_id(chapter):
-    return chapter.file_name.removesuffix(".xhtml")
+    return Path(chapter.href()).stem
 
 
 def _media_type(href):

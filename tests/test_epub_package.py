@@ -9,13 +9,20 @@ from epub.package import EpubPackage, MalformedXhtml
 
 BOOK = {"slug": "demo", "title": "Demo", "author": "Yazar & Ortak"}
 MODIFIED = datetime(2026, 9, 25, 10, 30, tzinfo=timezone.utc)
+PAGE = 5
 
 
 class _Chapter:
-    """Pakete yalnız dosya adı, başlık, sayfalar, içindekiler ve XHTML lazım."""
+    """Pakete yalnız bağlantılar, başlık, içindekiler ve XHTML lazım."""
 
-    def __init__(self, file_name, xhtml="<html/>", pages=(5,)):
-        self.file_name, self._xhtml, self.pages = file_name, xhtml, list(pages)
+    def __init__(self, file_name, xhtml="<html/>"):
+        self._file_name, self._xhtml = file_name, xhtml
+
+    def href(self, anchor=""):
+        return f"{self._file_name}#{anchor}" if anchor else self._file_name
+
+    def page_links(self):
+        return [(PAGE, self.href(f"page-{PAGE}"))]
 
     def title(self):
         return "Bölüm"
@@ -88,9 +95,9 @@ class ManifestTest(unittest.TestCase):
         self.assertIn("Yazar &amp; Ortak", content_opf(EpubMetadata.for_book(BOOK, MODIFIED), [], []))
 
     def test_nav_links_headings_and_printed_pages(self):
-        nav = nav_xhtml([_Chapter("chapter-01.xhtml", pages=[5, 6])])
+        nav = nav_xhtml([_Chapter("chapter-01.xhtml")])
         self.assertIn('href="chapter-01.xhtml#h-5-1">Giriş', nav)
-        self.assertIn('href="chapter-01.xhtml#page-6">6', nav)
+        self.assertIn(f'href="chapter-01.xhtml#page-{PAGE}">{PAGE}', nav)
 
     def test_nav_without_chapters_has_no_start(self):
         self.assertNotIn("bodymatter", nav_xhtml([]))

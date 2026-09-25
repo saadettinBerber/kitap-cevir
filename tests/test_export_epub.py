@@ -40,11 +40,11 @@ class _Pages:
 class ChaptersOfTest(unittest.TestCase):
     def test_consecutive_pages_of_a_chapter_share_a_file(self):
         chapters = chapters_of([_document(1, 1), _document(2, 1), _document(3, 2)])
-        self.assertEqual([chapter.pages for chapter in chapters], [[1, 2], [3]])
+        self.assertEqual([[page for page, _ in chapter.page_links()] for chapter in chapters], [[1, 2], [3]])
 
     def test_chapter_files_are_numbered_in_order(self):
         chapters = chapters_of([_document(1, 0), _document(2, 1)])
-        self.assertEqual([chapter.file_name for chapter in chapters], ["chapter-01.xhtml", "chapter-02.xhtml"])
+        self.assertEqual([chapter.href() for chapter in chapters], ["chapter-01.xhtml", "chapter-02.xhtml"])
 
     def test_no_pages_no_chapters(self):
         self.assertEqual(chapters_of([]), [])

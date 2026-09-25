@@ -113,7 +113,7 @@ class ChapterTest(unittest.TestCase):
     def test_chapter_records_its_pages(self):
         self.chapter.add(_page(PAGE, [_para_block("A.", "B.")]))
         self.chapter.add(_page(NEXT_PAGE, [_para_block("C.", "D.")]))
-        self.assertEqual(self.chapter.pages, [PAGE, NEXT_PAGE])
+        self.assertEqual(self.chapter.page_links(), [(PAGE, f"chapter-02.xhtml#page-{PAGE}"), (NEXT_PAGE, f"chapter-02.xhtml#page-{NEXT_PAGE}")])
 
     def test_title_is_turkish(self):
         self.assertEqual(self.chapter.title(), "Değerlendirme")

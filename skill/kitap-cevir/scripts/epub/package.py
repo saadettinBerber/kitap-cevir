@@ -37,7 +37,7 @@ class EpubPackage:
                 archive.writestr(f"{CONTENT_DIR}/{name}", content)
 
     def _documents(self):
-        texts = {f"text/{chapter.file_name}": chapter.xhtml() for chapter in self.chapters}
+        texts = {f"text/{chapter.href()}": chapter.xhtml() for chapter in self.chapters}
         texts[f"text/{NAV_FILE}"] = nav_xhtml(self.chapters)
         for name, text in texts.items():
             _check_well_formed(name, text)
