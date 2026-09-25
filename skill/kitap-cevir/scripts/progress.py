@@ -2,6 +2,8 @@
 sayfa, bölümler. Tek doğruluk kaynağıdır; JSON bir veri taşıyıcıdır, okuyucu da
 (data/toc.js üzerinden) okur. Kitap ayarları BookSettings'tedir.
 """
+import copy
+
 UNKNOWN_CHAPTER = {"num": 0, "en": "", "tr": ""}
 
 
@@ -10,6 +12,10 @@ class Progress:
 
     def __init__(self, data):
         self.data = data
+
+    def as_json(self):
+        """progress.json'a yazılacak sözlüğün kopyası; kayıt yalnız kendi metotlarıyla değişir."""
+        return copy.deepcopy(self.data)
 
     def pdf_page(self, page):
         return page + self.data["pdf_offset"]

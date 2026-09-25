@@ -62,6 +62,16 @@ class PageRecordTest(unittest.TestCase):
         self.assertEqual(self.progress.pages_per_run(), 1)
 
 
+class JsonFormTest(unittest.TestCase):
+    def test_json_form_is_the_whole_record(self):
+        self.assertEqual(Progress({"pages": {"3": {"pdf_page": 22}}}).as_json(), {"pages": {"3": {"pdf_page": 22}}})
+
+    def test_changing_the_json_form_leaves_the_record_intact(self):
+        progress = Progress({"pages": {}})
+        progress.as_json()["pages"]["3"] = {"pdf_page": 22}
+        self.assertEqual(progress.translated_pages(), [])
+
+
 class TranslatedPagesTest(unittest.TestCase):
     """Çevrilmiş sayfaların tek kaynağı progress.json'daki kayıttır."""
 
