@@ -233,6 +233,16 @@ class RowBandTest(unittest.TestCase):
         taller = fill(column[0], self.BODY_TOP, column[1], self.LOW_LINE + ROW_HEIGHT)
         self.assertEqual(self._first_body_cell(taller), {"en": "a b"})
 
+    def test_band_starts_a_row_right_under_close_unbanded_text(self):
+        """Bandın metni üstteki bantsız satıra satır boşluğu eşiğinden yakın olsa da yeni satırdır."""
+        unbanded_top = self.BODY_TOP + TEXT_DROP
+        banded_top = unbanded_top + TEXT_HEIGHT
+        band = [fill(left, banded_top - TEXT_DROP / 2, right, banded_top + ROW_HEIGHT) for left, right in COLUMNS]
+        lines = [_bold(_cell_row(TABLE_TOP + TEXT_DROP, HEADER)), _cell_row(unbanded_top, ROWS[0]),
+                 _cell_row(banded_top, ROWS[1])]
+        [table] = _scan(FakePdfPage(lines=lines, shapes=ZebraLayout([]).shading(0) + band))
+        self.assertEqual(_texts(table), [HEADER] + ROWS[:2])
+
     def test_text_centred_on_the_band_edge_belongs_to_the_band(self):
         """Başlık metninin ortası başlık bandının alt kenarında: bant kenarı banda dahildir."""
         layout = ZebraLayout(ROWS[:1])
