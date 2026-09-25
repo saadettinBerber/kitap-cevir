@@ -1,7 +1,7 @@
-import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 import _paths  # noqa: F401
 from progress import Progress
@@ -9,26 +9,32 @@ from project import Project, ProjectNotFound, find_root
 
 
 class FindRootTest(unittest.TestCase):
+    """Ortamda KITAP_ROOT yokken kök, progress.json'u taşıyan en yakın üst klasördür."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = self.tmp.name
+        self.environment = mock.patch.dict(os.environ)
+        self.environment.start()
+        os.environ.pop("KITAP_ROOT", None)
+
+    def tearDown(self):
+        self.environment.stop()
+        self.tmp.cleanup()
+
     def test_walks_up_to_progress_json(self):
-        with tempfile.TemporaryDirectory() as root:
-            open(os.path.join(root, "progress.json"), "w").write("{}")
-            nested = os.path.join(root, "a", "b")
-            os.makedirs(nested)
-            self.assertEqual(find_root(nested), os.path.realpath(root) if os.path.realpath(root) == root else root)
+        Project(self.root).save_progress(Progress({}))
+        nested = os.path.join(self.root, "a", "b")
+        os.makedirs(nested)
+        self.assertEqual(find_root(nested), self.root)
 
     def test_raises_when_missing(self):
-        with tempfile.TemporaryDirectory() as root:
-            os.environ.pop("KITAP_ROOT", None)
-            with self.assertRaises(ProjectNotFound):
-                find_root(root)
+        with self.assertRaises(ProjectNotFound):
+            find_root(self.root)
 
     def test_env_override_wins(self):
-        with tempfile.TemporaryDirectory() as root:
-            os.environ["KITAP_ROOT"] = root
-            try:
-                self.assertEqual(find_root("/"), root)
-            finally:
-                del os.environ["KITAP_ROOT"]
+        os.environ["KITAP_ROOT"] = self.root
+        self.assertEqual(find_root("/"), self.root)
 
 
 class PdfPathTest(unittest.TestCase):
