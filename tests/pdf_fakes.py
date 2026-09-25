@@ -86,13 +86,14 @@ class FakePdfDocument:
         return self.pages[number - FIRST_PAGE_NUMBER].text()
 
 
-@dataclass
 class FakeLayoutReader:
     """Önceden verilen öğeleri sayfanın düzeni olarak döndürür."""
-    elements: tuple = ()
+
+    def __init__(self, elements=()):
+        self._elements = tuple(elements)
 
     def read(self, page, image_dir):
-        return PageLayout(page.height, tuple(self.elements))
+        return PageLayout(page.height, self._elements)
 
 
 @contextlib.contextmanager
