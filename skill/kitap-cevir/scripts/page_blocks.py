@@ -32,11 +32,13 @@ class Block:
 
     def card_unit(self):
         """Kart agent'ının okuyacağı tek {type, en, tr} birimi; metni yoksa boş."""
-        units = self.units()
-        if not units:
+        if not self.units():
             return {}
-        return {"type": self.kind, "en": " ".join(unit.get("en", "") for unit in units),
-                "tr": " ".join(unit.get("tr", "") for unit in units)}
+        return {"type": self.kind, "en": self._joined("en"), "tr": self._joined("tr")}
+
+    def _joined(self, lang):
+        """Birimlerin o dildeki metinleri tek metin olur."""
+        return " ".join(unit.get(lang, "") for unit in self.units())
 
     def anchor_text(self):
         """Görsel yerleştirirken bloğu tanıtan İngilizce metin."""
@@ -92,7 +94,7 @@ class ParaBlock(Block):
         self.data["sentences"] = filler.fill_sentences(self.data["sentences"], path)
 
     def anchor_text(self):
-        return " ".join(unit.get("en", "") for unit in self.units())
+        return self._joined("en")
 
     def accept(self, visitor):
         return visitor.visit_para(self)
@@ -103,7 +105,7 @@ class ListBlock(Block):
         return [(f".items[{index}]", item) for index, item in enumerate(self.data["items"])]
 
     def anchor_text(self):
-        return " ".join(unit.get("en", "") for unit in self.units())
+        return self._joined("en")
 
     def accept(self, visitor):
         return visitor.visit_list(self)
