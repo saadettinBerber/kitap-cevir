@@ -11,18 +11,18 @@ class CodeFont:
     """Bir span'ın kod fontu olup olmadığına karar verir (progress.json -> extraction)."""
 
     def __init__(self, settings):
-        self.prefix = settings["code_font_prefix"]
-        self.max_size = settings["code_max_font_size"]
+        self._prefix = settings["code_font_prefix"]
+        self._max_size = settings["code_max_font_size"]
 
     def matches(self, span):
-        return span.font.startswith(self.prefix) and span.size < self.max_size
+        return span.font.startswith(self._prefix) and span.size < self._max_size
 
 
 class PageLineReader:
     """Bir sayfanın satırlarını, metinleri hazır TextLine listesi olarak okur."""
 
     def __init__(self, code_font):
-        self.code_font = code_font
+        self._code_font = code_font
 
     def read(self, page):
         """page: PdfPage."""
@@ -40,7 +40,7 @@ class PageLineReader:
         return sorted(lines, key=TextLine.sort_key)
 
     def _marked_spans(self, line):
-        return [LineSpan.marked(span, self.code_font.matches(span)) for span in line]
+        return [LineSpan.marked(span, self._code_font.matches(span)) for span in line]
 
     @staticmethod
     def _split_by_baseline(spans):

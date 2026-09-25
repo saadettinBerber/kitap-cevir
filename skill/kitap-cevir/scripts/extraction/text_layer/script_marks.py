@@ -41,11 +41,11 @@ class ScriptAttacher:
     """Sayfa satırlarındaki simge parçalarını ev sahibi satırlara bağlar."""
 
     def __init__(self, lines):
-        self.lines = lines
+        self._lines = lines
 
     def attach(self):
         """Simge olarak bağlanan parçalar düşülmüş satır listesi."""
-        return [rest for line in self.lines for rest in self._attach_runs(line)]
+        return [rest for line in self._lines for rest in self._attach_runs(line)]
 
     def _attach_runs(self, line):
         """Ev sahibi bulunan parçalar simge olarak bağlanır; kalan parçalar satır olarak döner."""
@@ -80,7 +80,7 @@ class ScriptAttacher:
         return runs
 
     def _host_of(self, part, source):
-        candidates = ((host, self._marker(part, host)) for host in self.lines if host is not source)
+        candidates = ((host, self._marker(part, host)) for host in self._lines if host is not source)
         return next(((host, marker) for host, marker in candidates if marker), (None, ""))
 
     def _marker(self, part, host):
@@ -121,18 +121,18 @@ class ScriptFixes:
     """Bağlanmış simgelerden ODL metnine uygulanacak {düz: simgeli} eşlemeleri."""
 
     def __init__(self, lines):
-        self.lines = lines
+        self._lines = lines
 
     def for_code(self):
         """Düz metne düşürülen simgeli kod parçaları ('3.14 × 10' -> '3.14 × 10^23');
         TextFixer.plain uygular."""
         return {line.raw_text.strip(): line.text.strip()
-                for line in self.lines if not line.is_code and line.uses_script_layout()}
+                for line in self._lines if not line.is_code and line.uses_script_layout()}
 
     def for_prose(self):
         """Gövde metnindeki simgeli sözcükler ('ma' -> 'mᵃ')."""
         fixes = {}
-        for line in self.lines:
+        for line in self._lines:
             if not line.uses_script_layout():
                 fixes.update(self._word_fixes(line))
         return fixes
