@@ -5,15 +5,12 @@ from epub.block_visitor import EpubBlockVisitor, image_href
 from epub.fragments import Heading, ParaPassage, PassageList
 from page_document import PageDocument
 
+PAGE = 12
 FIRST_NOTE = 1
 
 
-def _page(*blocks, math=()):
-    return PageDocument({"page": 12, "blocks": list(blocks), "math": list(math)})
-
-
 def _fragments(*blocks, math=()):
-    return EpubBlockVisitor(_page(*blocks, math=math)).fragments()
+    return EpubBlockVisitor(PageDocument({"page": PAGE, "blocks": list(blocks), "math": list(math)})).fragments()
 
 
 def _only(*blocks, math=()):
@@ -59,7 +56,7 @@ class HeadingTest(unittest.TestCase):
         headings = _fragments({"type": "heading", "level": 1, "en": "A", "tr": "B"},
                               {"type": "heading", "level": 1, "en": "C", "tr": "D"})
         self.assertEqual([heading.render(FIRST_NOTE) for heading in headings],
-                         ['<h2 id="h-12-1">B</h2>', '<h2 id="h-12-2">D</h2>'])
+                         [f'<h2 id="h-{PAGE}-1">B</h2>', f'<h2 id="h-{PAGE}-2">D</h2>'])
 
     def test_level_below_one_becomes_one(self):
         self.assertTrue(_html({"type": "heading", "level": 0, "en": "A", "tr": "B"}).startswith("<h2 "))
@@ -81,19 +78,21 @@ class SilentBlockTest(unittest.TestCase):
 
 class MediaBlockTest(unittest.TestCase):
     def test_image_points_into_the_page_folder(self):
-        self.assertIn('src="../images/page-12/fig%201.png"', _html({"type": "image", "src": "fig 1.png"}))
+        self.assertIn(f'src="../images/page-{PAGE}/fig%201.png"', _html({"type": "image", "src": "fig 1.png"}))
 
     def test_display_math_is_its_png_with_text_as_alt(self):
         html = _html({"type": "math", "src": "eq-1.png", "text": "a < b"})
-        self.assertIn('src="../images/page-12/eq-1.png" alt="a &lt; b"', html)
+        self.assertIn(f'src="../images/page-{PAGE}/eq-1.png" alt="a &lt; b"', html)
 
     def test_inline_equation_placeholder_becomes_png(self):
         passage = _only(_para(("x ⟦eq-2⟧ y", "x ⟦eq-2⟧ y")), math=[{"id": "eq-2", "src": "eq-2.png", "text": "z"}])
-        self.assertIn('<img class="math-inline" src="../images/page-12/eq-2.png" alt="z"/>', passage.render(FIRST_NOTE))
+        self.assertIn(f'<img class="math-inline" src="../images/page-{PAGE}/eq-2.png" alt="z"/>',
+                      passage.render(FIRST_NOTE))
 
     def test_inline_equation_in_the_english_note_becomes_png(self):
         passage = _only(_para(("x ⟦eq-2⟧", "y ⟦eq-2⟧")), math=[{"id": "eq-2", "src": "eq-2.png", "text": "z"}])
-        self.assertEqual(passage.english(), ['x <img class="math-inline" src="../images/page-12/eq-2.png" alt="z"/>'])
+        self.assertEqual(passage.english(),
+                         [f'x <img class="math-inline" src="../images/page-{PAGE}/eq-2.png" alt="z"/>'])
 
     def test_unknown_inline_placeholder_stays(self):
         self.assertEqual(_html(_para(("x ⟦eq-9⟧", "x ⟦eq-9⟧"))), '<p class="para">x ⟦eq-9⟧</p>')
