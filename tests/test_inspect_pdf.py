@@ -3,7 +3,7 @@ import io
 import unittest
 
 from pdf_fakes import PAGE_HEIGHT, PAGE_WIDTH, FakePdfDocument, FakePdfPage, span
-from inspect_pdf import TOP_CANDIDATES, FolioOffsets, InspectionReport, PdfInspector
+from inspect_pdf import DEFAULT_LAST_PAGE, TOP_CANDIDATES, FolioOffsets, InspectionReport, PdfInspector, parse_args
 
 OFFSET = 2
 LINE_BOX = (72, 62, 120, 72)
@@ -112,6 +112,44 @@ class FolioOffsetsTest(unittest.TestCase):
 
     def test_zero_offset_is_counted(self):
         self.assertEqual(FolioOffsets.of_folios([(7, 7)]).most_likely(1), [(0, 1, (7, 7))])
+
+
+class _EchoReport:
+    """Çağrılan rapor komutunu ve argümanlarını geri verir."""
+
+    def info(self):
+        return ("info",)
+
+    def text(self, pages):
+        return ("text", pages)
+
+    def layout(self, number):
+        return ("layout", number)
+
+    def offset(self, first, last):
+        return ("offset", first, last)
+
+
+def _command(*argv):
+    args = parse_args(["book.pdf", *argv])
+    return args.run(_EchoReport(), args)
+
+
+class CommandLineTest(unittest.TestCase):
+    def test_info_runs_the_info_report(self):
+        self.assertEqual(_command("info"), ("info",))
+
+    def test_text_passes_the_page_range(self):
+        self.assertEqual(_command("text", "5-9"), ("text", "5-9"))
+
+    def test_layout_takes_the_page_as_a_number(self):
+        self.assertEqual(_command("layout", "40"), ("layout", 40))
+
+    def test_offset_scans_up_to_the_default_last_page(self):
+        self.assertEqual(_command("offset"), ("offset", 1, DEFAULT_LAST_PAGE))
+
+    def test_offset_takes_the_asked_range(self):
+        self.assertEqual(_command("offset", "--from", "20", "--to", "200"), ("offset", 20, 200))
 
 
 if __name__ == "__main__":

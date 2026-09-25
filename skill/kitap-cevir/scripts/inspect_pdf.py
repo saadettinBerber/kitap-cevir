@@ -11,6 +11,7 @@ Kullanım:
 """
 import argparse
 import re
+import sys
 from collections import Counter
 from dataclasses import dataclass
 
@@ -178,7 +179,7 @@ class InspectionReport:
             print(f"  offset={offset:4}  {count:4} oy   örnek: PDF {pdf_page} = kitap {folio}")
 
 
-def parse_args():
+def parse_args(argv):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("pdf")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -193,11 +194,11 @@ def parse_args():
     offset.add_argument("--from", dest="first", type=int, default=1)
     offset.add_argument("--to", dest="last", type=int, default=DEFAULT_LAST_PAGE)
     offset.set_defaults(run=lambda report, args: report.offset(args.first, args.last))
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def main():
-    args = parse_args()
+    args = parse_args(sys.argv[1:])
     with PyMuPdfDocument.open(args.pdf) as document:
         args.run(InspectionReport(PdfInspector(document)), args)
 
