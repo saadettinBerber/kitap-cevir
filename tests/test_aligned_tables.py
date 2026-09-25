@@ -68,6 +68,10 @@ class SpanRowTest(unittest.TestCase):
     def test_bold_single_column_is_not_a_header(self):
         self.assertFalse(SpanRow(_bold(_row(("A",), 0))).is_header())
 
+    def test_row_with_a_regular_piece_is_not_a_header(self):
+        bold_first = _bold(_row(("A",), 0)) + [_span("B", (COLUMN_X[1], 0))]
+        self.assertFalse(SpanRow(bold_first).is_header())
+
     def test_bold_chapter_title_pieces_without_a_gutter_are_not_a_header(self):
         self.assertFalse(SpanRow(_bold([_span("Chapter 11", (72, 0)), _span(": Pipeline", (132, 0))])).is_header())
 
