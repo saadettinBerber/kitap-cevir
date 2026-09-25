@@ -11,13 +11,12 @@ FIRST_PAGE_NUMBER = 1       # PdfPage sayfaları 1'den, PyMuPDF 0'dan sayar
 class PyMuPdfDocument:
     """Açık bir PDF; sayfalarını `PdfPage` olarak verir. `with` bloğunun sonunda kapanır."""
 
-    def __init__(self, pdf_path, document):
-        self.pdf_path = pdf_path
+    def __init__(self, document):
         self._document = document
 
     @classmethod
     def open(cls, pdf_path):
-        return cls(pdf_path, fitz.open(pdf_path))
+        return cls(fitz.open(pdf_path))
 
     def __enter__(self):
         return self

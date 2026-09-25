@@ -29,7 +29,6 @@ class PdfPage(Protocol):
 
 class PdfDocument(Protocol):
     """Açık bir PDF; `with` bloğunun sonunda kapanır."""
-    pdf_path: str
     page_count: int
     metadata: dict              # başlık, yazar…; boş değerler olabilir
 
