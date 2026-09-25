@@ -11,6 +11,7 @@ from epub.xhtml import visible_text
 CONTINUATION_MARK = "…"   # çevirmen, önceki sayfada zaten çevrilmiş devamı böyle bırakır
 SENTENCE_ENDINGS = tuple('.!?:…"”’)]')
 _FOOTNOTE_MARK = re.compile(r"<sup>.*?</sup>")
+TOC_LEVEL = 1
 
 NOTE_REF = '<a epub:type="noteref" id="ref-{n}" href="#note-{n}" class="en-ref">EN</a>'
 NOTE = ('<aside epub:type="footnote" id="note-{n}" lang="en" xml:lang="en">'
@@ -45,14 +46,16 @@ class Fragment:
 
 
 class Heading(Fragment):
-    """Başlık; ilk düzey olanı Kindle içindekilerinde bölümün altında görünür."""
+    """Başlık; h1 bölüm başlığına ayrıldığı için bir düzey aşağıda çizilir. İlk düzey olanı Kindle
+    içindekilerinde bölümün altında görünür."""
 
     def __init__(self, level, tr_html, anchor):
-        super().__init__(f'<h{level + 1} id="{anchor}">{tr_html}</h{level + 1}>')
-        self._level, self._tr_html, self._anchor = level, tr_html, anchor
+        tag = f"h{level + 1}"
+        super().__init__(f'<{tag} id="{anchor}">{tr_html}</{tag}>')
+        self._toc_entries = [(visible_text(tr_html), anchor)] if level == TOC_LEVEL else []
 
     def toc_entries(self):
-        return [(visible_text(self._tr_html), self._anchor)] if self._level == 1 else []
+        return self._toc_entries
 
 
 class Passage:
