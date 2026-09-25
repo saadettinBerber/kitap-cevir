@@ -262,6 +262,9 @@ class ProseScriptTest(unittest.TestCase):
     def test_mark_smaller_than_the_script_ratio_is_a_footnote(self):
         self.assertEqual(_fixes_with_mark_size(SIZE * PROSE_SCRIPT_MIN_SIZE_RATIO - STEP), {})
 
+    def test_mark_at_the_smallest_script_ratio_is_a_script(self):
+        self.assertEqual(_fixes_with_mark_size(SIZE * PROSE_SCRIPT_MIN_SIZE_RATIO), {"ma": "mᵃ"})
+
     def test_mark_as_large_as_the_script_ratio_is_not_a_script(self):
         self.assertEqual(_fixes_with_mark_size(SIZE * SCRIPT_SIZE_RATIO), {})
 
