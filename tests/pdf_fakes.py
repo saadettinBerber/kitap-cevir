@@ -15,9 +15,11 @@ from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 FAKE_PNG = b"\x89PNG fake"
 PAGE_WIDTH = 600.0
 PAGE_HEIGHT = 800.0
+FONT = "Helvetica"
+SIZE = 10.0
 
 
-def span(text, box, font="Helvetica", size=10.0):
+def span(text, box, font=FONT, size=SIZE):
     """Satırı kendi üst kenarı, taban çizgisi kendi alt kenarı olan parça."""
     return Span(text, font, size, Box(*box), box[1], box[3])
 
