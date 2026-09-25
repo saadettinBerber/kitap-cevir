@@ -10,6 +10,7 @@ Ayrı satır denklemi -> `math` bloğu; satır içi denklem -> cümlede ⟦eq-N�
 tutucusu (tek sembol gibi basit olanlar düz metin olarak yerine konur).
 Koordinatlar üst orijinlidir.
 """
+import itertools
 import os
 import re
 
@@ -24,21 +25,20 @@ PLACEHOLDER = "⟦{id}⟧"
 
 
 class EquationCropper:
-    """Bir sayfanın denklem bölgelerini PNG olarak kırpar; kimlikler sayfa içinde sırayla eq-N."""
+    """Bir sayfanın denklem bölgelerini PNG olarak kırpar. Numarayı (eq-N) çağıran verir:
+    numara sayfadaki sıradan gelir, kırpıcı sayaç tutmaz."""
 
     def __init__(self, page, image_dir):
         self._page = page
         self._image_dir = image_dir
-        self.counter = 0
 
-    def equation(self, rect):
-        self.counter += 1
-        item_id = f"eq-{self.counter}"
+    def equation(self, rect, number):
+        item_id = f"eq-{number}"
         return {"id": item_id, "src": self._crop(rect, item_id),
                 "text": normalize_spaces(self._page.text_in(rect)), "latex": ""}
 
-    def display_region(self, rect):
-        equation = self.equation(rect)
+    def display_region(self, rect, number):
+        equation = self.equation(rect, number)
         block = {"type": "math", **{key: equation[key] for key in ("src", "text", "latex")}}
         return {"y0": rect.y0, "y1": rect.y1, "block": block}
 
@@ -64,9 +64,9 @@ class MathScanner:
         Ayrı satır denkleminin bandına düşen parça onun bir parçasıdır, satır içi sayılmaz."""
         lines = [MathLine(spans, self._is_math) for spans in self._page.text_lines()]
         rects = self._display_rects(lines) + self._geometry_rects(lines)
-        inline = [self._inline_item(inline_run) for line in lines for inline_run in line.inline_runs()
-                  if not _in_band(inline_run.run.rect, rects)]
-        return {"display": [self._cropper.display_region(rect) for rect in rects], "inline": inline}
+        inline = self._inline_items([inline_run for line in lines for inline_run in line.inline_runs()
+                                     if not _in_band(inline_run.run.rect, rects)])
+        return {"display": self._display_regions(rects, inline), "inline": inline}
 
     def _is_math(self, span):
         """Boş önek "bu kitapta denklem fontu yok" demektir; startswith("") her fontla eşleşirdi."""
@@ -77,12 +77,22 @@ class MathScanner:
         üstündedir ama çevrilecek bir caption'dır, PNG'ye girmemeli."""
         return bool(self._caption.match(line.text))
 
-    def _inline_item(self, inline_run):
+    def _inline_items(self, inline_runs):
+        """Numaralar 1'den başlar: görsel olan parçanın numarası, kendisine kadarki görsel sayısıdır."""
+        image_counts = itertools.accumulate(int(not inline_run.run.is_simple()) for inline_run in inline_runs)
+        return [self._inline_item(inline_run, count) for inline_run, count in zip(inline_runs, image_counts)]
+
+    def _inline_item(self, inline_run, number):
         run = inline_run.run
         item = {"bbox": run.rect, "before": inline_run.before, "after": inline_run.after}
         if run.is_simple():
             return {**item, "kind": "text", "text": run.text}
-        return {**item, "kind": "image", **self._cropper.equation(run.rect)}
+        return {**item, "kind": "image", **self._cropper.equation(run.rect, number)}
+
+    def _display_regions(self, rects, inline):
+        """Ayrı satır denklemleri satır içi görsellerden sonra numaralanır."""
+        first = 1 + sum(item["kind"] == "image" for item in inline)
+        return [self._cropper.display_region(rect, number) for number, rect in enumerate(rects, first)]
 
     def _display_rects(self, lines):
         return self._merge_adjacent([line.rect for line in lines if line.is_display()])
