@@ -11,6 +11,7 @@ from translated_pages import TranslatedPages
 
 ANCHOR = "layers separate concerns"
 FIGURE = (MIN_IMAGE_SIDE_PX, MIN_IMAGE_SIDE_PX)
+WIDE_SIDE_PX = 400
 CODE = {"type": "code", "code": "x = 1"}
 
 
@@ -69,10 +70,10 @@ class PageImagesTest(unittest.TestCase):
         self.assertEqual(_anchored([_para("Layers separate concerns."), _image("missing.png")], {}), [])
 
     def test_image_whose_shorter_side_reaches_the_limit_is_kept(self):
-        self.assertEqual(len(_anchored([_image("fig.png")], {"fig.png": (400, MIN_IMAGE_SIDE_PX)})), 1)
+        self.assertEqual(len(_anchored([_image("fig.png")], {"fig.png": (WIDE_SIDE_PX, MIN_IMAGE_SIDE_PX)})), 1)
 
     def test_image_whose_shorter_side_is_below_the_limit_is_an_ornament(self):
-        self.assertEqual(_anchored([_image("dot.png")], {"dot.png": (400, MIN_IMAGE_SIDE_PX - 1)}), [])
+        self.assertEqual(_anchored([_image("dot.png")], {"dot.png": (WIDE_SIDE_PX, MIN_IMAGE_SIDE_PX - 1)}), [])
 
     def test_anchor_keeps_only_the_first_characters(self):
         [(_, anchor)] = _anchored([_para("x" * (ANCHOR_CHARS + 1)), _image("fig.png")], {"fig.png": FIGURE})
@@ -119,7 +120,8 @@ class ImagePlacementTest(unittest.TestCase):
 class AnchorMatchTest(unittest.TestCase):
     """Çapa, blok metninin başıyla karşılaştırılır; etiket ve büyük harf sayılmaz."""
 
-    def _placed_at(self, anchor, *texts):
+    @staticmethod
+    def _placed_at(anchor, *texts):
         blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"}] + [_para(text) for text in texts]
         ImagePlacement(blocks).add("fig.png", anchor)
         return blocks.index(_image("fig.png"))
