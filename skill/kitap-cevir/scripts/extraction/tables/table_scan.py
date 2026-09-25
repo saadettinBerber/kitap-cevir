@@ -147,8 +147,8 @@ class TableScanner:
     """Sayfadaki dolgu tabanlı ve çizgisiz sütun hizalı tabloları bulur."""
 
     def __init__(self, settings):
-        self.footer_zone_top = settings["footer_zone_top"]
-        self.row_gap_ratio = settings["table_row_gap_ratio"]
+        self._footer_zone_top = settings["footer_zone_top"]
+        self._row_gap_ratio = settings["table_row_gap_ratio"]
 
     def scan(self, page):
         """[{y0, y1, block}], sayfada yukarıdan aşağıya."""
@@ -157,12 +157,12 @@ class TableScanner:
     def _tables_on(self, page):
         """Dolgulu hücre varsa tabloyu onlar belirler; hizalı tarama yalnız dolgusuz
         sayfada çalışır ki aynı tablo iki kez yakalanmasın."""
-        body_bottom = page.height - self.footer_zone_top
+        body_bottom = page.height - self._footer_zone_top
         fills = PageFills(page.drawings(), body_bottom)
         spans = self._page_spans(page)
         if fills.is_empty():
             return AlignedTableFinder.of_spans([span for span in spans if span.box.y1 <= body_bottom]).tables()
-        builder = TableBuilder(fills, self.row_gap_ratio)
+        builder = TableBuilder(fills, self._row_gap_ratio)
         return [table for cells in fills.table_groups() for table in builder.tables_in(cells, spans)]
 
     @staticmethod
