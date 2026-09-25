@@ -39,25 +39,27 @@ class PageFinalizer:
 
     def finalize(self, translated_path):
         """Sayfayı projeye işler; dönen özet, CLI'ın basacağı uyarıları taşır."""
-        page = self._read(translated_path)
-        page_js = self._pages.save(page)
-        images = self._copy_images(page)
-        progress = self._register(page.data)
-        cards = page.data.get("concepts", [])
-        return {"page_js": page_js, "images": images, "terms": self._rebuild_reader_data(page, progress),
-                "untranslated": page.missing_translations(), "page": page.data["page"],
-                "cards_pending": not cards, "card_problems": self._card_problems(cards)}
+        page = _read_page(translated_path)
+        written = {"page_js": self._pages.save(page), "images": self._copy_images(page)}
+        terms = self._rebuild_reader_data(page, self._register(page))
+        return {**written, "terms": terms, **self._notes(page)}
 
-    def _card_problems(self, cards):
-        """Kartlar çeviriden sonra ayrı üretilir; kartsız sayfa sorun değil, bekleyen iştir."""
-        if not cards:
-            return []
-        return CardChecker(self._settings.concepts()).problems(cards)
+    def _copy_images(self, page):
+        """Sayfanın andığı görsellerden çevirmen girdisinde bulunanlar kopyalanır; kopyalanan sayısı."""
+        sources = page.media_sources()
+        if not sources:
+            return 0
+        work_images = ImageFolder(self._project.work_images(page.number()))
+        present = [src for src in sources if work_images.has(src)]
+        work_images.copy(present, self._pages.images_dir(page.number()))
+        return len(present)
 
-    def _read(self, translated_path):
-        page = PageDocument(read_json(translated_path))
-        self._require_fields(page.data)
-        return page
+    def _register(self, page):
+        """Sayfayı progress.json'a kaydeder, last_translated_page'i ilerletir."""
+        progress = self._project.load_progress()
+        progress.record_translation(page.data)
+        self._project.save_progress(progress)
+        return progress
 
     def _rebuild_reader_data(self, page, progress):
         """Yeni terimleri sözlüğe ekler, toc.js ve glossary.js'i yeniden yazar; eklenen terim sayısı."""
@@ -69,27 +71,28 @@ class PageFinalizer:
         reader_data.write_glossary(glossary)
         return len(new_terms)
 
-    @staticmethod
-    def _require_fields(document):
-        missing = [field for field in _REQUIRED_FIELDS if field not in document]
-        if missing:
-            raise IncompletePage(f"Eksik alanlar: {missing}")
+    def _notes(self, page):
+        cards = page.concepts()
+        return {"untranslated": page.missing_translations(), "page": page.number(),
+                "cards_pending": not cards, "card_problems": self._card_problems(cards)}
 
-    def _copy_images(self, page):
-        sources = page.media_sources()
-        if not sources:
-            return 0
-        work_images = ImageFolder(self._project.work_images(page.number()))
-        present = [src for src in sources if work_images.has(src)]
-        work_images.copy(present, self._pages.images_dir(page.number()))
-        return len(present)
+    def _card_problems(self, cards):
+        """Kartlar çeviriden sonra ayrı üretilir; kartsız sayfa sorun değil, bekleyen iştir."""
+        if not cards:
+            return []
+        return CardChecker(self._settings.concepts()).problems(cards)
 
-    def _register(self, document):
-        """Sayfayı progress.json'a kaydeder, last_translated_page'i ilerletir."""
-        progress = self._project.load_progress()
-        progress.record_translation(document)
-        self._project.save_progress(progress)
-        return progress
+
+def _read_page(translated_path):
+    document = read_json(translated_path)
+    _require_fields(document)
+    return PageDocument(document)
+
+
+def _require_fields(document):
+    missing = [field for field in _REQUIRED_FIELDS if field not in document]
+    if missing:
+        raise IncompletePage(f"Eksik alanlar: {missing}")
 
 
 def main():
