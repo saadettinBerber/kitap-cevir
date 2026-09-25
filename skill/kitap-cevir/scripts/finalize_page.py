@@ -28,9 +28,14 @@ class IncompletePage(ValueError):
 class PageFinalizer:
     """Çevirmen çıktısını projeye işler: sayfa dosyası, görseller, ilerleme, sözlük, içindekiler."""
 
-    def __init__(self, project):
+    def __init__(self, project, settings):
         self.project = project
+        self.settings = settings
         self.pages = TranslatedPages(project)
+
+    @classmethod
+    def for_project(cls, project):
+        return cls(project, project.load_settings())
 
     def finalize(self, translated_path):
         """Sayfayı projeye işler; dönen özet, CLI'ın basacağı uyarıları taşır."""
@@ -47,7 +52,7 @@ class PageFinalizer:
         """Kartlar çeviriden sonra ayrı üretilir; kartsız sayfa sorun değil, bekleyen iştir."""
         if not cards:
             return []
-        return CardChecker(self.project.load_settings().concepts()).problems(cards)
+        return CardChecker(self.settings.concepts()).problems(cards)
 
     def _read(self, translated_path):
         page = PageDocument(read_json(translated_path))
@@ -92,7 +97,7 @@ def main():
         print(__doc__)
         sys.exit(1)
     project = Project.discover()
-    result = PageFinalizer(project).finalize(sys.argv[1])
+    result = PageFinalizer.for_project(project).finalize(sys.argv[1])
     print(f"✓ Sayfa {result['page']}: {project.relative_to_root(result['page_js'])} yazıldı, "
           f"{result['images']} görsel, {result['terms']} yeni terim; toc.js + glossary.js güncellendi")
     _print_notes(result)

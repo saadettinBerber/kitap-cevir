@@ -50,7 +50,7 @@ class _FinalizeTestCase(unittest.TestCase):
 
     def _finalize(self, document):
         out = self._write_text("_work/out/page-3.json", json.dumps(document, ensure_ascii=False))
-        return PageFinalizer(self.project).finalize(out)
+        return PageFinalizer.for_project(self.project).finalize(out)
 
     @staticmethod
     def _read_text(path):

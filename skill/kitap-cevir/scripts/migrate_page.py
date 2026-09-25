@@ -72,7 +72,7 @@ class Migrator:
 
     @classmethod
     def for_project(cls, project):
-        return cls(project, PageInputBuilder.for_progress(project, project.load_progress()), PageFinalizer(project))
+        return cls(project, PageInputBuilder.for_progress(project, project.load_progress()), PageFinalizer.for_project(project))
 
     def run(self, page):
         """Sayfayı yeniden çıkarıp eski çevirileri taşır; sonlandırmaz."""
