@@ -70,6 +70,35 @@ class BandTest(unittest.TestCase):
         self.assertFalse(grid.same_band(below, below))
 
 
+BAND_TOP, BAND_BOTTOM, LOWER_BAND_BOTTOM = 200, 220, 240
+UPPER_TEXT, LOWER_TEXT = (202, 212), (230, 238)
+
+
+def _banded_grid(lower_band_top):
+    """İki sütun; ilk sütunun kenarlarına oturan iki dolgu, alttaki üsttekinin altına biniyor."""
+    cells = [_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT)]
+    bands = [Box(FIRST_LEFT, BAND_TOP, SECOND_LEFT, BAND_BOTTOM),
+             Box(FIRST_LEFT, lower_band_top, SECOND_LEFT, LOWER_BAND_BOTTOM)]
+    return TableGrid.from_cells(cells, cells + bands)
+
+
+def _text_between(top_bottom):
+    top, bottom = top_bottom
+    return span("x", (FIRST_LEFT, top, FIRST_LEFT + INSIDE, bottom))
+
+
+class BandMergeTest(unittest.TestCase):
+    """Üsttekine tolerans kadar binen dolgu yeni banttır; daha çok binen aynı bandı uzatır."""
+
+    def test_fill_overlapping_by_the_tolerance_is_a_new_band(self):
+        grid = _banded_grid(BAND_BOTTOM - EDGE_TOLERANCE)
+        self.assertFalse(grid.same_band(_text_between(UPPER_TEXT), _text_between(LOWER_TEXT)))
+
+    def test_fill_overlapping_by_more_extends_the_band(self):
+        grid = _banded_grid(BAND_BOTTOM - EDGE_TOLERANCE - STEP)
+        self.assertTrue(grid.same_band(_text_between(UPPER_TEXT), _text_between(LOWER_TEXT)))
+
+
 class ColumnOfTest(unittest.TestCase):
     def test_span_centred_on_a_column_border_belongs_to_the_left_column(self):
         grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
