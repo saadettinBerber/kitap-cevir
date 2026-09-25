@@ -44,8 +44,8 @@ class ParaPassageJoinTest(unittest.TestCase):
     def test_different_styles_do_not_continue(self):
         self.assertFalse(_para("of a").continues_into(_para("quote.", css_class="para quote")))
 
-    def test_non_paragraph_does_not_continue(self):
-        self.assertFalse(_para("of a").continues_into(Passage("caption", "Şekil", "Figure")))
+    def test_only_a_body_paragraph_continues(self):
+        self.assertFalse(_para("of a").continues_into(Passage("para", "Şekil", "Figure")))
 
     def test_join_keeps_the_english_of_both(self):
         joined = _para("of a masked", "Maskeli bir").join(_para("model.", "model."), MARK)
