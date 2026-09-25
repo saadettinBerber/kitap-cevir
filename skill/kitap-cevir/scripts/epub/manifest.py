@@ -12,6 +12,8 @@ XHTML_TYPE = "application/xhtml+xml"
 NAV_FILE = "nav.xhtml"
 NAV_ITEM = f'<item id="nav" href="text/{NAV_FILE}" media-type="{XHTML_TYPE}" properties="nav"/>'
 STYLESHEET = "styles/kindle.css"
+FIXED_MEDIA_TYPES = {".xhtml": XHTML_TYPE, ".css": "text/css"}
+UNKNOWN_MEDIA_TYPE = "application/octet-stream"
 IDENTIFIER_NAMESPACE = "kitap-cevir:"
 MODIFIED_FORMAT = "%Y-%m-%dT%H:%M:%SZ"   # dcterms:modified, UTC
 
@@ -56,9 +58,9 @@ class EpubMetadata:
 
 
 def content_opf(metadata, chapters, image_hrefs):
-    items = [NAV_ITEM, _item("css", STYLESHEET, "text/css")]
-    items += [_item(_chapter_id(chapter), f"text/{chapter.href()}", XHTML_TYPE) for chapter in chapters]
-    items += [_item(f"img-{index}", href, _media_type(href)) for index, href in enumerate(image_hrefs, 1)]
+    items = [NAV_ITEM, _item("css", STYLESHEET)]
+    items += [_item(_chapter_id(chapter), f"text/{chapter.href()}") for chapter in chapters]
+    items += [_item(f"img-{index}", href) for index, href in enumerate(image_hrefs, 1)]
     spine = [f'<itemref idref="{_chapter_id(chapter)}"/>' for chapter in chapters]
     return CONTENT_OPF.format(identifier=metadata.identifier, title=escape(metadata.title),
                               author=escape(metadata.author), modified=metadata.modified,
@@ -84,8 +86,8 @@ def _toc_item(chapter):
     return f'<li><a href="{chapter.href()}">{escape(chapter.title())}</a>{nested}</li>'
 
 
-def _item(item_id, href, media_type):
-    return f'<item id="{item_id}" href="{quote(href)}" media-type="{media_type}"/>'
+def _item(item_id, href):
+    return f'<item id="{item_id}" href="{quote(href)}" media-type="{_media_type(href)}"/>'
 
 
 def _chapter_id(chapter):
@@ -93,4 +95,5 @@ def _chapter_id(chapter):
 
 
 def _media_type(href):
-    return mimetypes.guess_type(href)[0] or "application/octet-stream"
+    """Bölümün ve stilin türü sabittir; görselinki uzantısından tahmin edilir."""
+    return FIXED_MEDIA_TYPES.get(Path(href).suffix) or mimetypes.guess_type(href)[0] or UNKNOWN_MEDIA_TYPE
