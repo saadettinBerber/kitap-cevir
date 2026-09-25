@@ -132,8 +132,7 @@ kart taşıyan sayfayı da denetler (`! KART:`); kartsız sayfa için
 `kartlar bekliyor` der.
 
 `kind` alanı olmayan eski kartların türü içerikten çıkarılır (`bad.code` →
-`code`, `bad.text` → `contrast`, `options` → `tradeoff`, hiçbiri → `explain`);
-`body_html` taşıyan eski biçimli kartlar olduğu gibi çizilir.
+`code`, `bad.text` → `contrast`, `options` → `tradeoff`, hiçbiri → `explain`).
 
 ## Çevirmen agent girdisi ve çıktısı
 

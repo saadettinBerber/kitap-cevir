@@ -40,7 +40,6 @@ class CardKindTest(unittest.TestCase):
         self.assertEqual(card_kind({"bad": {"text": _pair()}}), "contrast")
         self.assertEqual(card_kind({"options": []}), "tradeoff")
         self.assertEqual(card_kind({"summary": _pair()}), "explain")
-        self.assertEqual(card_kind({"body_html": "<p/>"}), "legacy")
 
 
 class CardProblemsTest(unittest.TestCase):
@@ -54,10 +53,6 @@ class CardProblemsTest(unittest.TestCase):
         spec = {**SPEC, "kinds": ["explain", "tradeoff"]}
         problems = CardChecker(spec).problems([EXPLAIN, CODE])
         self.assertEqual(problems, ["kod: tür 'code' bu kitapta izinli değil (explain, tradeoff)"])
-
-    def test_legacy_card_is_rejected(self):
-        problems = CardChecker(SPEC).problems([EXPLAIN, {"id": "eski", "body_html": "<p/>"}])
-        self.assertIn("eski: tür 'legacy' bu kitapta izinli değil", problems[0])
 
     def test_missing_translation_is_reported(self):
         card = _card("bos", "explain", tip={"en": "x", "tr": " "})

@@ -85,7 +85,7 @@ const Concepts = (function () {
 
   function open(concept) {
     document.getElementById("modal-title").innerHTML = Blocks.pair(concept.title);
-    document.getElementById("modal-body").innerHTML = concept.body_html || structuredBody(concept);
+    document.getElementById("modal-body").innerHTML = structuredBody(concept);
     document.getElementById("modal").classList.add("active");
     document.body.style.overflow = "hidden";
   }

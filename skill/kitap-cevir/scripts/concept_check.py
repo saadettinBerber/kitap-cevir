@@ -17,8 +17,6 @@ def card_kind(card):
     """Kartın türü; `kind` alanı olmayan eski kartlarda içerikten çıkarılır."""
     if card.get("kind"):
         return card["kind"]
-    if "body_html" in card:
-        return "legacy"
     if "options" in card:
         return "tradeoff"
     sample = card.get("bad") or {}
