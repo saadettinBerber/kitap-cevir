@@ -84,9 +84,8 @@ class TableBuilder:
         içi 1.2 / satırlar arası 1.6, başkasında 0.93 / 1.26 ölçüldü."""
         if previous is None:
             return True
-        band, previous_band = grid.band_of(span), grid.band_of(previous)
-        if band is not None or previous_band is not None:
-            return band != previous_band
+        if grid.is_in_band(span) or grid.is_in_band(previous):
+            return not grid.same_band(span, previous)
         return span.box.y0 - previous.box.y0 > previous.box.height * self.row_gap_ratio
 
     @staticmethod

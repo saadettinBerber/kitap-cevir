@@ -150,10 +150,6 @@ class TableGrid:
         center = span.box.center_x
         return next((i for i, (left, right) in enumerate(self.columns) if left <= center <= right), None)
 
-    def band_of(self, span):
-        center = span.box.center_y
-        return next((i for i, (top, bottom) in enumerate(self._bands) if top <= center <= bottom), None)
-
     def is_table_row(self, row):
         widest = max(right - left for left, right in self.columns) * WIDE_SPAN_RATIO
         return all(s.box.width <= widest and self.column_of(s) is not None for s in row)
@@ -162,7 +158,19 @@ class TableGrid:
         return len({self.column_of(span) for span in row})
 
     def in_band(self, row):
-        return any(self.band_of(span) is not None for span in row)
+        return any(self.is_in_band(span) for span in row)
+
+    def is_in_band(self, span):
+        return bool(self._bands_holding(span))
+
+    def same_band(self, span, other):
+        """İki parçanın ortası aynı bantta mı? İki bandın ortak kenarındaki orta üstteki banttadır."""
+        first = self._bands_holding(span)[:1]
+        return bool(first) and first == self._bands_holding(other)[:1]
+
+    def _bands_holding(self, span):
+        center = span.box.center_y
+        return [index for index, (top, bottom) in enumerate(self._bands) if top <= center <= bottom]
 
 
 class ColumnTiling:

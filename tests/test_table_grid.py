@@ -58,6 +58,13 @@ class ColumnTilingTest(unittest.TestCase):
         self.assertTrue(grid.is_table_row([_span_at(SECOND_LEFT)]))
 
 
+class BandTest(unittest.TestCase):
+    def test_spans_outside_every_band_are_not_in_the_same_band(self):
+        grid = TableGrid([(FIRST_LEFT, SECOND_LEFT), (SECOND_LEFT, SECOND_RIGHT)], [(TOP, BOTTOM)])
+        below = span("x", (FIRST_LEFT, BOTTOM + GAP_HALF_WIDTH, FIRST_LEFT + INSIDE, BOTTOM + INSIDE))
+        self.assertFalse(grid.same_band(below, below))
+
+
 def _groups(*fills):
     return PageFills(list(fills), TEXT_BOTTOM).table_groups()
 
