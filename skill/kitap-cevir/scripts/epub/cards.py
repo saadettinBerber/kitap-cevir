@@ -69,7 +69,7 @@ def card_html(page_card):
 
 def _card_head(page_card):
     page = page_card.page
-    return f'<h3>{_text(page_card.card.get("title"))}</h3><p class="card-page"><a href="#page-{page}">s. {page}</a></p>'
+    return f'<h3>{_text(page_card.card.get("title"))}</h3><p class="card-page"><a href="#{links_anchor(page)}">s. {page}</a></p>'
 
 
 def _no_middle(card, kind):

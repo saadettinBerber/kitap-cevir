@@ -22,8 +22,8 @@ def _html(card):
 
 
 class CommonPartsTest(unittest.TestCase):
-    def test_card_links_back_to_its_page(self):
-        self.assertIn(f'<a href="#page-{PAGE}">s. {PAGE}</a>', card_html(PageCard(PAGE, 1, _card("explain"))))
+    def test_card_returns_to_its_card_line(self):
+        self.assertIn(f'<a href="#{links_anchor(PAGE)}">s. {PAGE}</a>', card_html(PageCard(PAGE, 1, _card("explain"))))
 
     def test_card_carries_its_anchor(self):
         self.assertIn(f'<div class="card" id="kart-{PAGE}-2">', card_html(PageCard(PAGE, 2, _card("explain"))))

@@ -1,3 +1,4 @@
+import re
 import unittest
 from xml.etree import ElementTree
 
@@ -8,6 +9,7 @@ from page_document import PageDocument
 
 CHAPTER = {"num": 2, "en": "Evaluation", "tr": "Değerlendirme"}
 PAGE = 5
+RETURN_LINK = re.compile(r'class="card-page"><a href="#([^"]+)"')
 NEXT_PAGE = 6
 PAGE_END = "<p>ek</p>"
 CLOSED_PAGE = [ParaPassage("para", "Bitti.", "Done.")]
@@ -36,6 +38,11 @@ def _flow_across_page_end(first_page, next_page):
     flow = _flow_ending_with_page_end(first_page)
     flow.add_page(NEXT_PAGE, next_page)
     return flow
+
+
+def _return_target(xhtml):
+    """Karttaki "s. N" bağlantısının hedefi."""
+    return re.findall(RETURN_LINK, xhtml)[0]
 
 
 def _para_block(en, tr):
@@ -129,6 +136,11 @@ class ChapterTest(unittest.TestCase):
         self.chapter.add(_page(NEXT_PAGE, [_para_block("C.", "D.")]))
         xhtml = self.chapter.xhtml()
         self.assertLess(xhtml.index('class="card-links"'), xhtml.index(page_mark(NEXT_PAGE)))
+
+    def test_card_return_link_lands_on_its_card_line(self):
+        self.chapter.add(_page(PAGE, [_para_block("A.", "B.")], concepts=[CARD]))
+        xhtml = self.chapter.xhtml()
+        self.assertIn(f'<p class="card-links" id="{_return_target(xhtml)}">', xhtml)
 
     def test_page_without_cards_has_no_card_line(self):
         self.chapter.add(_page(PAGE, [_para_block("A.", "B.")]))
