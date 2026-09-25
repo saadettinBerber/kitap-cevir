@@ -42,10 +42,11 @@ class PageDocumentTest(unittest.TestCase):
                        {"type": "table", "rows": [[{"en": "a", "tr": ""}, {"en": "b", "tr": "b"}]]},
                        {"type": "code", "code": "x"}]}
 
-    def test_text_units_skip_code_and_count_missing(self):
-        page = PageDocument(self.PAGE)
-        self.assertEqual([unit["en"] for unit in page.text_units()], ["H", "a", "b"])
-        self.assertEqual(page.missing_translations(), 1)
+    def test_text_units_skip_code(self):
+        self.assertEqual([unit["en"] for unit in PageDocument(self.PAGE).text_units()], ["H", "a", "b"])
+
+    def test_empty_translations_are_counted_as_missing(self):
+        self.assertEqual(PageDocument(self.PAGE).missing_translations(), 1)
 
 
 def _para(*sentences):
@@ -89,9 +90,10 @@ class TableGridTest(unittest.TestCase):
              Box(70, 140, 170, 160), Box(170, 140, 400, 160)]
 
     def test_columns_are_tiled_from_cell_edges(self):
-        grid = TableGrid.from_cells(self.CELLS, self.CELLS)
-        self.assertEqual(grid.columns, [(70, 170), (170, 400)])
-        self.assertTrue(grid.has_columns())
+        self.assertEqual(TableGrid.from_cells(self.CELLS, self.CELLS).columns, [(70, 170), (170, 400)])
+
+    def test_grid_tiled_from_cells_has_columns(self):
+        self.assertTrue(TableGrid.from_cells(self.CELLS, self.CELLS).has_columns())
 
     def test_span_is_placed_by_its_center(self):
         grid = TableGrid([(70, 170), (170, 400)], [])
