@@ -69,14 +69,22 @@ class BlockTest(unittest.TestCase):
         Block.of(para).fill(_RecordingFiller([]), "blocks[0]")
         self.assertEqual(para["sentences"], [_unit("a")])
 
-    def test_card_unit_joins_text_and_keeps_code_as_is(self):
+    def test_card_unit_joins_text(self):
         self.assertEqual(Block.of(PARA).card_unit(), {"type": "para", "en": "One. Two.", "tr": "Bir. İki."})
+
+    def test_card_unit_keeps_code_as_is(self):
         self.assertEqual(Block.of(CODE).card_unit(), {"type": "code", "code": "x = 1"})
+
+    def test_block_without_text_has_no_card_unit(self):
         self.assertEqual(Block.of({"type": "image", "src": "a.png"}).card_unit(), {})
 
-    def test_anchor_text_of_para_table_and_code(self):
+    def test_para_anchor_text_joins_its_sentences(self):
         self.assertEqual(Block.of(PARA).anchor_text(), "One. Two.")
+
+    def test_table_has_no_anchor_text(self):
         self.assertEqual(Block.of(TABLE).anchor_text(), "")
+
+    def test_code_has_no_anchor_text(self):
         self.assertEqual(Block.of(CODE).anchor_text(), "")
 
     def test_only_headings_lead_the_page(self):
@@ -100,6 +108,8 @@ class PageQueriesTest(unittest.TestCase):
 
     def test_page_with_only_images_is_blank(self):
         self.assertTrue(PageDocument({"blocks": [{"type": "image", "src": "a.png"}]}).is_blank())
+
+    def test_page_with_text_is_not_blank(self):
         self.assertFalse(PageDocument(self.PAGE).is_blank())
 
 
