@@ -118,6 +118,9 @@ class LeadingCodeTest(unittest.TestCase):
 
 
 class CodeLineTest(unittest.TestCase):
+    FAR = 100
+    LOWER = SAME_BASELINE_TOLERANCE * 0.9
+
     def test_code_fragments_on_one_baseline_form_one_line(self):
         head = CODE.at("total = ", (LEFT, TOP))
         [line] = _lines((head,), (CODE.after(head, "count + 1"),))
@@ -127,6 +130,14 @@ class CodeLineTest(unittest.TestCase):
         prose = BODY.at("The value is stored in ", (LEFT, TOP))
         lines = _lines((prose,), (CODE.after(prose, "count"),))
         self.assertFalse(any(line.is_code for line in lines))
+
+    def test_merged_code_line_keeps_the_baseline_of_its_first_fragment(self):
+        """Okuma sırasında önce gelen parçanın taban çizgisi kalır; soldaki parça biraz aşağıda olsa da."""
+        first = CODE.at("a =", (LEFT + self.FAR, TOP))
+        lower_left = CODE.at("b", (LEFT, TOP + self.LOWER))
+        prose = BODY.at("level only with the lower fragment", (LEFT + 2 * self.FAR, TOP + 2 * self.LOWER))
+        lines = _lines((first,), (lower_left,), (prose,))
+        self.assertEqual([line.is_code for line in lines], [True, False])
 
     def test_leftmost_code_of_twelve_characters_stays_a_code_line(self):
         self.assertEqual(_code_lines_beside_prose("items.size()"), ["items.size()"])
