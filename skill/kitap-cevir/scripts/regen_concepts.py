@@ -121,14 +121,20 @@ ACTIONS = {"prepare": _run_prepare, "apply": _run_apply}
 
 
 def main():
-    if len(sys.argv) < 3 or sys.argv[1] not in ACTIONS:
+    action, *specs = sys.argv[1:] or [""]
+    if not specs or action not in ACTIONS:
         print(__doc__)
         sys.exit(1)
     project = Project.discover()
-    pages, skipped = select_pages(sys.argv[2:], project.load_progress().translated_pages())
+    ACTIONS[action](project, _select_pages_reporting_skipped(specs, project.load_progress()))
+
+
+def _select_pages_reporting_skipped(specs, progress):
+    """İstenen sayfalardan çevrilmiş olanlar; çevrilmemiş olanların atlandığı basılır."""
+    pages, skipped = select_pages(specs, progress.translated_pages())
     if skipped:
         print(f"  ! çevrilmemiş sayfalar atlandı: {', '.join(map(str, skipped))}")
-    ACTIONS[sys.argv[1]](project, pages)
+    return pages
 
 
 if __name__ == "__main__":
