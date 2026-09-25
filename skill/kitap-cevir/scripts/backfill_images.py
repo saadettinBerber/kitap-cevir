@@ -21,6 +21,9 @@ from translated_pages import TranslatedPages
 MIN_IMAGE_SIDE_PX = 80          # daha küçükler süs/çizgi parçasıdır
 MATCH_THRESHOLD = 0.55
 ANCHOR_CHARS = 80
+# Çevrilmiş blok, PDF'teki çapadan biraz uzun bir baş parçasıyla karşılaştırılır: araya giren birkaç harf
+# (dipnot işareti, bağlantı metni) eşleşmeyi bozmasın.
+CANDIDATE_SLACK_CHARS = 20
 _TAG = re.compile(r"<[^>]+>")
 
 
@@ -29,7 +32,7 @@ def _plain(text):
 
 
 def _similarity(anchor, candidate):
-    return difflib.SequenceMatcher(None, anchor, candidate[:len(anchor) + 20]).ratio()
+    return difflib.SequenceMatcher(None, anchor, candidate[:len(anchor) + CANDIDATE_SLACK_CHARS]).ratio()
 
 
 class PageImages:
