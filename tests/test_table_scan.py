@@ -192,6 +192,15 @@ class LineBreakTest(unittest.TestCase):
         rows = _shaded_rows(self._header() + _split_row(self.BODY_TOP, ("a", "c", "e"), ("b", "d", "")))
         self.assertEqual(rows[1], [{"en": "a<br>b", "html": True}, {"en": "c<br>d", "html": True}, {"en": "e"}])
 
+    def test_cell_whose_lines_fill_its_column_joins_them_in_a_listing_row(self):
+        """Sarılmış düz metnin ölçüsü hücrenin kendi sütunudur."""
+        left, right = COLUMNS[0]
+        top = self.BODY_TOP + SUBLINE_DROPS[0]
+        filling = span("wrapped", (left + PADDING, top, right - PADDING, top + TEXT_HEIGHT), size=BODY_SIZE)
+        first, second = _split_row(self.BODY_TOP, ("", "c", "e"), ("b", "d", ""))
+        rows = _shaded_rows(self._header() + [(filling,) + first, second])
+        self.assertEqual(rows[1][:2], [{"en": "wrapped b"}, {"en": "c<br>d", "html": True}])
+
     def test_one_multiline_cell_joins_its_lines(self):
         rows = _shaded_rows(self._header() + _split_row(self.BODY_TOP, ("a", "c", "e"), ("b", "", "")))
         self.assertEqual(rows[1][0], {"en": "a b"})
