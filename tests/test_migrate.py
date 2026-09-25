@@ -90,6 +90,11 @@ class TranslationFillerTest(unittest.TestCase):
         filler.fill_unit(unit, "p")
         self.assertEqual((unit["tr"], _pending(filler)), ("42 %", []))
 
+    def test_numeric_cell_keeps_its_old_translation(self):
+        unit, filler = {"en": "42 %"}, TranslationFiller(Translations([_unit("42 %", "%42")]))
+        filler.fill_unit(unit, "p")
+        self.assertEqual(unit["tr"], "%42")
+
     def test_unmatched_unit_goes_to_pending(self):
         unit, filler = {"en": "Brand new."}, TranslationFiller(Translations([]))
         filler.fill_unit(unit, "blocks[3]")
