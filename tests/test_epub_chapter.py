@@ -158,12 +158,16 @@ class ChapterTest(unittest.TestCase):
         self.chapter.add(_page(PAGE, [_para_block("A.", "B.")]))
         self.assertEqual(self.chapter.toc_entries(), [])
 
-    def test_xhtml_is_well_formed_and_holds_heading_text_and_notes(self):
+    def test_xhtml_is_well_formed(self):
+        self.chapter.add(_page(PAGE, [_para_block("A & B.", "A ve B.")]))
+        root = ElementTree.fromstring(self.chapter.xhtml().encode("utf-8"))
+        self.assertTrue(root.tag.endswith("html"))
+
+    def test_xhtml_holds_heading_then_text_then_notes(self):
         self.chapter.add(_page(PAGE, [_para_block("A & B.", "A ve B.")]))
         xhtml = self.chapter.xhtml()
-        ElementTree.fromstring(xhtml.encode("utf-8"))
-        self.assertLess(xhtml.index("Bölüm 2"), xhtml.index("A ve B."))
-        self.assertLess(xhtml.index("A ve B."), xhtml.index('id="note-1"'))
+        positions = [xhtml.index("Bölüm 2"), xhtml.index("A ve B."), xhtml.index('id="note-1"')]
+        self.assertEqual(positions, sorted(positions))
 
     def test_unnumbered_chapter_has_no_number_label(self):
         chapter = Chapter("c.xhtml", {"num": 0, "en": "Preface", "tr": "Önsöz"})
