@@ -73,44 +73,36 @@ class Glossary:
     """glossary.md: önsöz satırlarının altında alfabetik terim tablosu."""
 
     def __init__(self, path):
-        self.path = path
-        self.preamble, self.terms = self._read()
+        self._path = path
+        self._preamble, self._terms = self._read()
+
+    def unknown(self, new_terms):
+        """Sözlükte olmayan yeni terimler; İngilizcesi boş olan atlanır, aynı sayfada yalnız harf
+        büyüklüğüyle ayrılan terimlerden ilki kalır."""
+        known = {_key(term) for term in self._terms}
+        return [term for key, term in _first_of_each(new_terms).items() if key not in known]
+
+    def add(self, new_terms):
+        """Sözlükte olmayan terimleri ekler; glossary.md alfabetik sırayla yeniden yazılır."""
+        rows = [{"en": term["en"], "tr": term.get("tr", ""), "note": term.get("note", "")}
+                for term in self.unknown(new_terms)]
+        self._terms = sorted(self._terms + rows, key=_key)
+        self._write()
+
+    def entries(self):
+        """Okuyucunun sözlüğü: terimler alfabetik sırayla."""
+        return sorted(self._terms, key=_key)
 
     def _read(self):
-        with open(self.path, encoding="utf-8") as handle:
+        with open(self._path, encoding="utf-8") as handle:
             rows = [(line, _term_cells(line)) for line in handle.read().splitlines()]
         preamble = [line for line, cells in rows if not cells]
         return preamble, [dict(zip(TERM_FIELDS, cells)) for _, cells in rows if cells]
 
-    @staticmethod
-    def _key(term):
-        return term["en"].casefold()
-
-    def add(self, new_terms):
-        """Sözlükte olmayan terimleri ekler ve glossary.md'yi yazar; eklenen sayısı."""
-        known = {self._key(term) for term in self.terms}
-        added = [term for key, term in self._first_of_each(new_terms).items() if key not in known]
-        self.terms += [{"en": t["en"], "tr": t.get("tr", ""), "note": t.get("note", "")} for t in added]
-        self._write_md()
-        return len(added)
-
-    @classmethod
-    def _first_of_each(cls, terms):
-        """Aynı sayfada yalnız harf büyüklüğüyle ayrılan terimlerden ilki kalır."""
-        unique = {}
-        for term in (term for term in terms if term.get("en")):
-            unique.setdefault(cls._key(term), term)
-        return unique
-
-    def _write_md(self):
-        self.terms = sorted(self.terms, key=self._key)
-        rows = "".join(f"| {t['en']} | {t['tr']} | {t['note']} |\n" for t in self.terms)
-        with open(self.path, "w", encoding="utf-8") as handle:
-            handle.write("\n".join(self.preamble).rstrip("\n") + "\n" + rows)
-
-    def entries(self):
-        """Okuyucunun sözlüğü: terimler alfabetik sırayla."""
-        return sorted(self.terms, key=self._key)
+    def _write(self):
+        rows = "".join(f"| {t['en']} | {t['tr']} | {t['note']} |\n" for t in self._terms)
+        with open(self._path, "w", encoding="utf-8") as handle:
+            handle.write("\n".join(self._preamble).rstrip("\n") + "\n" + rows)
 
 
 def _term_cells(line):
@@ -123,6 +115,17 @@ def _term_cells(line):
 
 def _is_term(first_cell):
     return first_cell != GLOSSARY_HEADER_CELL and not set(first_cell) <= {"-", " "}
+
+
+def _key(term):
+    return term["en"].casefold()
+
+
+def _first_of_each(terms):
+    unique = {}
+    for term in (term for term in terms if term.get("en")):
+        unique.setdefault(_key(term), term)
+    return unique
 
 
 class ReaderData:

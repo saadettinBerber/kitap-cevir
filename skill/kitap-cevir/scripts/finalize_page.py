@@ -58,11 +58,12 @@ class PageFinalizer:
     def _rebuild_reader_data(self, page, progress):
         """Yeni terimleri sözlüğe ekler, toc.js ve glossary.js'i yeniden yazar; eklenen terim sayısı."""
         glossary = Glossary(self.project.glossary_md())
-        added = glossary.add(page.data.get("glossary_new", []))
+        new_terms = glossary.unknown(page.data.get("glossary_new", []))
+        glossary.add(new_terms)
         reader_data = ReaderData(self.project)
         reader_data.write_toc(progress)
         reader_data.write_glossary(glossary)
-        return added
+        return len(new_terms)
 
     @staticmethod
     def _require_fields(document):
