@@ -26,24 +26,17 @@ class PagePreparer:
     """Sayfaların çevirmen girdisini _work/in'e yazar."""
 
     def __init__(self, project, builder):
-        self.project = project
-        self.builder = builder
+        self._project = project
+        self._builder = builder
 
     @classmethod
     def for_project(cls, project):
         return cls(project, PageInputBuilder.for_progress(project, project.load_progress()))
 
-    def write_input(self, document):
-        return write_json(self.project.work_input(document["page"]), document)
-
-    def mark_blank(self, progress, page):
-        progress.mark_blank(page)
-        self.project.save_progress(progress)
-
     def prepare_next(self, count):
         """(hazırlanan sayfaların özetleri, atlanan boş sayfalar). Sıradaki akışta
         boş sayfa (bölüm sonu) işaretlenir ki sonraki çalıştırma onu geçsin."""
-        progress = self.project.load_progress()
+        progress = self._project.load_progress()
         wanted = count or progress.pages_per_run()
         prepared, blanks = [], []
         for page in progress.next_pages(wanted + MAX_BLANK_SKIPS):
@@ -51,7 +44,7 @@ class PagePreparer:
                 break
             entry = self._prepare(page)
             if not entry:
-                self.mark_blank(progress, page)
+                self._mark_blank(progress, page)
                 blanks.append(page)
             prepared += entry
         return prepared, blanks
@@ -61,13 +54,16 @@ class PagePreparer:
         return self._prepare(page)
 
     def _prepare(self, page):
-        page_document = PageDocument(self.builder.build(page, self.project.work_images(page)))
+        page_document = PageDocument(self._builder.build(page, self._project.work_images(page)))
         if page_document.is_blank():
             return []
-        document = page_document.data
-        return [{"page": page, "pdf_page": document["pdf_page"],
-                 "path": self.project.relative_to_root(self.write_input(document)),
+        path = write_json(self._project.work_input(page), page_document.data)
+        return [{"page": page, "pdf_page": page_document.data["pdf_page"], "path": self._project.relative_to_root(path),
                  "blocks": page_document.block_summary(), "math": page_document.equation_count()}]
+
+    def _mark_blank(self, progress, page):
+        progress.mark_blank(page)
+        self._project.save_progress(progress)
 
 
 def parse_args(argv):
