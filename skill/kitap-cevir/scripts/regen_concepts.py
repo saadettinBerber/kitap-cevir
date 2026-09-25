@@ -68,9 +68,9 @@ class CardOutputs:
     """Kart agent'ının çıktısını (_work/cards/out) denetler; geçerli kartları sayfaya yazar."""
 
     def __init__(self, project, settings):
-        self.project = project
-        self.pages = TranslatedPages(project)
-        self.checker = CardChecker(settings.concepts())
+        self._project = project
+        self._pages = TranslatedPages(project)
+        self._checker = CardChecker(settings.concepts())
 
     @classmethod
     def for_project(cls, project):
@@ -81,21 +81,21 @@ class CardOutputs:
         return {page: self._apply_page(page) for page in pages}
 
     def _apply_page(self, page):
-        path = self.project.work_cards_file("out", page)
+        path = self._project.work_cards_file("out", page)
         try:
             cards = read_json(path).get("concepts", [])
         except FileNotFoundError:
-            return [f"çıktı yok: {self.project.relative_to_root(path)}"]
+            return [f"çıktı yok: {self._project.relative_to_root(path)}"]
         return self._write_if_valid(page, cards)
 
     def _write_if_valid(self, page, cards):
-        problems = self.checker.problems(cards)
+        problems = self._checker.problems(cards)
         if not problems:
             self._replace_cards(page, cards)
         return problems
 
     def _replace_cards(self, page, cards):
-        self.pages.save(PageDocument({**self.pages.get(page).data, "concepts": cards}))
+        self._pages.save(PageDocument({**self._pages.get(page).data, "concepts": cards}))
 
 
 def _run_prepare(project, pages):
