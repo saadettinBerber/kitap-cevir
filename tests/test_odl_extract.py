@@ -15,9 +15,13 @@ FOOTER_TOP = 52
 BODY_Y = (70, 280, 430, 300)
 FOOTER_Y = (70, 752, 430, 762)
 PAGE_TOP_Y = (70, 80, 430, 100)
+HEADER_ZONE_Y = (70, 160, 430, 180)
+ABOVE_PAGE_TOP_Y = (70, 60, 430, 80)
+JUST_ABOVE_FOOTER_Y = (70, 740, 430, 752)
 
 
 BODY_FONT_SIZE = 10.5
+STEP = 0.1
 
 
 def _element(content, box):
@@ -82,17 +86,17 @@ class BottomRunningHeaderTest(unittest.TestCase):
         self.assertIsNone(header)
 
     def test_top_header_is_unchanged_by_default(self):
-        top = _element("Chapter 3: Modularity 41", (70, 160, 430, 180))
+        top = _element("Chapter 3: Modularity 41", HEADER_ZONE_Y)
         header, _ = _split(PageZones(DEFAULTS), [top, _element("Body", BODY_Y)])
         self.assertEqual(header["text"], "Chapter 3: Modularity")
 
     def test_top_header_leaves_the_body(self):
-        top = _element("Chapter 3: Modularity 41", (70, 160, 430, 180))
+        top = _element("Chapter 3: Modularity 41", HEADER_ZONE_Y)
         _, body = _split(PageZones(DEFAULTS), [top, _element("Body", BODY_Y)])
         self.assertEqual([element.text for element in body], ["Body"])
 
     def test_top_header_takes_only_the_first_element_in_its_zone(self):
-        top = _element("Chapter 3: Modularity 41", (70, 60, 430, 80))
+        top = _element("Chapter 3: Modularity 41", ABOVE_PAGE_TOP_Y)
         carried = _element("continued paragraph", PAGE_TOP_Y)
         _, body = _split(PageZones(DEFAULTS), [top, carried])
         self.assertEqual([element.text for element in body], ["continued paragraph"])
@@ -126,7 +130,7 @@ class NoRunningHeaderTest(unittest.TestCase):
         self.assertEqual([element.text for element in body], ["Body"])
 
     def test_element_starting_above_the_footer_line_is_body(self):
-        closing = _element("Last line", (70, 740, 430, 752))
+        closing = _element("Last line", JUST_ABOVE_FOOTER_Y)
         _, body = _split(PageZones(NO_HEADER), [closing])
         self.assertEqual(body, [closing])
 
@@ -148,10 +152,11 @@ class ChapterLabelTest(unittest.TestCase):
     """Bölüm açılışındaki "CHAPTER 7" satırı bölüm numarasıdır, paragraf değil."""
 
     LABELLED = _settings(chapter_label_pattern=r"^CHAPTER (\d+)$")
+    CHAPTER = 7
 
     def test_label_becomes_chapter_number_block(self):
-        blocks = _builder(self.LABELLED).blocks_of(_element("CHAPTER 7", BODY_Y))
-        self.assertEqual(blocks, [{"type": "chapter_number", "num": 7}])
+        blocks = _builder(self.LABELLED).blocks_of(_element(f"CHAPTER {self.CHAPTER}", BODY_Y))
+        self.assertEqual(blocks, [{"type": "chapter_number", "num": self.CHAPTER}])
 
     def test_other_paragraphs_are_untouched(self):
         blocks = _builder(self.LABELLED).blocks_of(_element("CHAPTER 7 covers modularity.", BODY_Y))
@@ -176,7 +181,7 @@ class HeadingBySizeTest(unittest.TestCase):
                          [{"type": "chapter", "en": "Chapter 1. Introduction"}])
 
     def test_paragraph_just_below_chapter_size_stays_a_paragraph(self):
-        self.assertEqual(self._blocks("Chapter 1. Introduction", font_size=self.CHAPTER_SIZE - 0.1)[0]["type"], "para")
+        self.assertEqual(self._blocks("Chapter 1. Introduction", font_size=self.CHAPTER_SIZE - STEP)[0]["type"], "para")
 
     def test_large_sentence_is_still_a_paragraph(self):
         self.assertEqual(self._blocks("A large opening sentence.", font_size=self.CHAPTER_SIZE)[0]["type"], "para")
@@ -186,7 +191,7 @@ class HeadingBySizeTest(unittest.TestCase):
         self.assertEqual(self._blocks("Cross-Cutting", font_size=size, is_nested=True)[0]["type"], "heading")
 
     def test_nested_element_just_below_subsection_size_stays_a_paragraph(self):
-        size = DEFAULT_EXTRACTION["subsection_min_size"] - 0.1
+        size = DEFAULT_EXTRACTION["subsection_min_size"] - STEP
         self.assertEqual(self._blocks("Cross-Cutting", font_size=size, is_nested=True)[0]["type"], "para")
 
 
@@ -198,11 +203,12 @@ class CodeImageLinkPlacementTest(unittest.TestCase):
     LINK = "Click here to view code image"
     SLOT = {"text": LINK, "y0": 50, "y1": 80}
     CODE_LINE = {"y0": 80, "y1": 90}
+    LINK_WITH_CODE_BELOW = (70, 60, 430, 90)
 
     def test_one_line_listing_glued_under_the_link_is_placed_as_code(self):
         code = {"type": "code", "lang": "java", "code": "// Two classes"}
         regions = PageRegions([Region({**self.CODE_LINE, "block": code})])
-        glued = _element(f"{self.LINK} // Two classes", (70, 60, 430, 90))
+        glued = _element(f"{self.LINK} // Two classes", self.LINK_WITH_CODE_BELOW)
         body = LayoutFixer([], [self.SLOT]).fixed([glued])
         self.assertEqual(regions.place(body, _builder(DEFAULTS).blocks_of), [code])
 
