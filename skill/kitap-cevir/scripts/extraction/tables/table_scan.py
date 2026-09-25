@@ -79,41 +79,44 @@ class TableBuilder:
         if not grid.has_columns():
             return []
         spans = self._spans_within(self.fills.extent(cells))
-        rows = self._table_rows(RowSplitter(grid, self.row_gap_ratio).rows(spans), grid)
-        if len(rows) < MIN_ROWS:
-            return []
-        header_rows = self._header_count(rows)
-        block = {"type": "table", "header_rows": header_rows,
-                 "rows": [row.header_cells() if index < header_rows else row.body_cells()
-                          for index, row in enumerate(rows)]}
-        return [{"y0": min(row.top for row in rows), "y1": max(row.bottom for row in rows), "block": block}]
+        table = FilledTable.trimmed(RowSplitter(grid, self.row_gap_ratio).rows(spans), grid)
+        return [table.region()] if table.is_table() else []
 
     def _spans_within(self, area):
         return [s for s in self.page_spans if area.contains_point(s.box.x0 + CORNER_TOLERANCE, s.box.y0 + CORNER_TOLERANCE)]
 
-    @staticmethod
-    def _table_rows(rows, grid):
-        """Bantlar varsa ilk bant öncesi (caption) atılır; tablo ilk tablo dışı
-        satırda (gövde metni, dipnot) biter. Baştaki/sondaki tek sütunlu satırlar
-        tablo dışı metindir (kaynak notu vb.)."""
+
+class FilledTable:
+    """Dolgu ızgarasına oturan tablo satırları, yukarıdan aşağıya; baştaki kalın satırlar başlıktır."""
+
+    def __init__(self, rows):
+        self._rows = rows
+
+    @classmethod
+    def trimmed(cls, rows, grid):
+        """Bantlar varsa ilk bant öncesi (caption) atılır; tablo ilk tablo dışı satırda (gövde
+        metni, dipnot) biter. Baştaki/sondaki tek sütunlu satırlar tablo dışı metindir (kaynak notu vb.)."""
         if grid.has_bands():
             rows = list(itertools.dropwhile(lambda row: not row.is_in_band(), rows))
-        return TableBuilder._without_single_column_edges(list(itertools.takewhile(TableRow.fits, rows)))
+        return cls(_without_single_column_edges(list(itertools.takewhile(TableRow.fits, rows))))
 
-    @staticmethod
-    def _without_single_column_edges(rows):
-        while rows and rows[0].filled_columns() < MIN_COLUMNS:
-            rows = rows[1:]
-        while rows and rows[-1].filled_columns() < MIN_COLUMNS:
-            rows = rows[:-1]
-        return rows
+    def is_table(self):
+        return len(self._rows) >= MIN_ROWS
 
-    @staticmethod
-    def _header_count(rows):
-        count = 0
-        while count < len(rows) and rows[count].is_bold():
-            count += 1
-        return count
+    def region(self):
+        """{y0, y1, block}: tablonun sayfadaki dikey yeri ve bloğu."""
+        header_rows = len(list(itertools.takewhile(TableRow.is_bold, self._rows)))
+        rows = [row.header_cells() if index < header_rows else row.body_cells() for index, row in enumerate(self._rows)]
+        block = {"type": "table", "header_rows": header_rows, "rows": rows}
+        return {"y0": min(row.top for row in self._rows), "y1": max(row.bottom for row in self._rows), "block": block}
+
+
+def _without_single_column_edges(rows):
+    while rows and rows[0].filled_columns() < MIN_COLUMNS:
+        rows = rows[1:]
+    while rows and rows[-1].filled_columns() < MIN_COLUMNS:
+        rows = rows[:-1]
+    return rows
 
 
 class RowSplitter:
