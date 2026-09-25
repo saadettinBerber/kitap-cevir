@@ -11,6 +11,7 @@ import re
 from project import Project
 
 GLOSSARY_HEADER_CELL = "İngilizce Terim"
+TERM_FIELDS = ("en", "tr", "note")
 _TABLE_ROW = re.compile(r"^\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|\s*$")
 
 
@@ -77,19 +78,9 @@ class Glossary:
 
     def _read(self):
         with open(self.path, encoding="utf-8") as handle:
-            lines = handle.read().splitlines()
-        preamble = [line for line in lines if not self._is_term_row(line)]
-        terms = [dict(zip(("en", "tr", "note"), _TABLE_ROW.match(line).groups()))
-                 for line in lines if self._is_term_row(line)]
-        return preamble, terms
-
-    @staticmethod
-    def _is_term_row(line):
-        match = _TABLE_ROW.match(line)
-        if not match:
-            return False
-        first = match.group(1)
-        return first != GLOSSARY_HEADER_CELL and not set(first) <= {"-", " "}
+            rows = [(line, _term_cells(line)) for line in handle.read().splitlines()]
+        preamble = [line for line, cells in rows if not cells]
+        return preamble, [dict(zip(TERM_FIELDS, cells)) for _, cells in rows if cells]
 
     @staticmethod
     def _key(term):
@@ -120,6 +111,18 @@ class Glossary:
     def entries(self):
         """Okuyucunun sözlüğü: terimler alfabetik sırayla."""
         return sorted(self.terms, key=self._key)
+
+
+def _term_cells(line):
+    """Terim satırının hücreleri; tablo başlığı, ayraç ve tablo dışı satırlar için boş."""
+    match = _TABLE_ROW.match(line)
+    if not match or not _is_term(match.group(1)):
+        return ()
+    return match.groups()
+
+
+def _is_term(first_cell):
+    return first_cell != GLOSSARY_HEADER_CELL and not set(first_cell) <= {"-", " "}
 
 
 class ReaderData:
