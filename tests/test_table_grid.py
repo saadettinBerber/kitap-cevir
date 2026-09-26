@@ -181,6 +181,11 @@ class WideSpanTest(unittest.TestCase):
         self.assertFalse(_two_columns().is_table_row([_span_of_width(self.LIMIT + STEP)]))
 
 
+class FilledColumnsTest(unittest.TestCase):
+    def test_two_spans_in_one_column_fill_one_column(self):
+        self.assertEqual(_two_columns().filled_columns([_span_at(FIRST_LEFT + INSIDE), _span_at(NEAR_EDGE)]), 1)
+
+
 def _groups(*fills):
     return PageFills(list(fills), TEXT_BOTTOM).table_groups()
 
