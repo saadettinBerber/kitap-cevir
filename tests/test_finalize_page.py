@@ -67,9 +67,10 @@ class PageFileTest(_FinalizeTestCase):
         page_js = self._read_text(self._finalize(DOCUMENT)["page_js"])
         self.assertNotIn("gizli", page_js)
 
-    def test_page_file_reads_back(self):
+    def test_page_file_reads_back_without_the_agent_fields(self):
         self._finalize(DOCUMENT)
-        self.assertEqual(TranslatedPages(self.project).get(PAGE).data["title"], {"en": "T", "tr": "B"})
+        reader_fields = {key: value for key, value in DOCUMENT.items() if key not in ("context", "glossary_new")}
+        self.assertEqual(TranslatedPages(self.project).get(PAGE), PageDocument(reader_fields))
 
     def test_missing_required_field_is_refused(self):
         document = {key: value for key, value in DOCUMENT.items() if key != "blocks"}

@@ -192,11 +192,14 @@ class ImageBackfillerTest(unittest.TestCase):
     def _backfiller(self, extracted_blocks):
         return ImageBackfiller(self.pages, FakeExtractedImages(extracted_blocks, self.folder))
 
-    def _write_page(self, blocks):
-        self.pages.save(PageDocument({"page": self.PAGE, "blocks": blocks}))
+    def _page(self, blocks):
+        return PageDocument({"page": self.PAGE, "blocks": blocks})
 
-    def _page_blocks(self):
-        return self.pages.get(self.PAGE).data["blocks"]
+    def _write_page(self, blocks):
+        self.pages.save(self._page(blocks))
+
+    def _saved_page(self):
+        return self.pages.get(self.PAGE)
 
     def test_missing_image_is_counted(self):
         self._write_page([_para("Layers separate concerns."), _para("Microservices are small.")])
@@ -205,7 +208,8 @@ class ImageBackfillerTest(unittest.TestCase):
     def test_missing_image_goes_below_its_text(self):
         self._write_page([_para("Layers separate concerns."), _para("Microservices are small.")])
         self.backfiller.backfill_page(self.PAGE)
-        self.assertEqual(self._page_blocks()[1], _image("fig.png"))
+        self.assertEqual(self._saved_page(), self._page([_para("Layers separate concerns."), _image("fig.png"),
+                                                         _para("Microservices are small.")]))
 
     def test_added_image_is_copied_next_to_the_page(self):
         self._write_page([_para("Layers separate concerns.")])
@@ -219,7 +223,13 @@ class ImageBackfillerTest(unittest.TestCase):
     def test_second_run_adds_nothing(self):
         self._write_page([_para("Layers separate concerns.")])
         self.backfiller.backfill_page(self.PAGE)
-        self.assertEqual((self.backfiller.backfill_page(self.PAGE), len(self._page_blocks())), (0, 2))
+        self.assertEqual(self.backfiller.backfill_page(self.PAGE), 0)
+
+    def test_second_run_leaves_the_page(self):
+        self._write_page([_para("Layers separate concerns.")])
+        self.backfiller.backfill_page(self.PAGE)
+        self.backfiller.backfill_page(self.PAGE)
+        self.assertEqual(self._saved_page(), self._page([_para("Layers separate concerns."), _image("fig.png")]))
 
     def test_image_already_on_the_page_is_not_copied(self):
         self._write_page([_para("Layers separate concerns."), _image("fig.png")])

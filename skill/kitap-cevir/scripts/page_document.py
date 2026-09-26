@@ -11,54 +11,55 @@ TRANSLATED_FIELDS = ("title", "section", "concepts", "chapter")
 
 
 class PageDocument:
-    """Bir sayfanın belgesi; `data` sözlüğü FORMAT.md şemasıdır."""
+    """Bir sayfanın belgesi; sardığı sözlük FORMAT.md şemasıdır. Sözlük dışarı açılmaz: işi soran
+    modül değil belge yapar, diske yazılacak biçimi as_json verir."""
 
     def __init__(self, data):
-        self.data = data
+        self._data = data
 
     def __eq__(self, other):
-        return isinstance(other, PageDocument) and self.data == other.data
+        return isinstance(other, PageDocument) and self._data == other._data
 
     def as_json(self):
         """Diske yazılacak sözlüğün kopyası; belge yalnız kendi metotlarıyla değişir."""
-        return copy.deepcopy(self.data)
+        return copy.deepcopy(self._data)
 
     def number(self):
-        return self.data["page"]
+        return self._data["page"]
 
     def chapter(self):
-        return self.data.get("chapter", dict(UNKNOWN_CHAPTER))
+        return self._data.get("chapter", dict(UNKNOWN_CHAPTER))
 
     def concepts(self):
-        return self.data.get("concepts", [])
+        return self._data.get("concepts", [])
 
     def toc_entry(self):
         """progress.json'daki içindekiler kaydı: PDF sayfası, bölüm numarası, başlık, kesit."""
-        title, section = self.data.get("title", {}), self.data.get("section", {})
-        return {"pdf_page": self.data["pdf_page"], "chapter": self.data.get("chapter", {}).get("num"),
+        title, section = self._data.get("title", {}), self._data.get("section", {})
+        return {"pdf_page": self._data["pdf_page"], "chapter": self._data.get("chapter", {}).get("num"),
                 "title_en": title.get("en", ""), "title_tr": title.get("tr", ""),
                 "section_en": section.get("en", ""), "section_tr": section.get("tr", "")}
 
     def translated_fields(self):
         """Yeniden çıkarımın üretmediği, çevirmenin ve kart ajanının yazdığı alanlardan sayfada olanlar."""
-        return {field: self.data[field] for field in TRANSLATED_FIELDS if field in self.data}
+        return {field: self._data[field] for field in TRANSLATED_FIELDS if field in self._data}
 
     def with_concepts(self, cards):
         """Kartları verilen kartlar olan aynı sayfa; bu belge değişmez."""
-        return PageDocument({**self.data, "concepts": cards})
+        return PageDocument({**self._data, "concepts": cards})
 
     def card_source(self):
         """Kartların yazılacağı sayfa: başlık alanları ile metin bloklarının kart birimleri (content)."""
         content = [unit for unit in (block.card_unit() for block in self.blocks()) if unit]
-        return {"id": self.data["id"], "page": self.number(), "chapter": self.data.get("chapter", {}),
-                "section": self.data.get("section", {}), "title": self.data.get("title", {}), "content": content}
+        return {"id": self._data["id"], "page": self.number(), "chapter": self._data.get("chapter", {}),
+                "section": self._data.get("section", {}), "title": self._data.get("title", {}), "content": content}
 
     def new_terms(self):
         """Çevirmenin sözlüğe önerdiği terimler (glossary_new)."""
-        return self.data.get("glossary_new", [])
+        return self._data.get("glossary_new", [])
 
     def blocks(self):
-        return [Block.of(data) for data in self.data["blocks"]]
+        return [Block.of(data) for data in self._data["blocks"]]
 
     def text_units(self):
         return [unit for block in self.blocks() for unit in block.units()]
@@ -90,16 +91,16 @@ class PageDocument:
     def leading_block_count(self):
         """Sayfanın açıldığı başlık bloklarının sayısı; çapasız görsel bunların altına iner."""
         return next((index for index, block in enumerate(self.blocks()) if not block.leads_page()),
-                    len(self.data["blocks"]))
+                    len(self._data["blocks"]))
 
     def insert_image(self, index, src):
-        self.data["blocks"].insert(index, {"type": "image", "src": src})
+        self._data["blocks"].insert(index, {"type": "image", "src": src})
 
     def display_math(self):
         return [equation for block in self.blocks() for equation in block.equations()]
 
     def inline_math(self):
-        return self.data.get("math", [])
+        return self._data.get("math", [])
 
 
     def media_sources(self):
@@ -109,7 +110,7 @@ class PageDocument:
 
     def summary(self):
         """Hazırlanan girdinin özeti: sayfa, PDF sayfası, sırayla blok türleri, denklem sayısı."""
-        return {"page": self.number(), "pdf_page": self.data["pdf_page"],
+        return {"page": self.number(), "pdf_page": self._data["pdf_page"],
                 "blocks": self._block_summary(), "math": self._equation_count()}
 
     def _block_summary(self):
