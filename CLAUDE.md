@@ -29,6 +29,7 @@ Bu depodaki karşılıkları:
 - **OOP:** `page_blocks.py`. Blok türü başına bir sınıf var, tür dallanması yalnız `Block.of` fabrikasında (G23 "tek switch"). Aynı dallanma daha önce beş modülde tekrar ediyordu.
 - **OOP:** durum etrafında kurulan sınıflar (`CardChecker(spec)`, `PageInputBuilder`, `PdfInspector(document)`). Aynı değişken fonksiyondan fonksiyona elden ele taşınıyorsa orada bir sınıf çıkmak istiyordur (Bl.10 · Cohesion).
 - **Prosedürel:** `extraction/text_utils.py`. Veri (metin) sabit, işlemler çoğalıyor, durum yok; sınıfa sarılmaz.
+- **Prosedürel:** `extraction/pdf/geometry.py`. `Box` yalnız kenarlarını taşıyan bir veri yapısıdır; kutu türü sabit, geometri işlemleri çoğalıyor, işlemler modülün fonksiyonlarıdır.
 - **VISITOR:** `Block.accept` + `epub/block_visitor.py`. EPUB çıktısı bloklara eklenen yeni bir işlemdir; tür dallanması yine yalnız `Block.of`'ta kalır.
 - **Melez yok:** `Block` verisi özeldir; ziyaretçi bloğun sözlüğünü `accept` üzerinden alır, `Card` gibi (Bl.6 · Hybrids).
 - **VISITOR:** `Card.of` (`concept_cards.py`) + `concept_check.CardRules` ve `epub/cards.EpubCardVisitor`. Kart türüne göre dallanma yalnız fabrikadadır; denetim ve EPUB çizimi karta eklenen işlemlerdir. Önceki sözlükle dağıtım (`kind_rules`, `_MIDDLE_PARTS`) aynı switch'in iki kopyasıydı.
