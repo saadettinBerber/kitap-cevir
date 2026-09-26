@@ -34,7 +34,7 @@ class Piece(NamedTuple):
 
 
 def _covering(boxes):
-    """Kutuların hepsini kapsayan kutu; Box.union'dan farklı olarak boş kutu da sayılır."""
+    """Kutuların hepsini kapsayan kutu; geometry.union'dan farklı olarak boş kutu da sayılır."""
     return Box(min(box.x0 for box in boxes), min(box.y0 for box in boxes),
                max(box.x1 for box in boxes), max(box.y1 for box in boxes))
 

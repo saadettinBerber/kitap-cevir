@@ -6,11 +6,19 @@ her düzeltme yeni bir liste kurar. Koordinatlar üst orijinlidir.
 import dataclasses
 import re
 import unicodedata
+from typing import NamedTuple
 
 from extraction.equations.math_scan import placeholder
-from extraction.pdf.geometry import Box
+from extraction.pdf import geometry
 
 _FOOTNOTE_MARKER = re.compile(r"^[a-z0-9]$")
+
+
+class FixedElements(NamedTuple):
+    """LayoutFixer'ın sonucu: düzeltilmiş öğeler ve yerleştirilemeyen satır içi denklemlerin uyarıları.
+    Uyarıları basmak komutun işidir; düzen kodu yan etkisiz kalır."""
+    elements: list
+    skipped_equations: tuple
 
 
 class LayoutFixer:
@@ -22,10 +30,11 @@ class LayoutFixer:
         self._links = [CodeImageLink(slot) for slot in code_image_links]
 
     def fixed(self, elements):
-        """Gömülü içerik önce akışa döner ki sonraki düzeltmeler onu da görsün; metin
+        """FixedElements. Gömülü içerik önce akışa döner ki sonraki düzeltmeler onu da görsün; metin
         düzeltmeleri (denklem, bağlantı) öğelerin son hâline uygulanır."""
         structured = self._merge_footnote_markers(self._drop_nested_fragments(self._flatten_nested_lists(elements)))
-        return self._without_code_image_links(self._with_inline_math(structured))
+        with_math, skipped = self._with_inline_math(structured)
+        return FixedElements(self._without_code_image_links(with_math), skipped)
 
     @staticmethod
     def _flatten_nested_lists(elements):
@@ -53,7 +62,7 @@ class LayoutFixer:
     @staticmethod
     def _is_fragment_of(element, host):
         """Başka öğenin kutusu içindeki tek karakterlik öğe (alt/üst simge) parçadır."""
-        return element is not host and len(element.text.strip()) == 1 and host.box.contains(element.box)
+        return element is not host and len(element.text.strip()) == 1 and geometry.contains(host.box, element.box)
 
     @staticmethod
     def _merge_footnote_markers(elements):
@@ -72,14 +81,16 @@ class LayoutFixer:
 
     @staticmethod
     def _same_line(marker, element):
-        return marker.box.vertical_overlap(element.box) > 0 and element.box.x0 > marker.box.x0
+        return geometry.vertical_overlap(marker.box, element.box) > 0 and element.box.x0 > marker.box.x0
 
     def _with_inline_math(self, elements):
-        """Satır içi denklemleri ev sahibi öğenin metnine yerleştirir: basit sembol
-        düz metin, karmaşık denklem ⟦eq-N⟧ yer tutucusu."""
+        """(öğeler, atlanan denklemlerin uyarıları). Satır içi denklemleri ev sahibi öğenin metnine
+        yerleştirir: basit sembol düz metin, karmaşık denklem ⟦eq-N⟧ yer tutucusu."""
+        skipped = ()
         for equation in self._equations:
-            elements = equation.placed_in(elements)
-        return elements
+            elements, warnings = equation.placed_in(elements)
+            skipped += warnings
+        return elements, skipped
 
     def _without_code_image_links(self, elements):
         """E-kitabın kod görseli bağlantılarını (text_layer CodeImageLinkLines) öğelerden
@@ -109,22 +120,22 @@ class InlineEquation:
         self._insert = item["text"] if item["kind"] == "text" else placeholder(item["id"])
 
     def placed_in(self, elements):
-        """Denklem, kutusunu dikeyde kapsayan ilk öğenin metnine girer; öyle öğe yoksa bildirilip atlanır."""
+        """(öğeler, uyarılar). Denklem, kutusunu dikeyde kapsayan ilk öğenin metnine girer; öyle öğe
+        yoksa öğeler değişmez ve atlandığı uyarısı döner."""
         hosts = [index for index, element in enumerate(elements) if self._is_hosted_by(element)]
         if not hosts:
-            print(f"  ! satır içi denklem için öğe bulunamadı: {self._insert}")
-            return elements
-        host = hosts[0]
-        return elements[:host] + [self._spliced_into(elements[host])] + elements[host + 1:]
+            return elements, (f"satır içi denklem için öğe bulunamadı: {self._insert}",)
+        return self._spliced_into(elements, hosts[0])
 
     def _is_hosted_by(self, element):
-        return element.box.y0 <= self._box.center_y <= element.box.y1
+        return element.box.y0 <= geometry.center_y(self._box) <= element.box.y1
 
-    def _spliced_into(self, host):
-        text, count = self._splice(host.text)
+    def _spliced_into(self, elements, host):
+        """Komşu kelimeler ev sahibinin metninde yoksa öğeler değişmez ve atlandığı uyarısı döner."""
+        text, count = self._splice(elements[host].text)
         if not count:
-            print(f"  ! satır içi denklem yerleştirilemedi, atlandı: {self._insert}")
-        return dataclasses.replace(host, text=text)
+            return elements, (f"satır içi denklem yerleştirilemedi, atlandı: {self._insert}",)
+        return elements[:host] + [dataclasses.replace(elements[host], text=text)] + elements[host + 1:], ()
 
     def _splice(self, text):
         """insert'i metinde before/after komşu kelimelerinin arasına koyar."""
@@ -182,6 +193,6 @@ class CodeImageLink:
     def _box_without_slot(self, box):
         """Şerit kutunun üst yarısındaysa bağlantı öğenin başındadır, alt kısım
         kalır; alt yarısındaysa sonundadır, üst kısım kalır."""
-        if (self._top + self._bottom) / 2 < box.center_y:
-            return Box(box.x0, max(box.y0, self._bottom), box.x1, box.y1)
-        return Box(box.x0, box.y0, box.x1, min(box.y1, self._top))
+        if (self._top + self._bottom) / 2 < geometry.center_y(box):
+            return geometry.Box(box.x0, max(box.y0, self._bottom), box.x1, box.y1)
+        return geometry.Box(box.x0, box.y0, box.x1, min(box.y1, self._top))

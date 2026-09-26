@@ -5,7 +5,7 @@ Sahtelerin satır dizilişinin dayandığı PyMuPDF davranışı test_pdf_bounda
 """
 import unittest
 
-from pdf_fakes import PAGE_HEIGHT, FakePdfPage, span
+from pdf_fakes import FakePdfPage, in_font, sized, span
 from extraction.settings import with_defaults
 from extraction.text_layer.code_lines import SAME_BASELINE_TOLERANCE, CodeFont, PageLineReader
 from extraction.text_layer.script_marks import (PROSE_SCRIPT_MAX_GAP, PROSE_SCRIPT_MIN_SIZE_RATIO, SCRIPT_RUN_MAX_GAP,
@@ -36,7 +36,7 @@ class Pen:
         """corner: parçanın (sol, üst) köşesi."""
         left, top = corner
         right = left + len(text) * self._size * MONO_CHAR_WIDTH_RATIO
-        return span(text, (left, top, right, top + self._size), self._font, self._size)
+        return sized(self._size, in_font(self._font, span(text, (left, top, right, top + self._size))))
 
     def on_baseline(self, text, point):
         """point: parçanın (sol, taban çizgisi) noktası."""
@@ -408,8 +408,8 @@ class ScriptGapTest(unittest.TestCase):
 
 class LayoutScannerTest(unittest.TestCase):
     def test_empty_page_has_nothing_to_repair(self):
-        self.assertEqual(_scan(), {"page_height": PAGE_HEIGHT, "code_blocks": [], "inline_code": [],
-                                   "hyphen_fixes": {}, "script_fixes": {}, "code_image_links": []})
+        self.assertEqual(_scan(), {"code_blocks": [], "inline_code": [], "hyphen_fixes": {}, "script_fixes": {},
+                                   "code_image_links": []})
 
 
 if __name__ == "__main__":

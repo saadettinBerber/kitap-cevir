@@ -3,7 +3,8 @@ sayfa sonuna düşen parça ve sayfayı açan başlıksız devam."""
 import dataclasses
 import unittest
 
-from pdf_fakes import FakePdfPage, fill, span
+from pdf_fakes import PAGE_HEIGHT, SIZE, FakePdfPage, fill, in_font, sized, span
+from extraction.page_zones import PageZones
 from extraction.pdf.geometry import Box
 from extraction.settings import DEFAULT_EXTRACTION, with_defaults
 from extraction.tables.aligned_tables import COLUMN_GUTTER, AlignedTableFinder, SpanRow, TableColumns
@@ -15,8 +16,9 @@ ROW_GAP = 14
 FIRST_ROW_Y = 100
 CHAR_WIDTH, LINE_HEIGHT = 6, 10
 SHIFT = 3
-A4_HEIGHT = 842
 HEADER = [{"en": "Method"}, {"en": "Purpose"}]
+MARK_X = 240                 # ikinci sütundaki "does 0"ın hemen sağı
+NEARLY_FULL = 0.9
 
 
 def _span(text, origin):
@@ -25,12 +27,8 @@ def _span(text, origin):
     return span(text, (x, y, x + CHAR_WIDTH * len(text), y + LINE_HEIGHT))
 
 
-def _in_font(font, pieces):
-    return [dataclasses.replace(piece, font=font) for piece in pieces]
-
-
 def _bold(pieces):
-    return _in_font(BOLD, pieces)
+    return [in_font(BOLD, piece) for piece in pieces]
 
 
 def _shifted(shift, piece):
@@ -137,6 +135,22 @@ class AlignedTableFinderTest(unittest.TestCase):
         self.assertEqual((table["y0"], table["y1"]), (FIRST_ROW_Y - SHIFT, last_y + SHIFT + LINE_HEIGHT))
 
 
+def _first_row_with_a_mark(size):
+    """Üç gövde satırlı tablo; ilk gövde satırının ikinci hücresinin sonunda size puntolu "a" var."""
+    mark = sized(size, _span("a", (MARK_X, FIRST_ROW_Y + ROW_GAP)))
+    return _rows(_table_spans(3) + [mark])[1]
+
+
+class CellMarkTest(unittest.TestCase):
+    """Üst simge, satırın en büyük parçasının puntosuna göre ölçülür."""
+
+    def test_piece_far_smaller_than_the_row_is_a_superscript(self):
+        self.assertEqual(_first_row_with_a_mark(SIZE / 2)[1], {"en": "does 0<sup>a</sup>", "html": True})
+
+    def test_piece_nearly_as_large_as_the_row_is_cell_text(self):
+        self.assertEqual(_first_row_with_a_mark(SIZE * NEARLY_FULL)[1], {"en": "does 0 a"})
+
+
 class SplitTableTest(unittest.TestCase):
     """Sayfa sonuna düşen tablo parçası (Effective Java s.2): başlık ve tek satır;
     tablo sonraki sayfada sürer."""
@@ -175,7 +189,7 @@ class ContinuedTableTest(unittest.TestCase):
         self.assertEqual(len(_rows(_continued_rows(3) + after)), 3)
 
     def test_styled_span_inside_a_cell_does_not_open_a_column(self):
-        italic_x = [_span("JDK 1.9.", (72, FIRST_ROW_Y)), *_in_font(ITALIC, [_span("x", (120, FIRST_ROW_Y))]),
+        italic_x = [_span("JDK 1.9.", (72, FIRST_ROW_Y)), in_font(ITALIC, _span("x", (120, FIRST_ROW_Y))),
                     _span("Java 1.9", (200, FIRST_ROW_Y))]
         rows = _rows(italic_x + _continued_rows(2, FIRST_ROW_Y + ROW_GAP))
         self.assertEqual(rows[0], [{"en": "JDK 1.9. x"}, {"en": "Java 1.9"}])
@@ -196,9 +210,9 @@ class ContinuedTableTest(unittest.TestCase):
         self.assertEqual(_tables(_continued_rows(1) + after), [])
 
 
-PAGE_NUMBER = _span("21", (300, A4_HEIGHT - 27))
+PAGE_NUMBER = _span("21", (300, PAGE_HEIGHT - 27))
 FILL = fill(300, 600, 400, 620)
-BODY_BOTTOM = A4_HEIGHT - DEFAULT_EXTRACTION["footer_zone_top"]
+BODY_BOTTOM = PAGE_HEIGHT - DEFAULT_EXTRACTION["footer_zone_top"]
 
 
 def _table_lines(body_rows):
@@ -208,7 +222,8 @@ def _table_lines(body_rows):
 
 
 def _scan(lines, shapes=()):
-    return TableScanner(with_defaults({})).scan(FakePdfPage(lines=lines, shapes=list(shapes), height=A4_HEIGHT))
+    settings = with_defaults({})
+    return TableScanner(settings, PageZones(settings)).scan(FakePdfPage(lines=lines, shapes=shapes))
 
 
 def _mark_ending_at(bottom):

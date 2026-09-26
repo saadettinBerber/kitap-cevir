@@ -4,9 +4,10 @@ ayırdığı terim tablosu."""
 import dataclasses
 import unittest
 
-from pdf_fakes import FakePdfPage, fill, span, stroke
+from pdf_fakes import PAGE_HEIGHT, FakePdfPage, fill, in_font, sized, span, stroke
+from extraction.page_zones import PageZones
 from extraction.pdf.geometry import Box
-from extraction.settings import with_defaults
+from extraction.settings import DEFAULT_EXTRACTION, with_defaults
 from extraction.tables.table_grid import MAX_BAND_GAP_RATIO, MIN_CELL_WIDTH, RULE_MAX_HEIGHT, PageFills
 from extraction.tables.table_scan import TableScanner
 
@@ -14,6 +15,8 @@ BOLD = "Helvetica-Bold"
 STEP = 0.1
 FRACTION = 0.2
 SHIFT = 3
+OUTDENT = 10
+OVERHANG_WIDTH = 60
 
 COLUMNS = [(70, 170), (170, 270), (270, 370)]
 HEADER = ["Name", "Count", "Share"]
@@ -23,18 +26,18 @@ TABLE_TOP = 150
 PADDING, TEXT_DROP, TEXT_HEIGHT, CHAR_WIDTH = 5, 10, 12, 6
 BODY_SIZE = 11
 MARK_SIZE = BODY_SIZE / 2
-CAPTION = span("Table 1-1. A caption that spans the whole table width", (70, 121, 370, 132), size=9)
-BODY = span("Body text far below the table, spanning columns.", (70, 391, 370, 402), size=BODY_SIZE)
+CAPTION = sized(9, span("Table 1-1. A caption that spans the whole table width", (70, 121, 370, 132)))
+BODY = sized(BODY_SIZE, span("Body text far below the table, spanning columns.", (70, 391, 370, 402)))
 
 
 def _bold(line):
-    return tuple(dataclasses.replace(piece, font=BOLD) for piece in line)
+    return tuple(in_font(BOLD, piece) for piece in line)
 
 
 def _cell_row(y0, texts):
     """Zebra sütunlarına oturan metin satırı; boş metin o sütunu boş bırakır."""
-    return tuple(span(text, (left + PADDING, y0, left + PADDING + CHAR_WIDTH * len(text), y0 + TEXT_HEIGHT),
-                      size=BODY_SIZE)
+    return tuple(sized(BODY_SIZE, span(text, (left + PADDING, y0, left + PADDING + CHAR_WIDTH * len(text),
+                                               y0 + TEXT_HEIGHT)))
                  for (left, _), text in zip(COLUMNS, texts) if text)
 
 
@@ -63,8 +66,13 @@ class ZebraLayout:
         return _cell_row(self.top(index) + TEXT_DROP, texts)
 
 
+def _scanner(overrides):
+    settings = with_defaults(overrides)
+    return TableScanner(settings, PageZones(settings))
+
+
 def _scan(page):
-    return TableScanner(with_defaults({})).scan(page)
+    return _scanner({}).scan(page)
 
 
 def _texts(table):
@@ -108,13 +116,24 @@ class ZebraTableTest(unittest.TestCase):
         [table] = _scan(page)
         self.assertEqual((table["y0"], table["y1"]), (header_top - SHIFT, last_top + TEXT_HEIGHT + SHIFT))
 
+    def test_piece_starting_left_of_the_table_stays_out_though_its_middle_is_inside(self):
+        """Parça tabloya sol üst köşesiyle girer, ortasıyla değil."""
+        layout = ZebraLayout(ROWS)
+        header, first, second, third = layout.lines()
+        left, top = COLUMNS[0][0] - OUTDENT, layout.top(2) + TEXT_DROP
+        overhang = sized(BODY_SIZE, span("x", (left, top, left + OVERHANG_WIDTH, top + TEXT_HEIGHT)))
+        page = FakePdfPage(lines=[header, first, second + (overhang,), third],
+                           shapes=layout.shading(0) + layout.shading(2))
+        self.assertEqual(_texts(_scan(page)[0])[2], ROWS[1])
+
     def test_caption_and_body_stay_outside_table_extent(self):
         self.assertGreater(self.tables[0]["y0"], CAPTION.box.y1)
         self.assertLess(self.tables[0]["y1"], BODY.box.y0)
 
     def test_lines_read_bottom_up_still_give_rows_top_down(self):
         page = _zebra_page()
-        self.assertEqual(_texts(_scan(FakePdfPage(lines=page.lines[::-1], shapes=page.shapes))[0]), [HEADER] + ROWS)
+        bottom_up = FakePdfPage(lines=page.text_lines()[::-1], shapes=page.drawings())
+        self.assertEqual(_texts(_scan(bottom_up)[0]), [HEADER] + ROWS)
 
     def test_cell_text_is_stripped(self):
         layout = ZebraLayout([[" Alpha ", "1", "10%"]])
@@ -162,6 +181,17 @@ class FullWidthFillTest(unittest.TestCase):
         [table] = _scan(FakePdfPage(lines=layout.lines() + [(BODY,)], shapes=layout.shading(0) + [full_width]))
         self.assertEqual(_texts(table), [HEADER] + ROWS)
 
+    def test_text_on_a_full_width_bar_above_the_first_band_is_left_out(self):
+        """Başlığın üstündeki boydan boya şerit hücre kümesine katılır ama bant değildir; ilk banttan
+        önceki satır tablo dışıdır."""
+        layout = ZebraLayout(ROWS)
+        bar_top = layout.top(0) - ROW_HEIGHT
+        bar = fill(COLUMNS[0][0], bar_top, COLUMNS[-1][1], layout.top(0))
+        title = span("Table 1-1. The title bar", (COLUMNS[0][0] + PADDING, bar_top + TEXT_DROP,
+                                                  COLUMNS[-1][1] - PADDING, bar_top + TEXT_DROP + TEXT_HEIGHT))
+        [table] = _scan(FakePdfPage(lines=[(title,)] + layout.lines(), shapes=[bar] + layout.shading(0)))
+        self.assertEqual(_texts(table), [HEADER] + ROWS)
+
 
 SUBLINE_DROPS = (2, 16)      # bir bandın içindeki iki alt satırın üst kenarı, satırın tepesinden
 
@@ -180,7 +210,7 @@ def _shaded_rows(lines):
 
 class HeaderTest(unittest.TestCase):
     def test_small_regular_mark_does_not_unbold_the_header(self):
-        mark = span("a", (360, TABLE_TOP + TEXT_DROP, 364, TABLE_TOP + TEXT_DROP + MARK_SIZE), size=MARK_SIZE)
+        mark = sized(MARK_SIZE, span("a", (360, TABLE_TOP + TEXT_DROP, 364, TABLE_TOP + TEXT_DROP + MARK_SIZE)))
         header = _bold(_cell_row(TABLE_TOP + TEXT_DROP, HEADER)) + (mark,)
         layout = ZebraLayout(ROWS)
         [table] = _scan(FakePdfPage(lines=[header] + layout.lines()[1:], shapes=layout.shading(0)))
@@ -211,7 +241,7 @@ class LineBreakTest(unittest.TestCase):
         """Sarılmış düz metnin ölçüsü hücrenin kendi sütunudur."""
         left, right = COLUMNS[0]
         top = self.BODY_TOP + SUBLINE_DROPS[0]
-        filling = span("wrapped", (left + PADDING, top, right - PADDING, top + TEXT_HEIGHT), size=BODY_SIZE)
+        filling = sized(BODY_SIZE, span("wrapped", (left + PADDING, top, right - PADDING, top + TEXT_HEIGHT)))
         first, second = _split_row(self.BODY_TOP, ("", "c", "e"), ("b", "d", ""))
         rows = _shaded_rows(self._header() + [(filling,) + first, second])
         self.assertEqual(rows[1][:2], [{"en": "wrapped b"}, {"en": "c<br>d", "html": True}])
@@ -328,12 +358,14 @@ CELL_INSET, CELL_TEXT_DROP, CELL_TEXT_BOTTOM, CELL_CHAR_WIDTH = 4, 0.4, 12.8, 5
 CELL_SIZE = 9
 RULE_GAP = 4
 RULE_TOP = TABLE_TOP + CELL_HEIGHT * 2 + RULE_GAP   # tek gövde satırlı terim tablosunun alt çizgisi
+BODY_BOTTOM = PAGE_HEIGHT - DEFAULT_EXTRACTION["footer_zone_top"]
+TALL_FOOTER_ZONE = DEFAULT_EXTRACTION["footer_zone_top"] * 2
 
 
 def _cell_lines(top, texts):
     """PyMuPDF her hücreyi ayrı satır olarak verir; 9 puntoluk metin hücrenin 0.4 altından başlar."""
-    return [(span(text, (left + CELL_INSET, top + CELL_TEXT_DROP,
-                         left + CELL_INSET + CELL_CHAR_WIDTH * len(text), top + CELL_TEXT_BOTTOM), size=CELL_SIZE),)
+    return [(sized(CELL_SIZE, span(text, (left + CELL_INSET, top + CELL_TEXT_DROP,
+                         left + CELL_INSET + CELL_CHAR_WIDTH * len(text), top + CELL_TEXT_BOTTOM))),)
             for (left, _), text in zip(TERM_COLUMNS, texts)]
 
 
@@ -347,7 +379,7 @@ def _bold_lines(lines):
 
 
 def _scan_book(page):
-    return TableScanner(with_defaults(BOOK_SETTINGS)).scan(page)
+    return _scanner(BOOK_SETTINGS).scan(page)
 
 
 class TermTableLayout:
@@ -428,8 +460,8 @@ class RowGapBoundaryTest(unittest.TestCase):
     FIRST_ROW, SECOND_ROW = ("Latency", "Time to answer"), ("Load", "Requests per second")
 
     def _row(self, top, texts):
-        return [(span(text, (left + CELL_INSET, top, left + CELL_INSET + CELL_CHAR_WIDTH * len(text),
-                             top + self.TEXT_HEIGHT), size=CELL_SIZE),)
+        return [(sized(CELL_SIZE, span(text, (left + CELL_INSET, top, left + CELL_INSET + CELL_CHAR_WIDTH * len(text),
+                             top + self.TEXT_HEIGHT))),)
                 for (left, _), text in zip(TERM_COLUMNS, texts)]
 
     def _row_count(self, second_row):
@@ -437,7 +469,7 @@ class RowGapBoundaryTest(unittest.TestCase):
         lines = _bold_lines(_cell_lines(TABLE_TOP, TERM_HEADER)) + self._row(self.BODY_TOP, self.FIRST_ROW)
         rules = [stroke(left, self.RULE_Y, right, self.RULE_Y) for left, right in TERM_COLUMNS]
         page = FakePdfPage(lines=lines + second_row, shapes=TermTableLayout(TABLE_TOP, []).header_fills() + rules)
-        [table] = TableScanner(with_defaults({"table_row_gap_ratio": self.RATIO})).scan(page)
+        [table] = _scanner({"table_row_gap_ratio": self.RATIO}).scan(page)
         return len(_texts(table))
 
     def test_line_at_the_ratio_continues_the_row(self):
@@ -494,6 +526,14 @@ class SingleColumnEdgeTest(unittest.TestCase):
         [found] = _scan_book(TermTableLayout(TABLE_TOP, [self.ROW, ("a Estimated.",)]).page())
         self.assertEqual(_texts(found), [list(TERM_HEADER), list(self.ROW)])
 
+    def test_fills_of_a_single_column_make_no_table(self):
+        """Tek sütunlu dolgu yığını (renkli not kutusu, kenar çubuğu) tablo değildir."""
+        left, right = TERM_COLUMNS[0]
+        tops = [TABLE_TOP + CELL_HEIGHT * index for index in range(len(ROWS))]
+        lines = [line for top, (text, *_) in zip(tops, ROWS) for line in _cell_lines(top, (text,))]
+        shapes = [fill(left, top, right, top + CELL_HEIGHT) for top in tops]
+        self.assertEqual(_scan_book(FakePdfPage(lines=lines, shapes=shapes)), [])
+
 
 class BottomRuleTest(unittest.TestCase):
     """Tablo altındaki ilk yatay çizgide biter. Çizgi sayılan: en çok RULE_MAX_HEIGHT kalınlığında, en az
@@ -501,6 +541,7 @@ class BottomRuleTest(unittest.TestCase):
 
     ROW = ("Availability", "How long the system is available")
     EXTRA = ("Extra", "Row after the table")
+    FOOTER = ("Chapter 4", "57")
 
     def _rows_under(self, rule):
         """Tablo, altında bir çizgi ve çizginin altında sütunlara oturan bir satır."""
@@ -528,6 +569,20 @@ class BottomRuleTest(unittest.TestCase):
         beside = stroke(right + MIN_CELL_WIDTH, RULE_TOP, right + 3 * MIN_CELL_WIDTH, RULE_TOP)
         self.assertIn(list(self.EXTRA), self._rows_under(beside))
 
+    def test_table_without_a_rule_ends_above_the_footer_zone(self):
+        """Çizgi yoksa tablo alt bilgi bölgesinin üstünde biter: sütunlara oturan alt bilgi tabloya girmez."""
+        table = TermTableLayout(TABLE_TOP, [self.ROW])
+        footer = _cell_lines(BODY_BOTTOM, self.FOOTER)
+        [found] = _scan_book(FakePdfPage(lines=table.lines() + footer, shapes=table.header_fills()))
+        self.assertEqual(_texts(found), [list(TERM_HEADER), list(self.ROW)])
+
+    def test_table_ends_above_the_footer_zone_the_book_sets(self):
+        table = TermTableLayout(TABLE_TOP, [self.ROW])
+        footer = _cell_lines(PAGE_HEIGHT - TALL_FOOTER_ZONE, self.FOOTER)
+        scanner = _scanner({**BOOK_SETTINGS, "footer_zone_top": TALL_FOOTER_ZONE})
+        [found] = scanner.scan(FakePdfPage(lines=table.lines() + footer, shapes=table.header_fills()))
+        self.assertEqual(_texts(found), [list(TERM_HEADER), list(self.ROW)])
+
 
 class TableEndTest(unittest.TestCase):
     """Tablo alt kenar çizgisinde biter; altındaki caption ve gövde metni tabloya girmemeli.
@@ -541,13 +596,14 @@ class TableEndTest(unittest.TestCase):
     def _caption(self, bottom):
         top = bottom + self.CAPTION_DROP
         caption = "Table 4-1. Operational characteristics"
-        return (span(caption, (72, top, 222, top + self.CAPTION_HEIGHT), size=CELL_SIZE),)
+        return (sized(CELL_SIZE, span(caption, (72, top, 222, top + self.CAPTION_HEIGHT))),)
 
     def _prose(self, bottom):
         top = bottom + self.BODY_DROP
-        return (span("See ", (72, top, 92, top + self.BODY_HEIGHT), size=self.PROSE_SIZE),
-                span("Chapter 5", (92, top, 138, top + self.BODY_HEIGHT), "Helvetica-Oblique", self.PROSE_SIZE),
-                span(" for details.", (138, top, 200, top + self.BODY_HEIGHT), size=self.PROSE_SIZE))
+        chapter = in_font("Helvetica-Oblique", span("Chapter 5", (92, top, 138, top + self.BODY_HEIGHT)))
+        return (sized(self.PROSE_SIZE, span("See ", (72, top, 92, top + self.BODY_HEIGHT))),
+                sized(self.PROSE_SIZE, chapter),
+                sized(self.PROSE_SIZE, span(" for details.", (138, top, 200, top + self.BODY_HEIGHT))))
 
     def test_text_below_the_rule_is_outside(self):
         table = TermTableLayout(TABLE_TOP, [self.ROW])

@@ -9,11 +9,21 @@ FIRST_PAGE_NUMBER = 1       # PDF sayfaları 1'den sayılır; kütüphaneler ve 
 
 
 class PdfPage(Protocol):
-    """Bir PDF sayfasının metin, çizim ve görüntü katmanı."""
-    pdf_path: str
-    number: int                 # FIRST_PAGE_NUMBER'dan başlayan PDF sayfa numarası
-    width: float
-    height: float
+    """Bir PDF sayfasının metin, çizim ve görüntü katmanı. Kimliği ve boyutu salt okunur sorgulardır."""
+
+    @property
+    def pdf_path(self) -> str:
+        """Sayfanın PDF dosyası; dış düzen okuyucuları sayfayı dosyadan okur."""
+
+    @property
+    def number(self) -> int:
+        """FIRST_PAGE_NUMBER'dan başlayan PDF sayfa numarası."""
+
+    @property
+    def width(self) -> float: ...
+
+    @property
+    def height(self) -> float: ...
 
     def text_lines(self) -> list[tuple[Span, ...]]:
         """Satırlar ve parçaları, kütüphanenin okuma sırasıyla; boş satır yok."""
@@ -31,8 +41,16 @@ class PdfPage(Protocol):
 
 class PdfDocument(Protocol):
     """Açık bir PDF; `with` bloğunun sonunda kapanır."""
-    page_count: int
-    metadata: dict              # başlık, yazar…; boş değerler olabilir
+
+    @property
+    def page_count(self) -> int: ...
+
+    @property
+    def metadata(self) -> dict:
+        """Dolu metadata alanları (başlık, yazar…); boş değerli alan yoktur."""
+
+    def has_page(self, number: int) -> bool:
+        """Numara FIRST_PAGE_NUMBER ile son sayfa arasında mı?"""
 
     def page(self, number: int) -> PdfPage:
         """FIRST_PAGE_NUMBER'dan başlayan numarasıyla sayfa."""

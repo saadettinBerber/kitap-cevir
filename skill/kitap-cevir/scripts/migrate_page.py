@@ -16,7 +16,7 @@ from finalize_page import PageFinalizer
 from json_file import read_json, write_json
 from migrate_match import TranslationSource, Translations
 from page_document import PageDocument
-from page_input import PageInputBuilder
+from page_input import PageInputBuilder, report_skipped
 from project import Project
 from translated_pages import TranslatedPages
 
@@ -57,15 +57,16 @@ class Migrator:
 
     def run(self, page):
         """Sayfayı yeniden çıkarıp eski çevirileri taşır; sonlandırmaz."""
-        document, pending = self._migrated(page)
+        old = self._pages.get(page)
+        built = self._builder.build(page, self._project.work_images(page))
+        report_skipped(built.skipped_equations)
+        document, pending = self._migrated(old, built.document)
         write_json(self._project.work_output(page), document.as_json())
         self._write_pending(page, pending)
         return {"page": page, **_summary(document, pending)}
 
-    def _migrated(self, page):
-        """(taşınmış sayfa, bekleyenler); eski sayfa yeniden çıkarımdan önce okunur."""
-        old = self._pages.get(page)
-        extracted = self._builder.build(page, self._project.work_images(page))
+    def _migrated(self, old, extracted):
+        """(taşınmış sayfa, bekleyenler); eski sayfa run'da yeniden çıkarımdan önce okunur."""
         migration = PageMigration(old, self._builder.hyphen_fixes(extracted["pdf_page"]))
         document = migration.migrated(PageDocument(extracted))
         return document, migration.pending(document)

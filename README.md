@@ -77,7 +77,7 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │       ├── page_extractor.py PageExtractor: düzen okuyucusu + metin katmanı orkestrasyonu
 │       ├── pdf/              PDF kütüphaneleri sınırı: akışlar yalnız bunları görür
 │       │   ├── model.py          Span, Drawing, LayoutElement, PageLayout (düz veri)
-│       │   ├── geometry.py       Box: sol-üst orijinli kutu
+│       │   ├── geometry.py       Box (sol-üst orijinli kutu, veri yapısı) ve geometri fonksiyonları
 │       │   ├── ports.py          PdfDocument, PdfPage, LayoutReader arayüzleri
 │       │   ├── pymupdf_adapter.py  PdfDocument, PdfPage ← PyMuPDF; görsel boyutu
 │       │   ├── odl_adapter.py    LayoutReader ← OpenDataLoader (koordinatı sınırda çevirir)
@@ -104,7 +104,8 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 └── templates/project/        init ile kopyalanan okuyucu iskeleti
     ├── index.html, css/, js/, data/pages/
     ├── CLAUDE.md, glossary.md, .gitignore, .claude/launch.json
-tests/                        birim testleri; pdf_fakes.py sahte sayfa/düzen okuyucusu (PDF ve Java gerektirmez)
+tests/                        birim testleri; pdf_fakes.py sahte belge/sayfa/düzen okuyucusu ve kurucuları
+                              (span, element, in_font, sized, of_kind; PDF ve Java gerektirmez)
 ```
 
 ## Yeni bir kitap için akış

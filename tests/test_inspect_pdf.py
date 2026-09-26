@@ -2,7 +2,7 @@ import contextlib
 import io
 import unittest
 
-from pdf_fakes import FONT, PAGE_HEIGHT, PAGE_WIDTH, SIZE, FakePdfDocument, FakePdfPage, span
+from pdf_fakes import FONT, PAGE_HEIGHT, PAGE_WIDTH, SIZE, FakePdfDocument, FakePdfPage, in_font, span
 from inspect_pdf import DEFAULT_LAST_PAGE, TOP_CANDIDATES, FolioOffsets, InspectionReport, PdfInspector, parse_args
 
 OFFSET = 2
@@ -25,6 +25,18 @@ def _book():
     preface = [_text_page(("Preface", TOP)) for _ in range(OFFSET)]
     body = [_text_page((BODY, TOP), (str(folio), FOLIO_TOP)) for folio in range(1, BODY_PAGES + 1)]
     return FakePdfDocument(preface + body)
+
+
+class _DocumentWithMetadata(FakePdfDocument):
+    """Tek sayfalık, dolu metadata alanları verilen belge."""
+
+    def __init__(self, metadata):
+        super().__init__([_text_page(("x", TOP))])
+        self._metadata = metadata
+
+    @property
+    def metadata(self):
+        return self._metadata
 
 
 def _output(command):
@@ -52,7 +64,8 @@ class PdfInspectorTest(unittest.TestCase):
         self.assertEqual(PdfInspector(_book()).font_usage(OFFSET + 1), [((FONT, SIZE), len(BODY) + len("1"))])
 
     def test_most_used_font_comes_first(self):
-        fonts = (span("bb", LINE_BOX, "Middle"), span("a", LINE_BOX, "Small"), span("cccc", LINE_BOX, "Large"))
+        fonts = tuple(in_font(font, span(text, LINE_BOX))
+                      for font, text in (("Middle", "bb"), ("Small", "a"), ("Large", "cccc")))
         usage = PdfInspector(FakePdfDocument([FakePdfPage(lines=[fonts])])).font_usage(1)
         self.assertEqual([font for (font, _), _ in usage], ["Large", "Middle", "Small"])
 
@@ -68,9 +81,8 @@ class PdfInspectorTest(unittest.TestCase):
         self.assertEqual(PdfInspector(_book()).page_texts(f"{OFFSET}-{OFFSET + 1}"),
                          [(OFFSET, "Preface"), (OFFSET + 1, f"{BODY}\n1")])
 
-    def test_empty_metadata_fields_are_left_out(self):
-        document = FakePdfDocument([_text_page(("x", TOP))], metadata={"title": "Book", "author": ""})
-        self.assertEqual(PdfInspector(document).metadata(), {"title": "Book"})
+    def test_metadata_comes_from_the_document(self):
+        self.assertEqual(PdfInspector(_DocumentWithMetadata({"title": "Book"})).metadata(), {"title": "Book"})
 
 
 class InspectionReportTest(unittest.TestCase):
@@ -82,8 +94,8 @@ class InspectionReportTest(unittest.TestCase):
         self.assertTrue(best.startswith(f"  offset={OFFSET:4}"), best)
         self.assertTrue(best.endswith(f"PDF {OFFSET + 1} = kitap 1"), best)
 
-    def test_info_prints_page_count_size_and_filled_metadata(self):
-        document = FakePdfDocument([_text_page(("x", TOP))], metadata={"title": "Book", "author": ""})
+    def test_info_prints_page_count_size_and_metadata(self):
+        document = _DocumentWithMetadata({"title": "Book"})
         self.assertEqual(self._report(lambda report: report.info(), document),
                          f"PDF sayfa sayısı: 1\nSayfa boyutu (pt): {PAGE_WIDTH:.1f} x {PAGE_HEIGHT:.1f}\n"
                          "  title: Book\n")

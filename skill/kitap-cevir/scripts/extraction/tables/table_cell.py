@@ -8,37 +8,55 @@ WRAP_FILL_RATIO = 0.8        # satırlar sütunu bu oranda dolduruyorsa sarılm�
 
 
 class TableCell:
-    """Bir hücreye düşen metin parçaları: satırları ve üst simge işaretleri."""
+    """Bir sütuna düşen hücre metni; satırların sütunu doldurup doldurmadığına göre satır sonları
+    korunur ya da birleşir."""
 
-    def __init__(self, spans, column, main_size):
-        self._spans = spans
+    def __init__(self, text, column):
+        """text: CellText; column: sütunun (sol, sağ) kenarları."""
+        self._text = text
         self._column = column
-        self._main_size = main_size
 
     def is_multiline(self):
-        return len({span.line_y for span in self._spans}) > 1
+        return self._text.is_multiline()
 
     def is_wrapped_prose(self):
         """Son satır hariç satırlar sütunu dolduruyorsa bu sarılmış düz metindir;
         satır sonları anlam taşımaz."""
-        lines = self._lines()
+        lines = self._text.lines()
         if len(lines) < 2:
             return True
         left, right = self._column
         fills = sorted((line.right - left) / (right - left) for line in lines[:-1])
         return fills[len(fills) // 2] >= WRAP_FILL_RATIO
 
-    def unit(self, row_keeps_breaks):
-        keep_breaks = row_keeps_breaks and not self.is_wrapped_prose()
-        lines, marks = self._lines(), self._marks()
-        if not marks and not keep_breaks:
-            return {"en": " ".join(line.text for line in lines)}
-        separator = "<br>" if keep_breaks else " "
-        text = separator.join(html.escape(line.text) for line in lines)
-        sups = "".join(f"<sup>{html.escape(mark)}</sup>" for mark in marks)
+    def unit(self):
+        """Satırlar boşlukla birleşir; üst simge varsa birim HTML olur."""
+        if not self._text.marks():
+            return {"en": " ".join(line.text for line in self._text.lines())}
+        return self._html_unit(" ")
+
+    def listing_unit(self):
+        """Liste niteliğindeki satırın hücresi satır sonlarını korur; sarılmış düz metin yine birleşir."""
+        return self.unit() if self.is_wrapped_prose() else self._html_unit("<br>")
+
+    def _html_unit(self, line_separator):
+        text = line_separator.join(html.escape(line.text) for line in self._text.lines())
+        sups = "".join(f"<sup>{html.escape(mark)}</sup>" for mark in self._text.marks())
         return {"en": text + sups, "html": True}
 
-    def _lines(self):
+
+class CellText:
+    """Hücreye düşen metin parçaları, satırın ana puntosuna göre ayrılmış: metin satırları ve
+    üst simgeler."""
+
+    def __init__(self, spans, main_size):
+        self._spans = spans
+        self._main_size = main_size
+
+    def is_multiline(self):
+        return len({span.line_y for span in self._spans}) > 1
+
+    def lines(self):
         """Üst simge olmayan parçalar satırlarına, satırlar yukarıdan aşağıya."""
         rows = collections.defaultdict(list)
         for span in self._spans:
@@ -46,7 +64,7 @@ class TableCell:
                 rows[span.line_y].append(span)
         return [CellLine.of(rows[line_y]) for line_y in sorted(rows)]
 
-    def _marks(self):
+    def marks(self):
         return [span.text for span in self._spans if self._is_mark(span)]
 
     def _is_mark(self, span):

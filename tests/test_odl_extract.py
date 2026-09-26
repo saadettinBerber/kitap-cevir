@@ -1,6 +1,8 @@
+import dataclasses
+import tempfile
 import unittest
 
-from pdf_fakes import PAGE_HEIGHT, FakeLayoutReader, FakePdfPage, element, span
+from pdf_fakes import PAGE_HEIGHT, FakeLayoutReader, FakePdfPage, element, fill, in_font, span
 from extraction.block_builder import BlockBuilder
 from extraction.layout_elements import LayoutFixer
 from extraction.page_extractor import PageExtractor
@@ -18,6 +20,8 @@ PAGE_TOP_Y = (70, 80, 430, 100)
 HEADER_ZONE_Y = (70, 160, 430, 180)
 ABOVE_PAGE_TOP_Y = (70, 60, 430, 80)
 JUST_ABOVE_FOOTER_Y = (70, 740, 430, 752)
+FOOTER_LINE = PAGE_HEIGHT - FOOTER_TOP
+LINE_HEIGHT = 10
 
 
 BODY_FONT_SIZE = 10.5
@@ -25,7 +29,11 @@ STEP = 0.1
 
 
 def _element(content, box):
-    return element(content, box, font_size=BODY_FONT_SIZE)
+    return dataclasses.replace(element(content, box), font_size=BODY_FONT_SIZE)
+
+
+def _starting_at(top):
+    return (BODY_Y[0], top, BODY_Y[2], top + LINE_HEIGHT)
 
 
 def _split(zones, elements):
@@ -85,6 +93,10 @@ class BottomRunningHeaderTest(unittest.TestCase):
         header, _ = _split(PageZones(BOTTOM_HEADER), [_element("1", FOOTER_Y)])
         self.assertIsNone(header)
 
+    def test_element_starting_on_the_footer_line_is_no_header(self):
+        header, _ = _split(PageZones(BOTTOM_HEADER), [_element(self.FOOTER, _starting_at(FOOTER_LINE))])
+        self.assertIsNone(header)
+
     def test_top_header_is_unchanged_by_default(self):
         top = _element("Chapter 3: Modularity 41", HEADER_ZONE_Y)
         header, _ = _split(PageZones(DEFAULTS), [top, _element("Body", BODY_Y)])
@@ -134,6 +146,15 @@ class NoRunningHeaderTest(unittest.TestCase):
         _, body = _split(PageZones(NO_HEADER), [closing])
         self.assertEqual(body, [closing])
 
+    def test_element_starting_on_the_footer_line_is_body(self):
+        closing = _element("Last line", _starting_at(FOOTER_LINE))
+        _, body = _split(PageZones(NO_HEADER), [closing])
+        self.assertEqual(body, [closing])
+
+    def test_element_starting_just_below_the_footer_line_is_footer(self):
+        _, body = _split(PageZones(NO_HEADER), [_element("21", _starting_at(FOOTER_LINE + STEP))])
+        self.assertEqual(body, [])
+
 
 class RunningHeaderSettingTest(unittest.TestCase):
     """running_header yalnız top / bottom / none olabilir; yanlış ayar sessizce
@@ -174,7 +195,7 @@ class HeadingBySizeTest(unittest.TestCase):
 
     @staticmethod
     def _blocks(text, **fields):
-        return _builder(DEFAULTS).blocks_of(element(text, BODY_Y, **fields))
+        return _builder(DEFAULTS).blocks_of(dataclasses.replace(element(text, BODY_Y), **fields))
 
     def test_paragraph_at_chapter_title_size_is_the_chapter(self):
         self.assertEqual(self._blocks("Chapter 1. Introduction", font_size=self.CHAPTER_SIZE),
@@ -209,7 +230,7 @@ class CodeImageLinkPlacementTest(unittest.TestCase):
         code = {"type": "code", "lang": "java", "code": "// Two classes"}
         regions = PageRegions([Region({**self.CODE_LINE, "block": code})])
         glued = _element(f"{self.LINK} // Two classes", self.LINK_WITH_CODE_BELOW)
-        body = LayoutFixer([], [self.SLOT]).fixed([glued])
+        body = LayoutFixer([], [self.SLOT]).fixed([glued]).elements
         self.assertEqual(regions.place(body, _builder(DEFAULTS).blocks_of), [code])
 
 
@@ -221,6 +242,40 @@ class PageExtractorTest(unittest.TestCase):
         page = FakePdfPage(lines=[(span("published by McGraw-", PAGE_TOP_Y),), (span("Hill in 2019.", BODY_Y),)])
         fixes = PageExtractor(DEFAULTS, FakeLayoutReader()).hyphen_fixes(page)
         self.assertEqual(fixes, {"McGrawHill": "McGraw-Hill"})
+
+
+TABLE_COLUMNS = ((72, 140), (140, 432))
+TABLE_TOP, TABLE_ROW_HEIGHT, CELL_INSET = 150, 14, 4
+TABLE_BOTTOM = TABLE_TOP + 2 * TABLE_ROW_HEIGHT
+
+
+def _table_row(top, texts):
+    """Sütunlara oturan tek satırlık hücre metinleri."""
+    return tuple(span(text, (left + CELL_INSET, top, right - CELL_INSET, top + LINE_HEIGHT))
+                 for (left, right), text in zip(TABLE_COLUMNS, texts))
+
+
+class PageExtractorTableTest(unittest.TestCase):
+    """Tablo taraması sayfa bölgelerinin gövde sınırını kullanır: alt bilgi tabloya girmez."""
+
+    HEADER = ("Term", "Definition")
+    ROW = ("Availability", "How long the system is available")
+    FOOTER = ("Chapter 4", "57")
+
+    def test_footer_under_a_table_stays_out_of_it(self):
+        header = tuple(in_font("Helvetica-Bold", piece) for piece in _table_row(TABLE_TOP, self.HEADER))
+        body = _table_row(TABLE_TOP + TABLE_ROW_HEIGHT, self.ROW)
+        lines = [header, body, _table_row(FOOTER_LINE + STEP, self.FOOTER)]
+        fills = [fill(left, TABLE_TOP, right, TABLE_TOP + TABLE_ROW_HEIGHT) for left, right in TABLE_COLUMNS]
+        [table] = _extracted_blocks(FakePdfPage(lines=lines, shapes=fills))
+        self.assertEqual([[cell["en"] for cell in row] for row in table["rows"]], [list(self.HEADER), list(self.ROW)])
+
+
+def _extracted_blocks(page):
+    """Düzen okuyucusu tabloyu tek paragraf sanar; tablo bölgesi onun yerine geçer."""
+    table_area = element("Term Definition", (TABLE_COLUMNS[0][0], TABLE_TOP, TABLE_COLUMNS[-1][1], TABLE_BOTTOM))
+    with tempfile.TemporaryDirectory() as images:
+        return PageExtractor(NO_HEADER, FakeLayoutReader([table_area])).extract(page, images)["blocks"]
 
 
 if __name__ == "__main__":

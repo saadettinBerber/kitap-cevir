@@ -1,11 +1,8 @@
 import unittest
 from dataclasses import replace
 
-from pdf_fakes import span
+from pdf_fakes import sized, span
 from extraction.chapter_opener import ChapterOpener
-from extraction.pdf.geometry import Box
-from extraction.tables.table_grid import TableGrid
-from extraction.tables.table_cell import TableCell
 from extraction.text_layer.layout_scan import CodeImageLinkLines, CodeListing, ProseRepairs
 from extraction.text_layer.text_line import MONO_CHAR_WIDTH_RATIO, LineSpan, TextLine
 from page_document import PageDocument
@@ -19,7 +16,7 @@ def _line(text, corner=ORIGIN):
     """Tek span'lı, metni dizilmiş düz metin satırı; corner (sol, üst) köşesi, karakter başına punto × 0.6."""
     left, top = corner
     box = (left, top, left + len(text) * LINE_HEIGHT * MONO_CHAR_WIDTH_RATIO, top + LINE_HEIGHT)
-    return replace(TextLine.of([LineSpan.marked(span(text, box, size=LINE_HEIGHT), False)], False), text=text)
+    return replace(TextLine.of([LineSpan.marked(sized(LINE_HEIGHT, span(text, box)), False)], False), text=text)
 
 
 def _code_line(text, corner=ORIGIN):
@@ -75,45 +72,6 @@ class ChapterOpenerTest(unittest.TestCase):
     def test_author_line_of_two_sentences_stays_a_paragraph(self):
         merged = ChapterOpener([_title(), _para(self.AUTHOR, "Read on.")]).merged()
         self.assertEqual(merged[1:], [_para(self.AUTHOR, "Read on.")])
-
-
-class TableGridTest(unittest.TestCase):
-    CELLS = [Box(70, 100, 170, 120), Box(170, 100, 400, 120),
-             Box(70, 140, 170, 160), Box(170, 140, 400, 160)]
-    COLUMNS = [(70, 170), (170, 400)]
-    IN_THE_SECOND_COLUMN = (180, 100, 220, 110)
-    SECOND_COLUMN = 1
-
-    def test_columns_are_tiled_from_cell_edges(self):
-        self.assertEqual(TableGrid.from_cells(self.CELLS, self.CELLS).columns, self.COLUMNS)
-
-    def test_grid_tiled_from_cells_has_columns(self):
-        self.assertTrue(TableGrid.from_cells(self.CELLS, self.CELLS).has_columns())
-
-    def test_span_is_placed_by_its_center(self):
-        grid = TableGrid(self.COLUMNS, [])
-        self.assertEqual(grid.column_of(span("x", self.IN_THE_SECOND_COLUMN)), self.SECOND_COLUMN)
-
-
-class TableCellTest(unittest.TestCase):
-    COLUMN = (70, 170)
-    BODY_SIZE = 10.0
-    SUPERSCRIPT_SIZE = 6
-    LINE = (72, 100, 160, 110)
-    SUPERSCRIPT = (72, 100, 160, 106)
-    SHORT_LINE = (72, 100, 90, 110)
-    SHORT_NEXT_LINE = (72, 112, 90, 122)
-
-    def _cell(self, *spans):
-        return TableCell(list(spans), self.COLUMN, self.BODY_SIZE)
-
-    def test_small_trailing_span_becomes_superscript(self):
-        cell = self._cell(span("Latency", self.LINE), span("a", self.SUPERSCRIPT, size=self.SUPERSCRIPT_SIZE))
-        self.assertEqual(cell.unit(row_keeps_breaks=False), {"en": "Latency<sup>a</sup>", "html": True})
-
-    def test_short_lines_keep_breaks_when_row_asks(self):
-        cell = self._cell(span("one", self.SHORT_LINE), span("two", self.SHORT_NEXT_LINE))
-        self.assertEqual(cell.unit(row_keeps_breaks=True), {"en": "one<br>two", "html": True})
 
 
 class LayoutObjectsTest(unittest.TestCase):

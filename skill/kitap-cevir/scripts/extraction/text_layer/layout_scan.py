@@ -9,6 +9,7 @@ Kod fontu ve boyut eşiği progress.json -> extraction ayarlarından gelir.
 import itertools
 import re
 
+from extraction.pdf import geometry
 from extraction.settings import optional_pattern
 from extraction.text_layer.code_lines import CodeFont, PageLineReader
 from extraction.text_layer.script_marks import ScriptFixes
@@ -53,7 +54,7 @@ class CodeListing:
     def _blank_lines_before(line, previous):
         if previous is None:
             return 0
-        return 1 if line.box.y0 - previous.box.y0 > line.box.height * BLANK_LINE_GAP_RATIO else 0
+        return 1 if line.box.y0 - previous.box.y0 > geometry.height(line.box) * BLANK_LINE_GAP_RATIO else 0
 
 
 class ProseRepairs:
@@ -130,11 +131,10 @@ class LayoutScanner:
         self._code_image_link_pattern = settings["code_image_link_pattern"]
 
     def scan(self, page):
-        """page: PdfPage → {page_height, code_blocks, inline_code, hyphen_fixes, script_fixes, code_image_links}"""
+        """page: PdfPage → {code_blocks, inline_code, hyphen_fixes, script_fixes, code_image_links}"""
         lines = PageLineReader(self._code_font).read(page)
         repairs, scripts = ProseRepairs(lines), ScriptFixes(lines)
-        return {"page_height": page.height,
-                "code_blocks": [listing.region() for listing in CodeListing.group(lines)],
+        return {"code_blocks": [listing.region() for listing in CodeListing.group(lines)],
                 "inline_code": repairs.inline_code_tokens(),
                 "hyphen_fixes": {**repairs.hyphenated_names(), **scripts.for_code()},
                 "script_fixes": scripts.for_prose(),

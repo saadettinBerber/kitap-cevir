@@ -4,12 +4,14 @@ PyMuPDF Rect'iyle aynı davrandığı sınır koşulları, PyMuPDF adaptörünü
 import importlib.util
 import os
 import tempfile
+import dataclasses
 import unittest
 
 import fitz
 
-from pdf_fakes import FakeLayoutReader, FakePdfPage, element, real_page, span
+from pdf_fakes import FakeLayoutReader, FakePdfPage, element, in_font, real_page, sized, span
 from extraction.page_extractor import PageExtractor
+from extraction.pdf import geometry
 from extraction.pdf.geometry import Box
 from extraction.pdf.odl_adapter import OdlLayoutReader, OdlTree
 from extraction.pdf.pymupdf_adapter import PyMuPdfDocument, image_size
@@ -19,32 +21,53 @@ from extraction.settings import with_defaults
 PNG_SIGNATURE = b"\x89PNG"
 
 
+SQUARE = Box(0, 0, 10, 10)
+FLAT_BAR = Box(5, 20, 9, 20)        # yüksekliği sıfır: boş kutu
+
+
 class BoxTest(unittest.TestCase):
-    def test_union_ignores_an_empty_box(self):
-        line, bar = Box(0, 0, 10, 10), Box(5, 20, 9, 20)
-        self.assertEqual(line.union(bar), line)
-        self.assertEqual(bar.union(line), line)
+    """Kutu işlemleri PyMuPDF Rect'iyle aynı sınır koşullarına uyar."""
+
+    def test_union_with_an_empty_box_is_the_other_box(self):
+        self.assertEqual(geometry.union(SQUARE, FLAT_BAR), SQUARE)
+
+    def test_union_of_an_empty_box_with_another_is_the_other_box(self):
+        self.assertEqual(geometry.union(FLAT_BAR, SQUARE), SQUARE)
 
     def test_enclosing_spans_all_boxes(self):
-        self.assertEqual(Box.enclosing([Box(0, 0, 1, 1), Box(5, 6, 7, 8)]), Box(0, 0, 7, 8))
+        self.assertEqual(geometry.enclosing([Box(0, 0, 1, 1), Box(5, 6, 7, 8)]), Box(0, 0, 7, 8))
 
-    def test_point_on_right_or_bottom_edge_is_outside(self):
-        box = Box(0, 0, 10, 10)
-        self.assertEqual([box.contains_point(x, y) for x, y in [(0, 0), (10, 5), (5, 10), (9.99, 9.99)]],
-                         [True, False, False, True])
+    def test_point_on_the_top_left_corner_is_inside(self):
+        self.assertTrue(geometry.contains_point(SQUARE, (0, 0)))
+
+    def test_point_on_the_right_edge_is_outside(self):
+        self.assertFalse(geometry.contains_point(SQUARE, (10, 5)))
+
+    def test_point_on_the_bottom_edge_is_outside(self):
+        self.assertFalse(geometry.contains_point(SQUARE, (5, 10)))
+
+    def test_point_just_inside_the_bottom_right_corner_is_inside(self):
+        self.assertTrue(geometry.contains_point(SQUARE, (9.99, 9.99)))
 
     def test_touching_boxes_do_not_intersect(self):
-        self.assertFalse(Box(0, 0, 10, 10).intersects(Box(10, 0, 20, 10)))
-        self.assertTrue(Box(0, 0, 10, 10).intersects(Box(9, 9, 20, 20)))
+        self.assertFalse(geometry.intersects(SQUARE, Box(10, 0, 20, 10)))
+
+    def test_overlapping_boxes_intersect(self):
+        self.assertTrue(geometry.intersects(SQUARE, Box(9, 9, 20, 20)))
 
     def test_vertical_gap_is_zero_when_overlapping(self):
-        self.assertEqual(Box(0, 0, 10, 10).vertical_gap(Box(0, 5, 10, 20)), 0.0)
-        self.assertEqual(Box(0, 0, 10, 10).vertical_gap(Box(0, 14, 10, 20)), 4)
-        self.assertEqual(Box(0, 14, 10, 20).vertical_gap(Box(0, 0, 10, 10)), 4)
+        self.assertEqual(geometry.vertical_gap(SQUARE, Box(0, 5, 10, 20)), 0.0)
+
+    def test_vertical_gap_to_a_box_below(self):
+        self.assertEqual(geometry.vertical_gap(SQUARE, Box(0, 14, 10, 20)), 4)
+
+    def test_vertical_gap_to_a_box_above(self):
+        self.assertEqual(geometry.vertical_gap(Box(0, 14, 10, 20), SQUARE), 4)
 
 
-def _write_pdf(path):
+def _write_pdf(path, title=""):
     document = fitz.open()
+    document.set_metadata({"title": title})
     page = document.new_page()
     page.insert_text(fitz.Point(72, 100), "Top line", fontsize=11, fontname="helvetica")
     page.insert_text(fitz.Point(72, 700), "Bottom line", fontsize=11, fontname="helvetica")
@@ -88,6 +111,18 @@ class PyMuPdfAdapterTest(unittest.TestCase):
         with PyMuPdfDocument.open(self.pdf) as document:
             self.assertEqual(document.page_count, 1)
 
+    def test_document_has_its_first_page(self):
+        with PyMuPdfDocument.open(self.pdf) as document:
+            self.assertTrue(document.has_page(1))
+
+    def test_document_has_no_page_before_the_first(self):
+        with PyMuPdfDocument.open(self.pdf) as document:
+            self.assertFalse(document.has_page(0))
+
+    def test_document_has_no_page_after_the_last(self):
+        with PyMuPdfDocument.open(self.pdf) as document:
+            self.assertFalse(document.has_page(2))
+
     def test_document_reads_the_plain_text_of_a_page(self):
         with PyMuPdfDocument.open(self.pdf) as document:
             self.assertEqual(document.page_text(1).split(), ["Top", "line", "Bottom", "line"])
@@ -95,6 +130,16 @@ class PyMuPdfAdapterTest(unittest.TestCase):
     def test_document_metadata_is_a_dict_even_when_empty(self):
         with PyMuPdfDocument.open(self.pdf) as document:
             self.assertIsInstance(document.metadata, dict)
+
+    def test_document_metadata_leaves_empty_fields_out(self):
+        with PyMuPdfDocument.open(self.pdf) as document:
+            self.assertTrue(all(document.metadata.values()))
+
+    def test_document_metadata_keeps_filled_fields(self):
+        titled = os.path.join(self.tmp.name, "titled.pdf")
+        _write_pdf(titled, "Book")
+        with PyMuPdfDocument.open(titled) as document:
+            self.assertEqual(document.metadata["title"], "Book")
 
     def test_page_knows_where_it_comes_from(self):
         with real_page(self.pdf) as page:
@@ -105,7 +150,7 @@ class PyMuPdfAdapterTest(unittest.TestCase):
             drawings = page.drawings()
         self.assertEqual([d.is_filled for d in drawings], [True, False])
         self.assertEqual(drawings[0].box, Box(72, 200, 300, 230))
-        self.assertTrue(drawings[1].box.is_empty())
+        self.assertTrue(geometry.is_empty(drawings[1].box))
 
     def test_clip_text_and_png(self):
         with real_page(self.pdf) as page:
@@ -199,13 +244,23 @@ class ReplaceableLayoutReaderTest(unittest.TestCase):
     """Düzen okuyucusu ve sayfa dışarıdan verilir; test ne PDF açar ne ODL (Java) çalıştırır."""
 
     def test_extraction_runs_on_a_fake_page(self):
-        page = FakePdfPage(lines=[(span("Top line.", (72, 90, 300, 104), size=11),)])
-        reader = FakeLayoutReader([element("Top line.", (72, 90, 300, 104), font_size=11)])
+        page = FakePdfPage(lines=[(sized(11, span("Top line.", (72, 90, 300, 104))),)])
+        reader = FakeLayoutReader([dataclasses.replace(element("Top line.", (72, 90, 300, 104)), font_size=11)])
         settings = with_defaults({"running_header": "none"})
         with tempfile.TemporaryDirectory() as images:
             extracted = PageExtractor(settings, reader).extract(page, images)
         self.assertEqual(extracted["blocks"], [{"type": "para", "sentences": [{"en": "Top line."}]}])
         self.assertIsNone(extracted["running_header"])
+
+    def test_equation_without_a_host_is_returned_as_skipped(self):
+        """Satır içi denklemi kutusunu kapsayan öğe yoksa uyarısı sonuçla döner; basmak komutun işidir."""
+        line = (span("Let ", (72, 90, 90, 104)), in_font("Type3Math", span("θ", (90, 90, 96, 104))),
+                span(" be", (96, 90, 110, 104)))
+        reader = FakeLayoutReader([element("Far below.", (72, 300, 300, 314))])
+        with tempfile.TemporaryDirectory() as images:
+            extracted = PageExtractor(with_defaults({"running_header": "none"}), reader).extract(
+                FakePdfPage(lines=[line]), images)
+        self.assertEqual(extracted["skipped_equations"], ["satır içi denklem için öğe bulunamadı: θ"])
 
 
 class LayoutReaderChoiceTest(unittest.TestCase):
@@ -216,7 +271,11 @@ class LayoutReaderChoiceTest(unittest.TestCase):
             layout_reader_for({"layout_reader": "pdfminer"})
 
     def test_odl_is_the_default(self):
-        self.assertIsInstance(PageExtractor.for_settings(with_defaults({})).layout_reader, OdlLayoutReader)
+        self.assertIsInstance(layout_reader_for(with_defaults({})), OdlLayoutReader)
+
+    def test_extractor_takes_its_reader_from_the_settings(self):
+        with self.assertRaises(InvalidLayoutReader):
+            PageExtractor.for_settings(with_defaults({"layout_reader": "pdfminer"}))
 
     @unittest.skipUnless(importlib.util.find_spec("liteparse"), "liteparse kurulu değil")
     def test_liteparse_is_chosen_by_name(self):

@@ -38,7 +38,14 @@ class _FakeExtractor:
 
     def extract(self, page, image_dir):
         return {"blocks": self._blocks_by_pdf_page[page.number], "math": [],
-                "running_header": {"is_chapter": False, "text": "Styles"}}
+                "running_header": {"is_chapter": False, "text": "Styles"}, "skipped_equations": []}
+
+
+class _SkippingExtractor(_FakeExtractor):
+    """Her sayfada bir satır içi denklemi yerleştiremeyen çıkarıcı."""
+
+    def extract(self, page, image_dir):
+        return {**super().extract(page, image_dir), "skipped_equations": [f"denklem {page.number} atlandı"]}
 
 
 class PagePreparerTest(unittest.TestCase):
@@ -82,6 +89,13 @@ class PagePreparerTest(unittest.TestCase):
     def test_summary_tells_where_the_input_is_and_what_it_holds(self):
         self.assertEqual(self.preparer.prepare_page(1), [{"page": 1, "pdf_page": 2, "path": "_work/in/page-1.json",
                                                           "blocks": "para:1, math:1", "math": 1}])
+
+    def test_skipped_equations_are_printed_while_preparing(self):
+        book_pdf = BookPdf(_fake_document, _SkippingExtractor({2: [PARA]}))
+        builder = PageInputBuilder(self.project.load_progress(), book_pdf)
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            PagePreparer(self.project, builder).prepare_page(1)
+        self.assertEqual(output.getvalue(), "  ! denklem 2 atlandı\n")
 
     def test_input_file_is_written_for_the_translator(self):
         self.preparer.prepare_page(1)

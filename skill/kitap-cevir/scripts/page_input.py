@@ -2,7 +2,21 @@
 kesit bilgisi, komşu sayfalardan bağlam. prepare_page, migrate_page ve
 backfill_images kullanır. Şema: references/FORMAT.md.
 """
+from typing import NamedTuple
+
 from book_pdf import BookPdf
+
+
+class BuiltInput(NamedTuple):
+    """build'in sonucu: çevirmen girdisi ve yerleştirilemeyen satır içi denklemlerin uyarıları."""
+    document: dict
+    skipped_equations: list
+
+
+def report_skipped(skipped_equations):
+    """Komutlar uyarıları sayfanın çıkarımının hemen ardından basar; çıkarım yan etkisiz kalır."""
+    for warning in skipped_equations:
+        print(f"  ! {warning}")
 
 
 class PageInputBuilder:
@@ -20,14 +34,16 @@ class PageInputBuilder:
         return self._book_pdf.hyphen_fixes(pdf_page)
 
     def build(self, page, image_dir):
-        """Sayfanın görselleri image_dir'e yazılır, girdi bu adlarla onlara bağlanır."""
+        """BuiltInput; sayfanın görselleri image_dir'e yazılır, girdi bu adlarla onlara bağlanır."""
         pdf_page = self._progress.pdf_page(page)
         extracted = self._book_pdf.extract(pdf_page, image_dir)
-        return {"id": f"page-{page}", "page": page, "pdf_page": pdf_page,
-                "chapter": self._progress.chapter_of(page), "section": self._section(page, extracted["running_header"]),
-                "title": {"en": "", "tr": ""}, "blocks": extracted["blocks"], "math": extracted["math"],
-                "concepts": [], "glossary_new": [],
-                "context": extracted["context"]}
+        document = {"id": f"page-{page}", "page": page, "pdf_page": pdf_page,
+                    "chapter": self._progress.chapter_of(page),
+                    "section": self._section(page, extracted["running_header"]),
+                    "title": {"en": "", "tr": ""}, "blocks": extracted["blocks"], "math": extracted["math"],
+                    "concepts": [], "glossary_new": [],
+                    "context": extracted["context"]}
+        return BuiltInput(document, extracted["skipped_equations"])
 
     def _section(self, page, header):
         """Koşu başlığı yoksa bölüm açılış sayfasıdır (kesit yok); tek sayfa

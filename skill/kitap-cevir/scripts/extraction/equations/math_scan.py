@@ -16,6 +16,7 @@ import re
 
 from extraction.equations.math_geometry import FractionEquationFinder
 from extraction.equations.math_line import MathLine
+from extraction.pdf import geometry
 from extraction.text_utils import normalize_spaces
 
 CROP_DPI = 220
@@ -25,32 +26,69 @@ PLACEHOLDER = "⟦{id}⟧"
 
 
 class MathScanner:
-    """Bir sayfanın denklemlerini bulur, PNG'lerini image_dir'e yazar."""
+    """Kitabın denklem kurallarıyla (font öneki, kesir geometrisi, başlık kalıbı) bir sayfanın
+    denklemlerini bulur; kırpıp numaralamak EquationCropper'ın işidir."""
 
-    def __init__(self, settings, page, image_dir):
+    def __init__(self, settings):
         self._prefix = settings["math_font_prefix"]
         self._uses_geometry = settings["math_geometry"]
         self._caption = re.compile(settings["equation_caption_pattern"])
-        self._page = page
-        self._cropper = EquationCropper(page, image_dir)
 
-    def scan(self):
-        """{"display": [{y0, y1, block}], "inline": [{kind, bbox, before, after, ...}]}.
+    def scan(self, page, image_dir):
+        """{"display": [{y0, y1, block}], "inline": [{kind, bbox, before, after, ...}]}; PNG'ler image_dir'e yazılır.
         Ayrı satır denkleminin bandına düşen parça onun bir parçasıdır, satır içi sayılmaz."""
-        lines = [MathLine(spans, self._is_math) for spans in self._page.text_lines()]
-        rects = self._display_rects(lines) + self._geometry_rects(lines)
-        inline = self._inline_items([inline_run for line in lines for inline_run in line.inline_runs()
-                                     if not _in_band(inline_run.run.rect, rects)])
-        return {"display": self._display_regions(rects, inline), "inline": inline}
+        lines = [MathLine(spans, self._is_math) for spans in page.text_lines()]
+        rects = self._display_rects(lines) + self._geometry_rects(lines, page)
+        inline_runs = [inline_run for line in lines for inline_run in line.inline_runs()
+                       if not _in_band(inline_run.run.rect, rects)]
+        return EquationCropper(page, image_dir).cropped(inline_runs, rects)
 
     def _is_math(self, span):
         """Boş önek "bu kitapta denklem fontu yok" demektir; startswith("") her fontla eşleşirdi."""
         return bool(self._prefix) and span.font.startswith(self._prefix)
 
+    def _display_rects(self, lines):
+        return self._merge_adjacent([line.rect for line in lines if line.is_display()])
+
+    @staticmethod
+    def _merge_adjacent(rects):
+        merged = []
+        for rect in sorted(rects, key=lambda r: r.y0):
+            if merged and rect.y0 - merged[-1].y1 <= geometry.height(rect) * LINE_MERGE_RATIO:
+                merged[-1] = geometry.union(merged[-1], rect)
+            else:
+                merged.append(rect)
+        return merged
+
+    def _geometry_rects(self, lines, page):
+        if not self._uses_geometry:
+            return []
+        line_rects = [line.rect for line in lines if not self._is_caption(line)]
+        return FractionEquationFinder(line_rects).regions(page.drawings())
+
     def _is_caption(self, line):
         """Denklem başlığı ("Equation 3-3. Abstractness") denklemin hemen
         üstündedir ama çevrilecek bir caption'dır, PNG'ye girmemeli."""
         return bool(self._caption.match(line.text))
+
+
+def _in_band(rect, bands):
+    """Kutunun ortası bantlardan birinin dikey aralığında mı?"""
+    return any(band.y0 <= geometry.center_y(rect) <= band.y1 for band in bands)
+
+
+class EquationCropper:
+    """Bir sayfanın denklemlerini numaralayıp PNG olarak image_dir'e kırpar. Numara (eq-N)
+    sayfadaki sıradan hesaplanır, kırpıcı sayaç tutmaz."""
+
+    def __init__(self, page, image_dir):
+        self._page = page
+        self._image_dir = image_dir
+
+    def cropped(self, inline_runs, display_rects):
+        """{"display": [...], "inline": [...]}; ayrı satır denklemleri satır içi görsellerden sonra numaralanır."""
+        inline = self._inline_items(inline_runs)
+        return {"display": self._display_regions(display_rects, inline), "inline": inline}
 
     def _inline_items(self, inline_runs):
         """Numaralar 1'den başlar: görsel olan parçanın numarası, kendisine kadarki görsel sayısıdır."""
@@ -62,60 +100,26 @@ class MathScanner:
         item = {"bbox": run.rect, "before": inline_run.before, "after": inline_run.after}
         if run.is_simple():
             return {**item, "kind": "text", "text": run.text}
-        return {**item, "kind": "image", **self._cropper.equation(run.rect, number)}
+        return {**item, "kind": "image", **self._equation(run.rect, number)}
 
     def _display_regions(self, rects, inline):
-        """Ayrı satır denklemleri satır içi görsellerden sonra numaralanır."""
         first = 1 + sum(item["kind"] == "image" for item in inline)
-        return [self._cropper.display_region(rect, number) for number, rect in enumerate(rects, first)]
+        return [self._display_region(rect, number) for number, rect in enumerate(rects, first)]
 
-    def _display_rects(self, lines):
-        return self._merge_adjacent([line.rect for line in lines if line.is_display()])
+    def _display_region(self, rect, number):
+        equation = self._equation(rect, number)
+        block = {"type": "math", **{key: equation[key] for key in ("src", "text", "latex")}}
+        return {"y0": rect.y0, "y1": rect.y1, "block": block}
 
-    def _geometry_rects(self, lines):
-        if not self._uses_geometry:
-            return []
-        line_rects = [line.rect for line in lines if not self._is_caption(line)]
-        return FractionEquationFinder(line_rects).regions(self._page.drawings())
-
-    @staticmethod
-    def _merge_adjacent(rects):
-        merged = []
-        for rect in sorted(rects, key=lambda r: r.y0):
-            if merged and rect.y0 - merged[-1].y1 <= rect.height * LINE_MERGE_RATIO:
-                merged[-1] = merged[-1].union(rect)
-            else:
-                merged.append(rect)
-        return merged
-
-
-def _in_band(rect, bands):
-    """Kutunun ortası bantlardan birinin dikey aralığında mı?"""
-    return any(band.y0 <= rect.center_y <= band.y1 for band in bands)
-
-
-class EquationCropper:
-    """Bir sayfanın denklem bölgelerini PNG olarak kırpar. Numarayı (eq-N) çağıran verir:
-    numara sayfadaki sıradan gelir, kırpıcı sayaç tutmaz."""
-
-    def __init__(self, page, image_dir):
-        self._page = page
-        self._image_dir = image_dir
-
-    def equation(self, rect, number):
+    def _equation(self, rect, number):
         item_id = f"eq-{number}"
         return {"id": item_id, "src": self._crop(rect, item_id),
                 "text": normalize_spaces(self._page.text_in(rect)), "latex": ""}
 
-    def display_region(self, rect, number):
-        equation = self.equation(rect, number)
-        block = {"type": "math", **{key: equation[key] for key in ("src", "text", "latex")}}
-        return {"y0": rect.y0, "y1": rect.y1, "block": block}
-
     def _crop(self, rect, item_id):
         os.makedirs(self._image_dir, exist_ok=True)
         with open(os.path.join(self._image_dir, f"{item_id}.png"), "wb") as png:
-            png.write(self._page.png(rect.expanded(CROP_PADDING), CROP_DPI))
+            png.write(self._page.png(geometry.expanded(rect, CROP_PADDING), CROP_DPI))
         return f"{item_id}.png"
 
 

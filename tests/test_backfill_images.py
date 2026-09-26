@@ -1,11 +1,15 @@
+import contextlib
+import io
 import os
 import tempfile
 import unittest
 
 import _paths  # noqa: F401
-from backfill_images import ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ImageBackfiller, ImagePlacement, PageImages
+from backfill_images import (ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ExtractedImages, ImageBackfiller, ImagePlacement,
+                             PageImages)
 from image_folder import ImageFolder
 from page_document import PageDocument
+from page_input import BuiltInput
 from project import Project
 from translated_pages import TranslatedPages
 
@@ -175,6 +179,25 @@ class FakeExtractedImages:
 
     def of(self, page):
         return PageImages(self._blocks, self._folder)
+
+
+class FakePageInputBuilder:
+    """PageInputBuilder gibi; boş bir girdi ve verilen denklem uyarılarını verir."""
+
+    def __init__(self, skipped_equations):
+        self._skipped_equations = skipped_equations
+
+    def build(self, page, image_dir):
+        return BuiltInput({"blocks": []}, self._skipped_equations)
+
+
+class ExtractedImagesTest(unittest.TestCase):
+    def test_skipped_equations_are_printed_while_extracting(self):
+        with tempfile.TemporaryDirectory() as root:
+            extracted = ExtractedImages(FakePageInputBuilder(["denklem atlandı"]), Project(root))
+            with contextlib.redirect_stdout(io.StringIO()) as output:
+                extracted.of(1)
+        self.assertEqual(output.getvalue(), "  ! denklem atlandı\n")
 
 
 class ImageBackfillerTest(unittest.TestCase):

@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from pdf_fakes import FAKE_PNG, FakePdfPage, span
+from pdf_fakes import FAKE_PNG, FakePdfPage, in_font, sized, span
 
 HAS_LITEPARSE = importlib.util.find_spec("liteparse") is not None
 if HAS_LITEPARSE:
@@ -159,6 +159,14 @@ class FigureTest(_ReaderTestCase):
         self.assertEqual(png.call_args_list, [mock.call(Box(*FIGURE_BOX), FIGURE_DPI)])
 
 
+def _heading_words(text, box):
+    return sized(14.4, in_font("Serif-Bold", span(text, box)))
+
+
+def _serif(size, piece):
+    return sized(size, in_font("Serif", piece))
+
+
 @unittest.skipUnless(HAS_LITEPARSE, "liteparse kurulu değil")
 class TypographyTest(_ReaderTestCase):
     """Font ve punto LiteParse'tan değil, sayfanın metin katmanından gelir."""
@@ -168,20 +176,18 @@ class TypographyTest(_ReaderTestCase):
         return heading.font, heading.font_size
 
     def test_font_and_size_come_from_the_text_layer(self):
-        self.assertEqual(self._heading_on(span("Title", (72, 100, 150, 114), "Serif-Bold", 14.4)), ("Serif-Bold", 14.4))
+        self.assertEqual(self._heading_on(_heading_words("Title", (72, 100, 150, 114))), ("Serif-Bold", 14.4))
 
     def test_the_font_with_most_characters_wins(self):
-        mark = span("a", (72, 100, 78, 114), "Serif", 6.0)
-        words = span("Long heading", HEADING_WORDS, "Serif-Bold", 14.4)
-        self.assertEqual(self._heading_on(mark, words), ("Serif-Bold", 14.4))
+        mark = _serif(6.0, span("a", (72, 100, 78, 114)))
+        self.assertEqual(self._heading_on(mark, _heading_words("Long heading", HEADING_WORDS)), ("Serif-Bold", 14.4))
 
     def test_blanks_do_not_weigh(self):
-        padded = span("  a      ", (72, 100, 78, 114), "Serif", 6.0)
-        words = span("bc", HEADING_WORDS, "Serif-Bold", 14.4)
-        self.assertEqual(self._heading_on(padded, words), ("Serif-Bold", 14.4))
+        padded = _serif(6.0, span("  a      ", (72, 100, 78, 114)))
+        self.assertEqual(self._heading_on(padded, _heading_words("bc", HEADING_WORDS)), ("Serif-Bold", 14.4))
 
     def test_span_centred_on_the_box_edge_is_outside(self):
-        self.assertEqual(self._heading_on(span("x", (390, 100, 410, 114), "Serif", 9.0)), ("", 0.0))
+        self.assertEqual(self._heading_on(_serif(9.0, span("x", (390, 100, 410, 114)))), ("", 0.0))
 
     def test_box_without_spans_has_no_typography(self):
         self.assertEqual(self._heading_on(), ("", 0.0))

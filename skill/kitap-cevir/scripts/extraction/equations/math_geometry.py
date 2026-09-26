@@ -6,7 +6,7 @@ toplam limitleri) iki boyutlu tek bir denklem oluşturur. Tablo kenarlığı ve
 alt bilgi kuralı da yatay çizgidir; ayrım metin sütununa göre yapılır.
 Koordinatlar üst orijinlidir.
 """
-from extraction.pdf.geometry import Box
+from extraction.pdf import geometry
 
 BAR_MAX_HEIGHT = 2.0          # bundan kalını çizgi değil dolgu dikdörtgenidir
 BAR_MIN_WIDTH = 4.0
@@ -42,16 +42,16 @@ class FractionEquationFinder:
         return region
 
     def _with_neighbours(self, region):
-        near = [rect for rect in self._line_rects if region.vertical_gap(rect) <= EQUATION_LINE_GAP]
-        return Box.enclosing([region, *near])
+        near = [rect for rect in self._line_rects if geometry.vertical_gap(region, rect) <= EQUATION_LINE_GAP]
+        return geometry.enclosing([region, *near])
 
     @staticmethod
     def _merge_overlapping(rects):
         """Aynı denklemin iki kesir çizgisi tek bölge olur."""
         merged = []
         for rect in sorted(rects, key=lambda r: r.y0):
-            if merged and merged[-1].intersects(rect):
-                merged[-1] = merged[-1].union(rect)
+            if merged and geometry.intersects(merged[-1], rect):
+                merged[-1] = geometry.union(merged[-1], rect)
             else:
                 merged.append(rect)
         return merged
@@ -115,4 +115,4 @@ def _bars_top_down(drawings):
 
 
 def _is_bar(rect):
-    return rect.height <= BAR_MAX_HEIGHT and rect.width >= BAR_MIN_WIDTH
+    return geometry.height(rect) <= BAR_MAX_HEIGHT and geometry.width(rect) >= BAR_MIN_WIDTH

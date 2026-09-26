@@ -1,8 +1,9 @@
 """BlockBuilder kuralları: düzen öğesinin türü, puntosu, fontu ve metni hangi
 bloğu verir. Eşikler varsayılan ayarlardandır; iki yanı ayrı testte sınanır."""
+import dataclasses
 import unittest
 
-from pdf_fakes import element
+from pdf_fakes import element, of_kind
 from extraction.block_builder import (MAX_HEADING_CHARS, MINOR_HEADING_LEVEL, SECTION_LEVEL, SUBSECTION_LEVEL,
                                       BlockBuilder)
 from extraction.settings import DEFAULT_EXTRACTION, with_defaults
@@ -32,7 +33,7 @@ class InlineCodeFixer:
 def _blocks(text, **fields):
     """fields: düzen öğesinin alanları; verilmeyenler gövde puntosundaki bir paragrafınkidir."""
     builder = BlockBuilder(with_defaults({}), InlineCodeFixer())
-    return builder.blocks_of(element(text, BOX, **{"kind": "paragraph", "font_size": BODY_SIZE, **fields}))
+    return builder.blocks_of(dataclasses.replace(element(text, BOX), **{"font_size": BODY_SIZE, **fields}))
 
 
 def _heading(text, size):
@@ -150,7 +151,7 @@ class ListTest(unittest.TestCase):
         self.assertEqual(block["sentences"], [{"en": "2. Big item"}])
 
     def test_list_items_are_rich_without_markers(self):
-        items = (element(f"1. Call {CODE}", BOX, "list item"), element("2. Stop", BOX, "list item"))
+        items = (of_kind("list item", element(f"1. Call {CODE}", BOX)), of_kind("list item", element("2. Stop", BOX)))
         self.assertEqual(_blocks("", kind="list", list_items=items, is_ordered=True),
                          [{"type": "list", "ordered": True, "items": [{"en": f"Call `{CODE}`"}, {"en": "Stop"}]}])
 

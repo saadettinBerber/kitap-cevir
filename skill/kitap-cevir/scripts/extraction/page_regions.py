@@ -5,6 +5,8 @@ yerine bölgenin tek bloğu yazılır; düzen okuyucusunun hiç görmediği içe
 """
 import math
 
+from extraction.pdf import geometry
+
 CODE_OVERLAP_RATIO = 0.5
 
 
@@ -30,7 +32,7 @@ class Region:
     def _covers(self, element):
         box = element.box
         overlap = min(box.y1, self._bottom) - max(box.y0, self._top)
-        return overlap / max(box.height, 1) >= CODE_OVERLAP_RATIO
+        return overlap / max(geometry.height(box), 1) >= CODE_OVERLAP_RATIO
 
     def standalone_above(self, top):
         """[bu bölge] bağımsızsa ve verilen üst kenarın üstünde kalıyorsa; değilse []."""
