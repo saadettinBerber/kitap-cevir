@@ -17,6 +17,63 @@ EQUATION_LINE_GAP = 6.0       # denklem satırları arasındaki en büyük dikey
 MAX_GROWTH_PASSES = 4
 
 
+class FractionEquationFinder:
+    """Bir sayfanın metin satırlarından ve çizimlerinden denklem bölgelerini çıkarır."""
+
+    def __init__(self, line_rects):
+        self._line_rects = line_rects
+
+    def regions(self, drawings):
+        if not self._line_rects:
+            return []
+        column = TextColumn(self._line_rects)
+        bars = [bar for rule in Rule.from_drawings(drawings) if column.holds_fraction(rule) for bar in rule]
+        return self._merge_overlapping([self._grow(bar) for bar in bars])
+
+    def _grow(self, bar):
+        """Kesir çizgisinden başlayıp pay, payda, denklemin sol yanı ve toplam
+        limitlerini toplar; bölge büyüdükçe yeni komşular çıktığı için yinelenir."""
+        region = bar
+        for _ in range(MAX_GROWTH_PASSES):
+            grown = self._with_neighbours(region)
+            if grown == region:
+                break
+            region = grown
+        return region
+
+    def _with_neighbours(self, region):
+        near = [rect for rect in self._line_rects if region.vertical_gap(rect) <= EQUATION_LINE_GAP]
+        return Box.enclosing([region, *near])
+
+    @staticmethod
+    def _merge_overlapping(rects):
+        """Aynı denklemin iki kesir çizgisi tek bölge olur."""
+        merged = []
+        for rect in sorted(rects, key=lambda r: r.y0):
+            if merged and merged[-1].intersects(rect):
+                merged[-1] = merged[-1].union(rect)
+            else:
+                merged.append(rect)
+        return merged
+
+
+class TextColumn:
+    """Gövde metninin sol kenarı ve genişliği; kesir çizgisini tablo
+    kenarlığından ayırmanın ölçüsü."""
+
+    def __init__(self, line_rects):
+        self._left = min(rect.x0 for rect in line_rects)
+        self._width = max(rect.x1 for rect in line_rects) - self._left
+
+    def holds_fraction(self, rule):
+        """Kesir çizgisi sütunun sol kenarından başlamaz ve sütunun küçük bir
+        bölümünü kaplar. Tablo kenarlığı ile alt bilgi kuralı sütunu (gerekirse
+        parçalar hâlinde) boydan boya çizer; ölçü parçaya değil kurala uygulanır,
+        yoksa kenardan başlayan parça elenip kalanı kesir sanılır."""
+        return (rule.left > self._left + COLUMN_EDGE_TOLERANCE
+                and rule.span <= self._width * BAR_GROUP_MAX_SPAN_RATIO)
+
+
 class Rule:
     """Aynı y'deki yatay çizgi parçaları: tek bir kural. Tablo kenarlığı sütun
     boyunca parçalar hâlinde çizilir, kesir çizgisi kısa kalır."""
@@ -59,60 +116,3 @@ def _bars_top_down(drawings):
 
 def _is_bar(rect):
     return rect.height <= BAR_MAX_HEIGHT and rect.width >= BAR_MIN_WIDTH
-
-
-class TextColumn:
-    """Gövde metninin sol kenarı ve genişliği; kesir çizgisini tablo
-    kenarlığından ayırmanın ölçüsü."""
-
-    def __init__(self, line_rects):
-        self._left = min(rect.x0 for rect in line_rects)
-        self._width = max(rect.x1 for rect in line_rects) - self._left
-
-    def holds_fraction(self, rule):
-        """Kesir çizgisi sütunun sol kenarından başlamaz ve sütunun küçük bir
-        bölümünü kaplar. Tablo kenarlığı ile alt bilgi kuralı sütunu (gerekirse
-        parçalar hâlinde) boydan boya çizer; ölçü parçaya değil kurala uygulanır,
-        yoksa kenardan başlayan parça elenip kalanı kesir sanılır."""
-        return (rule.left > self._left + COLUMN_EDGE_TOLERANCE
-                and rule.span <= self._width * BAR_GROUP_MAX_SPAN_RATIO)
-
-
-class FractionEquationFinder:
-    """Bir sayfanın metin satırlarından ve çizimlerinden denklem bölgelerini çıkarır."""
-
-    def __init__(self, line_rects):
-        self._line_rects = line_rects
-
-    def regions(self, drawings):
-        if not self._line_rects:
-            return []
-        column = TextColumn(self._line_rects)
-        bars = [bar for rule in Rule.from_drawings(drawings) if column.holds_fraction(rule) for bar in rule]
-        return self._merge_overlapping([self._grow(bar) for bar in bars])
-
-    def _grow(self, bar):
-        """Kesir çizgisinden başlayıp pay, payda, denklemin sol yanı ve toplam
-        limitlerini toplar; bölge büyüdükçe yeni komşular çıktığı için yinelenir."""
-        region = bar
-        for _ in range(MAX_GROWTH_PASSES):
-            grown = self._with_neighbours(region)
-            if grown == region:
-                break
-            region = grown
-        return region
-
-    def _with_neighbours(self, region):
-        near = [rect for rect in self._line_rects if region.vertical_gap(rect) <= EQUATION_LINE_GAP]
-        return Box.enclosing([region, *near])
-
-    @staticmethod
-    def _merge_overlapping(rects):
-        """Aynı denklemin iki kesir çizgisi tek bölge olur."""
-        merged = []
-        for rect in sorted(rects, key=lambda r: r.y0):
-            if merged and merged[-1].intersects(rect):
-                merged[-1] = merged[-1].union(rect)
-            else:
-                merged.append(rect)
-        return merged

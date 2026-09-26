@@ -24,31 +24,6 @@ LINE_MERGE_RATIO = 0.6        # ardışık denklem satırları arası boşluk / 
 PLACEHOLDER = "⟦{id}⟧"
 
 
-class EquationCropper:
-    """Bir sayfanın denklem bölgelerini PNG olarak kırpar. Numarayı (eq-N) çağıran verir:
-    numara sayfadaki sıradan gelir, kırpıcı sayaç tutmaz."""
-
-    def __init__(self, page, image_dir):
-        self._page = page
-        self._image_dir = image_dir
-
-    def equation(self, rect, number):
-        item_id = f"eq-{number}"
-        return {"id": item_id, "src": self._crop(rect, item_id),
-                "text": normalize_spaces(self._page.text_in(rect)), "latex": ""}
-
-    def display_region(self, rect, number):
-        equation = self.equation(rect, number)
-        block = {"type": "math", **{key: equation[key] for key in ("src", "text", "latex")}}
-        return {"y0": rect.y0, "y1": rect.y1, "block": block}
-
-    def _crop(self, rect, item_id):
-        os.makedirs(self._image_dir, exist_ok=True)
-        with open(os.path.join(self._image_dir, f"{item_id}.png"), "wb") as png:
-            png.write(self._page.png(rect.expanded(CROP_PADDING), CROP_DPI))
-        return f"{item_id}.png"
-
-
 class MathScanner:
     """Bir sayfanın denklemlerini bulur, PNG'lerini image_dir'e yazar."""
 
@@ -119,6 +94,30 @@ def _in_band(rect, bands):
     return any(band.y0 <= rect.center_y <= band.y1 for band in bands)
 
 
+class EquationCropper:
+    """Bir sayfanın denklem bölgelerini PNG olarak kırpar. Numarayı (eq-N) çağıran verir:
+    numara sayfadaki sıradan gelir, kırpıcı sayaç tutmaz."""
+
+    def __init__(self, page, image_dir):
+        self._page = page
+        self._image_dir = image_dir
+
+    def equation(self, rect, number):
+        item_id = f"eq-{number}"
+        return {"id": item_id, "src": self._crop(rect, item_id),
+                "text": normalize_spaces(self._page.text_in(rect)), "latex": ""}
+
+    def display_region(self, rect, number):
+        equation = self.equation(rect, number)
+        block = {"type": "math", **{key: equation[key] for key in ("src", "text", "latex")}}
+        return {"y0": rect.y0, "y1": rect.y1, "block": block}
+
+    def _crop(self, rect, item_id):
+        os.makedirs(self._image_dir, exist_ok=True)
+        with open(os.path.join(self._image_dir, f"{item_id}.png"), "wb") as png:
+            png.write(self._page.png(rect.expanded(CROP_PADDING), CROP_DPI))
+        return f"{item_id}.png"
+
+
 def placeholder(item_id):
     return PLACEHOLDER.format(id=item_id)
-
