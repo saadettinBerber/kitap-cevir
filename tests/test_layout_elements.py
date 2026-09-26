@@ -131,7 +131,11 @@ class InlineMathTest(unittest.TestCase):
         self.assertEqual(_spliced(_equation(before="seek", after="into"))[0], "find to minimize")
 
     def test_equation_whose_neighbours_are_missing_is_reported(self):
-        self.assertIn("atlandı", _spliced(_equation(before="seek", after="into"))[1])
+        self.assertEqual(_spliced(_equation(before="seek", after="into"))[1],
+                         "  ! satır içi denklem yerleştirilemedi, atlandı: ⟦eq-1⟧\n")
+
+    def test_placed_equation_is_not_reported(self):
+        self.assertEqual(_spliced(_equation(before="find", after="to"))[1], "")
 
     def test_simple_symbol_is_inserted_as_text(self):
         equation = _equation(before="find", after="to", kind="text", text="πr")
@@ -147,7 +151,15 @@ class InlineMathTest(unittest.TestCase):
         self.assertEqual(_spliced(_equation(before="find", after="to", bbox=BELOW_HOST))[0], "find to minimize")
 
     def test_equation_below_every_element_is_reported(self):
-        self.assertIn("öğe bulunamadı", _spliced(_equation(before="find", after="to", bbox=BELOW_HOST))[1])
+        self.assertEqual(_spliced(_equation(before="find", after="to", bbox=BELOW_HOST))[1],
+                         "  ! satır içi denklem için öğe bulunamadı: ⟦eq-1⟧\n")
+
+    def test_skipped_equations_are_reported_in_their_order(self):
+        equations = [_equation(before="find", after="to", bbox=BELOW_HOST), _equation(id="eq-2", before="seek")]
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            LayoutFixer(equations, []).fixed([element("find to minimize", HOST_BOX)])
+        self.assertEqual(output.getvalue(), "  ! satır içi denklem için öğe bulunamadı: ⟦eq-1⟧\n"
+                                            "  ! satır içi denklem yerleştirilemedi, atlandı: ⟦eq-2⟧\n")
 
 
 
