@@ -353,6 +353,7 @@ CELL_SIZE = 9
 RULE_GAP = 4
 RULE_TOP = TABLE_TOP + CELL_HEIGHT * 2 + RULE_GAP   # tek gövde satırlı terim tablosunun alt çizgisi
 BODY_BOTTOM = PAGE_HEIGHT - DEFAULT_EXTRACTION["footer_zone_top"]
+TALL_FOOTER_ZONE = DEFAULT_EXTRACTION["footer_zone_top"] * 2
 
 
 def _cell_lines(top, texts):
@@ -567,6 +568,13 @@ class BottomRuleTest(unittest.TestCase):
         table = TermTableLayout(TABLE_TOP, [self.ROW])
         footer = _cell_lines(BODY_BOTTOM, self.FOOTER)
         [found] = _scan_book(FakePdfPage(lines=table.lines() + footer, shapes=table.header_fills()))
+        self.assertEqual(_texts(found), [list(TERM_HEADER), list(self.ROW)])
+
+    def test_table_ends_above_the_footer_zone_the_book_sets(self):
+        table = TermTableLayout(TABLE_TOP, [self.ROW])
+        footer = _cell_lines(PAGE_HEIGHT - TALL_FOOTER_ZONE, self.FOOTER)
+        settings = with_defaults({**BOOK_SETTINGS, "footer_zone_top": TALL_FOOTER_ZONE})
+        [found] = TableScanner(settings).scan(FakePdfPage(lines=table.lines() + footer, shapes=table.header_fills()))
         self.assertEqual(_texts(found), [list(TERM_HEADER), list(self.ROW)])
 
 
