@@ -173,6 +173,11 @@ class PageMigrationTest(unittest.TestCase):
         document, _, _ = _migrated(_new_document(), old)
         self.assertEqual(document["section"], _unit("S", ""))
 
+    def test_empty_field_of_the_old_page_still_wins(self):
+        new = {**_new_document(), "concepts": [{"id": "yeni"}]}
+        document, _, _ = _migrated(new, {**OLD_PAGE, "concepts": []})
+        self.assertEqual(document["concepts"], [])
+
     def test_chapter_without_turkish_comes_from_the_old_page(self):
         document, _, _ = _migrated(_new_document())
         self.assertEqual(document["chapter"]["tr"], "Bir")
