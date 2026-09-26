@@ -106,6 +106,10 @@ class ReaderDataUpdateTest(_FinalizeTestCase):
         self._finalize(DOCUMENT)
         self.assertIn("| Heading | Başlık (Heading) |", self._read_text(self.project.glossary_md()))
 
+    def test_reader_glossary_is_rebuilt(self):
+        self._finalize(DOCUMENT)
+        self.assertIn('"en": "Heading"', self._read_text(self.project.glossary_js()))
+
     def test_reader_table_of_contents_is_rebuilt(self):
         self._finalize(DOCUMENT)
         self.assertIn(f'"{PAGE}": {{', self._read_text(self.project.toc_js()))
