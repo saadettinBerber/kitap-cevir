@@ -1,7 +1,8 @@
 import dataclasses
+import tempfile
 import unittest
 
-from pdf_fakes import PAGE_HEIGHT, FakeLayoutReader, FakePdfPage, element, span
+from pdf_fakes import PAGE_HEIGHT, FakeLayoutReader, FakePdfPage, element, fill, in_font, span
 from extraction.block_builder import BlockBuilder
 from extraction.layout_elements import LayoutFixer
 from extraction.page_extractor import PageExtractor
@@ -241,6 +242,39 @@ class PageExtractorTest(unittest.TestCase):
         page = FakePdfPage(lines=[(span("published by McGraw-", PAGE_TOP_Y),), (span("Hill in 2019.", BODY_Y),)])
         fixes = PageExtractor(DEFAULTS, FakeLayoutReader()).hyphen_fixes(page)
         self.assertEqual(fixes, {"McGrawHill": "McGraw-Hill"})
+
+
+TABLE_COLUMNS = ((72, 140), (140, 432))
+TABLE_TOP, TABLE_ROW_HEIGHT, CELL_INSET = 150, 14, 4
+TABLE_BOTTOM = TABLE_TOP + 2 * TABLE_ROW_HEIGHT
+
+
+def _table_row(top, texts):
+    """Sütunlara oturan tek satırlık hücre metinleri."""
+    return tuple(span(text, (left + CELL_INSET, top, right - CELL_INSET, top + LINE_HEIGHT))
+                 for (left, right), text in zip(TABLE_COLUMNS, texts))
+
+
+class PageExtractorTableTest(unittest.TestCase):
+    """Tablo taraması sayfa bölgelerinin gövde sınırını kullanır: alt bilgi tabloya girmez."""
+
+    HEADER = ("Term", "Definition")
+    ROW = ("Availability", "How long the system is available")
+    FOOTER = ("Chapter 4", "57")
+
+    def test_footer_under_a_table_stays_out_of_it(self):
+        header = tuple(in_font("Helvetica-Bold", piece) for piece in _table_row(TABLE_TOP, self.HEADER))
+        lines = [header, _table_row(TABLE_TOP + TABLE_ROW_HEIGHT, self.ROW), _table_row(FOOTER_LINE + STEP, self.FOOTER)]
+        fills = [fill(left, TABLE_TOP, right, TABLE_TOP + TABLE_ROW_HEIGHT) for left, right in TABLE_COLUMNS]
+        [table] = _extracted_blocks(FakePdfPage(lines=lines, shapes=fills))
+        self.assertEqual([[cell["en"] for cell in row] for row in table["rows"]], [list(self.HEADER), list(self.ROW)])
+
+
+def _extracted_blocks(page):
+    """Düzen okuyucusu tabloyu tek paragraf sanar; tablo bölgesi onun yerine geçer."""
+    table_area = element("Term Definition", (TABLE_COLUMNS[0][0], TABLE_TOP, TABLE_COLUMNS[-1][1], TABLE_BOTTOM))
+    with tempfile.TemporaryDirectory() as images:
+        return PageExtractor(NO_HEADER, FakeLayoutReader([table_area])).extract(page, images)["blocks"]
 
 
 if __name__ == "__main__":
