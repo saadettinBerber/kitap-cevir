@@ -14,7 +14,7 @@ import re
 
 from liteparse import LiteParse
 
-from extraction.pdf.geometry import Box
+from extraction.pdf import geometry
 from extraction.pdf.model import LayoutElement, PageLayout
 
 # LiteParse türü -> düzen öğesi türü. Kod ve ızgara blokları paragraftır: gerçek
@@ -89,7 +89,7 @@ class LiteParseBlocks:
 
     def _list(self, items):
         entries = tuple(map(self._text_element, items))
-        return LayoutElement("list", Box.enclosing(entry.box for entry in entries),
+        return LayoutElement("list", geometry.enclosing(entry.box for entry in entries),
                              is_ordered=bool(items[0].ordered), list_items=entries)
 
     @staticmethod
@@ -113,7 +113,7 @@ class Typography:
         """(font, punto); kutuda parça yoksa ("", 0.0)."""
         weights = collections.Counter()
         for span in self._spans:
-            if box.contains_point(span.box.center_x, span.box.center_y):
+            if geometry.contains_point(box, geometry.center(span.box)):
                 weights[(span.font, span.size)] += len(span.text.strip())
         return weights.most_common(1)[0][0] if weights else ("", 0.0)
 
@@ -156,4 +156,4 @@ def plain_text(text):
 
 
 def _box(rect):
-    return Box(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height)
+    return geometry.Box(rect.x, rect.y, rect.x + rect.width, rect.y + rect.height)

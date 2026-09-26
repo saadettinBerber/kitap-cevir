@@ -77,6 +77,11 @@ def center_y(box):
     return (box.y0 + box.y1) / 2
 
 
+def center(box):
+    """(x, y): contains_point'in noktası."""
+    return center_x(box), center_y(box)
+
+
 def is_empty(box):
     return box.x0 >= box.x1 or box.y0 >= box.y1
 
