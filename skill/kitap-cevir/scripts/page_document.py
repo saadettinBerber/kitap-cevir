@@ -11,8 +11,8 @@ TRANSLATED_FIELDS = ("title", "section", "concepts", "chapter")
 
 
 class PageDocument:
-    """Bir sayfanın belgesi; sardığı sözlük FORMAT.md şemasıdır. Sözlük dışarı açılmaz: işi soran
-    modül değil belge yapar, diske yazılacak biçimi as_json verir."""
+    """Bir sayfanın belgesi; sardığı sözlük FORMAT.md şemasıdır. Sözlüğü okuyup karar veren iş belgenin
+    metodudur, soran modülün değil. Sözlük kopyalanmadan sarılır: taşıma onu yerinde doldurur."""
 
     def __init__(self, data):
         self._data = data
@@ -21,7 +21,7 @@ class PageDocument:
         return isinstance(other, PageDocument) and self._data == other._data
 
     def as_json(self):
-        """Diske yazılacak sözlüğün kopyası; belge yalnız kendi metotlarıyla değişir."""
+        """Diske yazılacak sözlüğün kopyası; kopyayı değiştirmek belgeyi değiştirmez."""
         return copy.deepcopy(self._data)
 
     def number(self):
