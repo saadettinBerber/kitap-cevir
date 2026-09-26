@@ -231,6 +231,18 @@ class CodeScriptTest(unittest.TestCase):
         far = self.EXPONENT.on_baseline("23", _end_of(head, SIZE + STEP))
         self.assertEqual([line.text for line in _lines((head, far))], ["23", "(3 x 10"])
 
+    def test_superscript_over_two_code_lines_joins_only_the_upper_one(self):
+        head, script, tail = self._exponent_line()
+        lower = CODE.on_baseline("(4 x 10) =", (LEFT, head.baseline + SAME_BASELINE_TOLERANCE + STEP))
+        texts = [line.text for line in _lines((head, tail), (script,), (lower,))]
+        self.assertEqual([text for text in texts if "^" in text], ["(3 x 10^23) ="])
+
+    def test_small_piece_raised_within_the_baseline_tolerance_is_no_script_of_its_own_line(self):
+        head = CODE.at("x = 1", (LEFT, TOP))
+        raised = self.EXPONENT.on_baseline("23", (self.FAR_LEFT, head.baseline - SAME_BASELINE_TOLERANCE))
+        [line] = _lines((head, raised))
+        self.assertNotIn("^", line.text)
+
     def test_far_fragment_joins_the_code_line_after_its_superscript(self):
         [line] = _lines(self._exponent_line(), (CODE.at("236 days", (self.FAR_LEFT, TOP)),))
         self.assertRegex(line.text, r"^\(3 x 10\^23\) =.*236 days$")
