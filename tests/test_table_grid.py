@@ -4,8 +4,8 @@ import unittest
 
 from pdf_fakes import fill, span
 from extraction.pdf.geometry import Box
-from extraction.tables.table_grid import (EDGE_TOLERANCE, MIN_CELL_HEIGHT, MIN_CELL_WIDTH, WIDE_SPAN_RATIO, PageFills,
-                                          TableGrid)
+from extraction.tables.table_grid import (EDGE_TOLERANCE, MIN_CELL_HEIGHT, MIN_CELL_WIDTH, WIDE_SPAN_RATIO, GridColumns,
+                                          PageFills, RowBands)
 
 TOP, BOTTOM = 100, 120
 FIRST_LEFT, SECOND_LEFT, SECOND_RIGHT = 70, 170, 270
@@ -27,62 +27,69 @@ def _span_at(center):
     return span("x", (center - SPAN_HALF_WIDTH, TOP, center + SPAN_HALF_WIDTH, BOTTOM))
 
 
-def _grid(*cells):
-    return TableGrid.from_cells(list(cells), list(cells))
+def _columns(*cells):
+    return GridColumns.of_cells(list(cells))
 
 
 class ColumnTilingTest(unittest.TestCase):
     def test_span_between_two_column_fills_is_outside_the_table(self):
-        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT - GAP_HALF_WIDTH), _cell(SECOND_LEFT + GAP_HALF_WIDTH, SECOND_RIGHT))
-        self.assertFalse(grid.is_table_row([_span_at(SECOND_LEFT)]))
+        columns = _columns(_cell(FIRST_LEFT, SECOND_LEFT - GAP_HALF_WIDTH),
+                           _cell(SECOND_LEFT + GAP_HALF_WIDTH, SECOND_RIGHT))
+        self.assertFalse(columns.is_table_row([_span_at(SECOND_LEFT)]))
 
     def test_column_after_a_gap_starts_at_the_next_fill(self):
-        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT - GAP_HALF_WIDTH), _cell(SECOND_LEFT + GAP_HALF_WIDTH, SECOND_RIGHT))
-        self.assertTrue(grid.is_table_row([_span_at(SECOND_LEFT + INSIDE)]))
+        columns = _columns(_cell(FIRST_LEFT, SECOND_LEFT - GAP_HALF_WIDTH),
+                           _cell(SECOND_LEFT + GAP_HALF_WIDTH, SECOND_RIGHT))
+        self.assertTrue(columns.is_table_row([_span_at(SECOND_LEFT + INSIDE)]))
 
     def test_most_common_right_edge_ends_the_column(self):
-        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(FIRST_LEFT, SECOND_LEFT), _cell(FIRST_LEFT, NEAR_EDGE),
-                     _cell(SECOND_LEFT, SECOND_RIGHT))
-        self.assertTrue(grid.is_table_row([_span_at(NEAR_EDGE + INSIDE)]))
+        columns = _columns(_cell(FIRST_LEFT, SECOND_LEFT), _cell(FIRST_LEFT, SECOND_LEFT), _cell(FIRST_LEFT, NEAR_EDGE),
+                           _cell(SECOND_LEFT, SECOND_RIGHT))
+        self.assertTrue(columns.is_table_row([_span_at(NEAR_EDGE + INSIDE)]))
 
     def test_tie_between_right_edges_takes_the_nearer_one(self):
-        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(FIRST_LEFT, NEAR_EDGE), _cell(SECOND_LEFT, SECOND_RIGHT))
-        self.assertFalse(grid.is_table_row([_span_at(NEAR_EDGE + INSIDE)]))
+        columns = _columns(_cell(FIRST_LEFT, SECOND_LEFT), _cell(FIRST_LEFT, NEAR_EDGE),
+                           _cell(SECOND_LEFT, SECOND_RIGHT))
+        self.assertFalse(columns.is_table_row([_span_at(NEAR_EDGE + INSIDE)]))
 
     def test_fills_starting_within_the_edge_tolerance_share_a_column(self):
         """Sol kenarı birkaç kesir kayan dolgular aynı sütundandır; sütunu en sık sağ kenar bitirir."""
         near_left = FIRST_LEFT + EDGE_TOLERANCE / 2
-        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(near_left, NEAR_EDGE), _cell(near_left, NEAR_EDGE),
-                     _cell(SECOND_LEFT, SECOND_RIGHT))
-        self.assertFalse(grid.is_table_row([_span_at(NEAR_EDGE + INSIDE)]))
+        columns = _columns(_cell(FIRST_LEFT, SECOND_LEFT), _cell(near_left, NEAR_EDGE), _cell(near_left, NEAR_EDGE),
+                           _cell(SECOND_LEFT, SECOND_RIGHT))
+        self.assertFalse(columns.is_table_row([_span_at(NEAR_EDGE + INSIDE)]))
 
     def test_span_centred_on_the_border_of_two_columns_is_in_the_table(self):
-        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
-        self.assertTrue(grid.is_table_row([_span_at(SECOND_LEFT)]))
+        columns = _columns(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
+        self.assertTrue(columns.is_table_row([_span_at(SECOND_LEFT)]))
 
     def test_column_of_a_span_outside_every_column_is_an_error(self):
-        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT - GAP_HALF_WIDTH), _cell(SECOND_LEFT + GAP_HALF_WIDTH, SECOND_RIGHT))
+        columns = _columns(_cell(FIRST_LEFT, SECOND_LEFT - GAP_HALF_WIDTH),
+                           _cell(SECOND_LEFT + GAP_HALF_WIDTH, SECOND_RIGHT))
         with self.assertRaises(ValueError):
-            grid.column_of(_span_at(SECOND_LEFT))
+            columns.column_of(_span_at(SECOND_LEFT))
 
 
 class BandTest(unittest.TestCase):
     def test_spans_outside_every_band_are_not_in_the_same_band(self):
-        grid = TableGrid([(FIRST_LEFT, SECOND_LEFT), (SECOND_LEFT, SECOND_RIGHT)], [(TOP, BOTTOM)])
         below = span("x", (FIRST_LEFT, BOTTOM + GAP_HALF_WIDTH, FIRST_LEFT + INSIDE, BOTTOM + INSIDE))
-        self.assertFalse(grid.same_band(below, below))
+        self.assertFalse(RowBands([(TOP, BOTTOM)]).same_band(below, below))
 
 
 BAND_TOP, BAND_BOTTOM, LOWER_BAND_BOTTOM = 200, 220, 240
 UPPER_TEXT, LOWER_TEXT = (202, 212), (230, 238)
 
 
-def _banded_grid(lower_band_top):
-    """İki sütun; ilk sütunun kenarlarına oturan iki dolgu, alttaki üsttekinin altına biniyor."""
+def _bands_of(*fills):
+    """İki sütunlu tablonun hücreleri ile verilen dolgulardan çıkan satır bantları."""
     cells = [_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT)]
-    bands = [Box(FIRST_LEFT, BAND_TOP, SECOND_LEFT, BAND_BOTTOM),
-             Box(FIRST_LEFT, lower_band_top, SECOND_LEFT, LOWER_BAND_BOTTOM)]
-    return TableGrid.from_cells(cells, cells + bands)
+    return RowBands.of_fills(GridColumns.of_cells(cells).band_fills(cells + list(fills)))
+
+
+def _two_bands(lower_band_top):
+    """İlk sütunun kenarlarına oturan iki dolgu, alttaki üsttekinin altına biniyor."""
+    return _bands_of(Box(FIRST_LEFT, BAND_TOP, SECOND_LEFT, BAND_BOTTOM),
+                     Box(FIRST_LEFT, lower_band_top, SECOND_LEFT, LOWER_BAND_BOTTOM))
 
 
 def _text_between(top_bottom):
@@ -94,36 +101,36 @@ class BandMergeTest(unittest.TestCase):
     """Üsttekine tolerans kadar binen dolgu yeni banttır; daha çok binen aynı bandı uzatır."""
 
     def test_fill_overlapping_by_the_tolerance_is_a_new_band(self):
-        grid = _banded_grid(BAND_BOTTOM - EDGE_TOLERANCE)
-        self.assertFalse(grid.same_band(_text_between(UPPER_TEXT), _text_between(LOWER_TEXT)))
+        bands = _two_bands(BAND_BOTTOM - EDGE_TOLERANCE)
+        self.assertFalse(bands.same_band(_text_between(UPPER_TEXT), _text_between(LOWER_TEXT)))
 
     def test_fill_overlapping_by_more_extends_the_band(self):
-        grid = _banded_grid(BAND_BOTTOM - EDGE_TOLERANCE - STEP)
-        self.assertTrue(grid.same_band(_text_between(UPPER_TEXT), _text_between(LOWER_TEXT)))
+        bands = _two_bands(BAND_BOTTOM - EDGE_TOLERANCE - STEP)
+        self.assertTrue(bands.same_band(_text_between(UPPER_TEXT), _text_between(LOWER_TEXT)))
 
 
 class ColumnCountTest(unittest.TestCase):
     def test_two_columns_make_a_table_grid(self):
-        self.assertTrue(_grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT)).has_columns())
+        self.assertTrue(_columns(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT)).is_tabular())
 
     def test_a_single_column_is_no_table_grid(self):
-        self.assertFalse(_grid(_cell(FIRST_LEFT, SECOND_LEFT)).has_columns())
+        self.assertFalse(_columns(_cell(FIRST_LEFT, SECOND_LEFT)).is_tabular())
 
 
 class ColumnOfTest(unittest.TestCase):
     def test_span_centred_on_a_column_border_belongs_to_the_left_column(self):
-        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
-        self.assertEqual(grid.column_of(_span_at(SECOND_LEFT)), FIRST_COLUMN)
+        columns = _columns(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
+        self.assertEqual(columns.column_of(_span_at(SECOND_LEFT)), FIRST_COLUMN)
 
     def test_span_belongs_to_the_column_of_its_centre(self):
         """Sol kenarı birinci sütunda olsa da ortası ikinci sütuna düşen parça ikinci sütundadır."""
-        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
+        columns = _columns(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
         across_the_border = span("x", (SECOND_LEFT - SPAN_HALF_WIDTH, TOP, SECOND_LEFT + INSIDE, BOTTOM))
-        self.assertEqual(grid.column_of(across_the_border), SECOND_COLUMN)
+        self.assertEqual(columns.column_of(across_the_border), SECOND_COLUMN)
 
 
 def _two_columns():
-    return _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
+    return _columns(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
 
 
 def _span_centred_on(top):
@@ -131,9 +138,8 @@ def _span_centred_on(top):
 
 
 def _with_band_fill(left, right):
-    """İki sütunlu ızgara; BAND_TOP-BAND_BOTTOM arasında kenarları left ile right olan bir dolgu daha."""
-    cells = [_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT)]
-    return TableGrid.from_cells(cells, cells + [Box(left, BAND_TOP, right, BAND_BOTTOM)])
+    """BAND_TOP-BAND_BOTTOM arasında kenarları left ile right olan dolgunun bantları."""
+    return _bands_of(Box(left, BAND_TOP, right, BAND_BOTTOM))
 
 
 class InclusiveEdgeTest(unittest.TestCase):
@@ -143,26 +149,26 @@ class InclusiveEdgeTest(unittest.TestCase):
         self.assertEqual(_two_columns().column_of(_span_at(FIRST_LEFT)), FIRST_COLUMN)
 
     def test_span_centred_on_the_band_top_is_in_the_band(self):
-        self.assertTrue(TableGrid([], [(TOP, BOTTOM)]).is_in_band(_span_centred_on(TOP)))
+        self.assertTrue(RowBands([(TOP, BOTTOM)]).is_in_band(_span_centred_on(TOP)))
 
     def test_span_centred_just_above_the_band_is_outside(self):
-        self.assertFalse(TableGrid([], [(TOP, BOTTOM)]).is_in_band(_span_centred_on(TOP - STEP)))
+        self.assertFalse(RowBands([(TOP, BOTTOM)]).is_in_band(_span_centred_on(TOP - STEP)))
 
     def test_fill_starting_the_tolerance_right_of_a_column_is_a_band(self):
-        grid = _with_band_fill(FIRST_LEFT + EDGE_TOLERANCE, SECOND_LEFT)
-        self.assertTrue(grid.is_in_band(_text_between(UPPER_TEXT)))
+        bands = _with_band_fill(FIRST_LEFT + EDGE_TOLERANCE, SECOND_LEFT)
+        self.assertTrue(bands.is_in_band(_text_between(UPPER_TEXT)))
 
     def test_fill_starting_further_right_is_no_band(self):
-        grid = _with_band_fill(FIRST_LEFT + EDGE_TOLERANCE + STEP, SECOND_LEFT)
-        self.assertFalse(grid.is_in_band(_text_between(UPPER_TEXT)))
+        bands = _with_band_fill(FIRST_LEFT + EDGE_TOLERANCE + STEP, SECOND_LEFT)
+        self.assertFalse(bands.is_in_band(_text_between(UPPER_TEXT)))
 
     def test_fill_ending_the_tolerance_right_of_a_column_is_a_band(self):
-        grid = _with_band_fill(FIRST_LEFT, SECOND_LEFT + EDGE_TOLERANCE)
-        self.assertTrue(grid.is_in_band(_text_between(UPPER_TEXT)))
+        bands = _with_band_fill(FIRST_LEFT, SECOND_LEFT + EDGE_TOLERANCE)
+        self.assertTrue(bands.is_in_band(_text_between(UPPER_TEXT)))
 
     def test_fill_ending_further_right_is_no_band(self):
-        grid = _with_band_fill(FIRST_LEFT, SECOND_LEFT + EDGE_TOLERANCE + STEP)
-        self.assertFalse(grid.is_in_band(_text_between(UPPER_TEXT)))
+        bands = _with_band_fill(FIRST_LEFT, SECOND_LEFT + EDGE_TOLERANCE + STEP)
+        self.assertFalse(bands.is_in_band(_text_between(UPPER_TEXT)))
 
 
 def _span_of_width(width):
@@ -188,8 +194,8 @@ class FilledColumnsTest(unittest.TestCase):
 
 class RowInBandTest(unittest.TestCase):
     def test_row_with_one_span_in_a_band_is_in_the_band(self):
-        grid = TableGrid([], [(TOP, BOTTOM)])
-        self.assertTrue(grid.in_band([_span_centred_on(TOP), _span_centred_on(BOTTOM + INSIDE)]))
+        bands = RowBands([(TOP, BOTTOM)])
+        self.assertTrue(bands.in_band([_span_centred_on(TOP), _span_centred_on(BOTTOM + INSIDE)]))
 
 
 def _groups(*fills):

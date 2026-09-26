@@ -38,9 +38,10 @@ class PageFills:
     def is_empty(self):
         return not self._rects
 
-    def grid_of(self, cells):
-        """Hücre kümesinin ızgarası; satır bantları sayfanın bütün dolgularından çıkar."""
-        return TableGrid.from_cells(cells, self._rects)
+    def row_bands(self, columns):
+        """Tablonun satır bantları; bantlar yalnız tablonun hücrelerinden değil sayfanın bütün
+        dolgularından çıkar."""
+        return RowBands.of_fills(columns.band_fills(self._rects))
 
     def table_groups(self):
         """Aynı arka plandaki hücreler tek tablodur; arka planı olmayanlar sütun
@@ -106,45 +107,24 @@ def _grouped_by_background(cells, backgrounds):
     return list(groups.values())
 
 
-class TableGrid:
-    """Bir tablonun sütunları ve satır bantları; metin parçasını hücreye yerleştirir."""
+class GridColumns:
+    """Bir tablonun sütunları; metin parçasını sütununa, satırın parçalarını hücrelerine yerleştirir."""
 
-    def __init__(self, columns, bands):
-        self.columns = columns
-        self._bands = bands
-
-    @classmethod
-    def from_cells(cls, cells, page_rects):
-        columns = ColumnTiling(cells).columns()
-        bands = cls._row_bands(page_rects, columns) if len(columns) >= MIN_COLUMNS else []
-        return cls(columns, bands)
+    def __init__(self, columns):
+        self._columns = columns
 
     @classmethod
-    def _row_bands(cls, rects, columns):
-        """Sütun kenarlarına oturan (tüm tabloyu kaplamayan) dolguların y aralıkları
-        satır bantlarıdır; içindeki metin tek satıra aittir."""
-        bands = []
-        for rect in cls._band_fills(rects, columns):
-            if bands and rect.y0 < bands[-1][1] - EDGE_TOLERANCE:
-                bands[-1] = (bands[-1][0], max(bands[-1][1], rect.y1))
-            else:
-                bands.append((rect.y0, rect.y1))
-        return bands
+    def of_cells(cls, cells):
+        return cls(ColumnTiling(cells).columns())
 
-    @classmethod
-    def _band_fills(cls, rects, columns):
+    def is_tabular(self):
+        return len(self._columns) >= MIN_COLUMNS
+
+    def band_fills(self, rects):
         """Sütun kenarlarına oturan ama tüm tabloyu kaplamayan dolgular, yukarıdan aşağı."""
-        full_width = [(columns[0][0], columns[-1][1])]
+        full_width = [(self._columns[0][0], self._columns[-1][1])]
         return [rect for rect in sorted(rects, key=lambda r: r.y0)
-                if cls._on_edges(rect, columns) and not cls._on_edges(rect, full_width)]
-
-    @staticmethod
-    def _on_edges(rect, columns):
-        return (any(abs(rect.x0 - left) <= EDGE_TOLERANCE for left, _ in columns)
-                and any(abs(rect.x1 - right) <= EDGE_TOLERANCE for _, right in columns))
-
-    def has_columns(self):
-        return len(self.columns) >= MIN_COLUMNS
+                if _on_edges(rect, self._columns) and not _on_edges(rect, full_width)]
 
     def column_of(self, span):
         """Parçanın ortasının düştüğü sütun; iki sütunun ortak kenarındaki orta soldakindedir."""
@@ -154,22 +134,46 @@ class TableGrid:
         return holding[0]
 
     def is_table_row(self, row):
-        widest = max(right - left for left, right in self.columns) * WIDE_SPAN_RATIO
+        widest = max(right - left for left, right in self._columns) * WIDE_SPAN_RATIO
         return all(s.box.width <= widest and self._columns_holding(s) for s in row)
 
     def _columns_holding(self, span):
         center = span.box.center_x
-        return [index for index, (left, right) in enumerate(self.columns) if left <= center <= right]
+        return [index for index, (left, right) in enumerate(self._columns) if left <= center <= right]
 
     def cells_of(self, row, main_size):
         """Satırın parçaları sütunlarının hücrelerine dağılmış olarak; her parça bir
         sütuna düşmelidir."""
         columns = [self.column_of(span) for span in row]
         return [TableCell(CellText([span for span, column in zip(row, columns) if column == index], main_size), bounds)
-                for index, bounds in enumerate(self.columns)]
+                for index, bounds in enumerate(self._columns)]
 
     def filled_columns(self, row):
         return len({self.column_of(span) for span in row})
+
+
+def _on_edges(rect, columns):
+    return (any(abs(rect.x0 - left) <= EDGE_TOLERANCE for left, _ in columns)
+            and any(abs(rect.x1 - right) <= EDGE_TOLERANCE for _, right in columns))
+
+
+class RowBands:
+    """Tablonun satır bantları (y aralıkları); bandın içindeki metin tek satıra aittir."""
+
+    def __init__(self, bands):
+        self._bands = bands
+
+    @classmethod
+    def of_fills(cls, fills):
+        """fills yukarıdan aşağı sıralı; üsttekine tolerans kadar binen dolgu yeni banttır,
+        daha çok binen onu uzatır."""
+        bands = []
+        for rect in fills:
+            if bands and rect.y0 < bands[-1][1] - EDGE_TOLERANCE:
+                bands[-1] = (bands[-1][0], max(bands[-1][1], rect.y1))
+            else:
+                bands.append((rect.y0, rect.y1))
+        return cls(bands)
 
     def in_band(self, row):
         return any(self.is_in_band(span) for span in row)
