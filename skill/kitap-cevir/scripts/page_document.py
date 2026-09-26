@@ -47,6 +47,10 @@ class PageDocument:
         return {"id": self.data["id"], "page": self.number(), "chapter": self.data.get("chapter", {}),
                 "section": self.data.get("section", {}), "title": self.data.get("title", {}), "content": content}
 
+    def new_terms(self):
+        """Çevirmenin sözlüğe önerdiği terimler (glossary_new)."""
+        return self.data.get("glossary_new", [])
+
     def blocks(self):
         return [Block.of(data) for data in self.data["blocks"]]
 
