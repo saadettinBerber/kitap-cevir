@@ -3,7 +3,7 @@ ardışık parçalarına bölünür; satır içi denklem cümleye komşu kelimel
 import itertools
 from dataclasses import dataclass
 
-from extraction.pdf.geometry import Box
+from extraction.pdf import geometry
 from extraction.text_utils import normalize_spaces
 
 SIMPLE_MAX_SPANS = 3          # bu kadar parça ve tek punto = düz metne çevrilebilir sembol
@@ -43,7 +43,7 @@ class MathLine:
 
 
 def _enclosing(spans):
-    return Box.enclosing(span.box for span in spans)
+    return geometry.enclosing(span.box for span in spans)
 
 
 class SpanRun:

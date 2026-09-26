@@ -16,6 +16,7 @@ import re
 
 from extraction.equations.math_geometry import FractionEquationFinder
 from extraction.equations.math_line import MathLine
+from extraction.pdf import geometry
 from extraction.text_utils import normalize_spaces
 
 CROP_DPI = 220
@@ -53,8 +54,8 @@ class MathScanner:
     def _merge_adjacent(rects):
         merged = []
         for rect in sorted(rects, key=lambda r: r.y0):
-            if merged and rect.y0 - merged[-1].y1 <= rect.height * LINE_MERGE_RATIO:
-                merged[-1] = merged[-1].union(rect)
+            if merged and rect.y0 - merged[-1].y1 <= geometry.height(rect) * LINE_MERGE_RATIO:
+                merged[-1] = geometry.union(merged[-1], rect)
             else:
                 merged.append(rect)
         return merged
@@ -73,7 +74,7 @@ class MathScanner:
 
 def _in_band(rect, bands):
     """Kutunun ortası bantlardan birinin dikey aralığında mı?"""
-    return any(band.y0 <= rect.center_y <= band.y1 for band in bands)
+    return any(band.y0 <= geometry.center_y(rect) <= band.y1 for band in bands)
 
 
 class EquationCropper:
@@ -118,7 +119,7 @@ class EquationCropper:
     def _crop(self, rect, item_id):
         os.makedirs(self._image_dir, exist_ok=True)
         with open(os.path.join(self._image_dir, f"{item_id}.png"), "wb") as png:
-            png.write(self._page.png(rect.expanded(CROP_PADDING), CROP_DPI))
+            png.write(self._page.png(geometry.expanded(rect, CROP_PADDING), CROP_DPI))
         return f"{item_id}.png"
 
 
