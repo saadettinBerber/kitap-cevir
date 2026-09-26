@@ -9,7 +9,7 @@ sayfa ortasındaki başlıksız tablolar elle kurulur.
 import collections
 import itertools
 
-from extraction.tables.table_cell import TableCell
+from extraction.tables.table_cell import CellText, TableCell
 
 MIN_HEADER_COLUMNS = 2
 COLUMN_GAP_MIN = 30          # sütunlar arasındaki en küçük boşluk (pt)
@@ -124,7 +124,7 @@ class TableColumns:
     def _cells(self, row):
         buckets = self.buckets(row)
         main_size = max((span.size for bucket in buckets for span in bucket), default=DEFAULT_MAIN_SIZE)
-        return [TableCell(bucket, column, main_size).unit() for bucket, column in zip(buckets, self._columns)]
+        return [TableCell(CellText(bucket, main_size), column).unit() for bucket, column in zip(buckets, self._columns)]
 
 
 class SpanRow:
