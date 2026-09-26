@@ -23,7 +23,7 @@ class BookPdf:
 
     @classmethod
     def for_project(cls, project):
-        """Kurulum: ayarlar projeden bir kez yüklenip okuyucuyu kuran fabrikaya verilir."""
+        """Kurulum: projeden PDF'in yeri ile yüklenen ayarlar okuyucuyu kuran fabrikaya verilir."""
         return cls._for_settings(project.pdf_path(), project.load_settings())
 
     @classmethod
