@@ -2,7 +2,7 @@
 10 puntoda ve karakter başına 6 punto genişliğindedir."""
 import unittest
 
-from pdf_fakes import span
+from pdf_fakes import sized, span
 from extraction.text_layer.script_marks import ScriptMark
 from extraction.text_layer.text_line import MONO_CHAR_WIDTH_RATIO, LineSpan, TextLine
 
@@ -13,7 +13,7 @@ LEFT = 10.0
 
 
 def _span(text, left):
-    return span(text, (left, BASELINE - SIZE, left + len(text) * CHAR_WIDTH, BASELINE), size=SIZE)
+    return sized(SIZE, span(text, (left, BASELINE - SIZE, left + len(text) * CHAR_WIDTH, BASELINE)))
 
 
 def _code(*pieces):

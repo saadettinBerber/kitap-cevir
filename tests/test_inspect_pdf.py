@@ -2,7 +2,7 @@ import contextlib
 import io
 import unittest
 
-from pdf_fakes import FONT, PAGE_HEIGHT, PAGE_WIDTH, SIZE, FakePdfDocument, FakePdfPage, span
+from pdf_fakes import FONT, PAGE_HEIGHT, PAGE_WIDTH, SIZE, FakePdfDocument, FakePdfPage, in_font, span
 from inspect_pdf import DEFAULT_LAST_PAGE, TOP_CANDIDATES, FolioOffsets, InspectionReport, PdfInspector, parse_args
 
 OFFSET = 2
@@ -64,7 +64,8 @@ class PdfInspectorTest(unittest.TestCase):
         self.assertEqual(PdfInspector(_book()).font_usage(OFFSET + 1), [((FONT, SIZE), len(BODY) + len("1"))])
 
     def test_most_used_font_comes_first(self):
-        fonts = (span("bb", LINE_BOX, "Middle"), span("a", LINE_BOX, "Small"), span("cccc", LINE_BOX, "Large"))
+        fonts = tuple(in_font(font, span(text, LINE_BOX))
+                      for font, text in (("Middle", "bb"), ("Small", "a"), ("Large", "cccc")))
         usage = PdfInspector(FakePdfDocument([FakePdfPage(lines=[fonts])])).font_usage(1)
         self.assertEqual([font for (font, _), _ in usage], ["Large", "Middle", "Small"])
 

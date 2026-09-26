@@ -4,11 +4,12 @@ PyMuPDF Rect'iyle aynı davrandığı sınır koşulları, PyMuPDF adaptörünü
 import importlib.util
 import os
 import tempfile
+import dataclasses
 import unittest
 
 import fitz
 
-from pdf_fakes import FakeLayoutReader, FakePdfPage, element, real_page, span
+from pdf_fakes import FakeLayoutReader, FakePdfPage, element, in_font, real_page, sized, span
 from extraction.page_extractor import PageExtractor
 from extraction.pdf.geometry import Box
 from extraction.pdf.odl_adapter import OdlLayoutReader, OdlTree
@@ -222,8 +223,8 @@ class ReplaceableLayoutReaderTest(unittest.TestCase):
     """Düzen okuyucusu ve sayfa dışarıdan verilir; test ne PDF açar ne ODL (Java) çalıştırır."""
 
     def test_extraction_runs_on_a_fake_page(self):
-        page = FakePdfPage(lines=[(span("Top line.", (72, 90, 300, 104), size=11),)])
-        reader = FakeLayoutReader([element("Top line.", (72, 90, 300, 104), font_size=11)])
+        page = FakePdfPage(lines=[(sized(11, span("Top line.", (72, 90, 300, 104))),)])
+        reader = FakeLayoutReader([dataclasses.replace(element("Top line.", (72, 90, 300, 104)), font_size=11)])
         settings = with_defaults({"running_header": "none"})
         with tempfile.TemporaryDirectory() as images:
             extracted = PageExtractor(settings, reader).extract(page, images)
@@ -232,7 +233,7 @@ class ReplaceableLayoutReaderTest(unittest.TestCase):
 
     def test_equation_without_a_host_is_returned_as_skipped(self):
         """Satır içi denklemi kutusunu kapsayan öğe yoksa uyarısı sonuçla döner; basmak komutun işidir."""
-        line = (span("Let ", (72, 90, 90, 104)), span("θ", (90, 90, 96, 104), font="Type3Math"),
+        line = (span("Let ", (72, 90, 90, 104)), in_font("Type3Math", span("θ", (90, 90, 96, 104))),
                 span(" be", (96, 90, 110, 104)))
         reader = FakeLayoutReader([element("Far below.", (72, 300, 300, 314))])
         with tempfile.TemporaryDirectory() as images:

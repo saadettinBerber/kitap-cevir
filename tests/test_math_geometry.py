@@ -3,7 +3,7 @@ PyMuPDF'in çizgiyi sıfır yükseklikli kutu olarak verdiği test_pdf_boundary'
 import tempfile
 import unittest
 
-from pdf_fakes import FakePdfPage, span, stroke
+from pdf_fakes import FakePdfPage, sized, span, stroke
 from extraction.equations.math_geometry import (
     BAR_GROUP_MAX_SPAN_RATIO, BAR_GROUP_Y_TOLERANCE, BAR_MAX_HEIGHT, BAR_MIN_WIDTH, COLUMN_EDGE_TOLERANCE,
     EQUATION_LINE_GAP, MAX_GROWTH_PASSES, FractionEquationFinder, Rule, TextColumn)
@@ -21,7 +21,7 @@ TABLE_RULE_SPLIT = 246
 # A = ma / mc: pay, payda ve aralarındaki kesir çizgisi; altında gövde metni.
 NUMERATOR = (span("A =", (87, 191, 102, 205)), span("ma", (106, 191, 120, 205)))
 DENOMINATOR = (span("mc", (106, 208, 119, 222)),)
-PROSE = (span("In the equation, ma represents abstract elements.", (COLUMN_LEFT, PROSE_TOP, 303, 263), size=10.5),)
+PROSE = (sized(10.5, span("In the equation, ma represents abstract elements.", (COLUMN_LEFT, PROSE_TOP, 303, 263))),)
 FRACTION_LINES = (NUMERATOR, DENOMINATOR, PROSE)
 FRACTION_BAR = stroke(106, 208, 125, 208)
 EQUATION_CAPTION = (span("Equation 3-3. Abstractness", (COLUMN_LEFT, 177, 200, 187)),)

@@ -4,6 +4,7 @@ Kutular sol-üst orijinli (x0, y0, x1, y1) demetleriyle verilir. Gerçek PDF
 gereken sınır testleri `real_page` ile PyMuPDF adaptörünü kullanır.
 """
 import contextlib
+import dataclasses
 
 import _paths  # noqa: F401
 from extraction.pdf.geometry import Box
@@ -19,9 +20,20 @@ FONT = "Helvetica"
 SIZE = 10.0
 
 
-def span(text, box, font=FONT, size=SIZE):
-    """Satırı kendi üst kenarı, taban çizgisi kendi alt kenarı olan parça."""
-    return Span(text, font, size, Box(*box), box[1], box[3])
+def span(text, box):
+    """FONT'ta SIZE puntoluk parça; satırı kendi üst kenarı, taban çizgisi kendi alt kenarıdır.
+    Fontu in_font, puntosu sized değiştirir."""
+    return Span(text, FONT, SIZE, Box(*box), box[1], box[3])
+
+
+def in_font(font, piece):
+    """Aynı parça (Span ya da LayoutElement) başka fontta."""
+    return dataclasses.replace(piece, font=font)
+
+
+def sized(size, piece):
+    """Aynı parça başka puntoda."""
+    return dataclasses.replace(piece, size=size)
 
 
 def fill(*box):
@@ -32,8 +44,14 @@ def stroke(*box):
     return Drawing(Box(*box), is_filled=False)
 
 
-def element(text, box, kind="paragraph", **fields):
-    return LayoutElement(kind, Box(*box), text, **fields)
+def element(text, box):
+    """Düzen okuyucusunun paragraf öğesi; türünü of_kind, öteki alanlarını dataclasses.replace değiştirir."""
+    return LayoutElement("paragraph", Box(*box), text)
+
+
+def of_kind(kind, item):
+    """Aynı öğe başka türde: heading, list, list item, image…"""
+    return dataclasses.replace(item, kind=kind)
 
 
 class FakePdfPage:

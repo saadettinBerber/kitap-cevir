@@ -1,7 +1,7 @@
 import unittest
 from dataclasses import replace
 
-from pdf_fakes import span
+from pdf_fakes import sized, span
 from extraction.chapter_opener import ChapterOpener
 from extraction.text_layer.layout_scan import CodeImageLinkLines, CodeListing, ProseRepairs
 from extraction.text_layer.text_line import MONO_CHAR_WIDTH_RATIO, LineSpan, TextLine
@@ -16,7 +16,7 @@ def _line(text, corner=ORIGIN):
     """Tek span'lı, metni dizilmiş düz metin satırı; corner (sol, üst) köşesi, karakter başına punto × 0.6."""
     left, top = corner
     box = (left, top, left + len(text) * LINE_HEIGHT * MONO_CHAR_WIDTH_RATIO, top + LINE_HEIGHT)
-    return replace(TextLine.of([LineSpan.marked(span(text, box, size=LINE_HEIGHT), False)], False), text=text)
+    return replace(TextLine.of([LineSpan.marked(sized(LINE_HEIGHT, span(text, box)), False)], False), text=text)
 
 
 def _code_line(text, corner=ORIGIN):

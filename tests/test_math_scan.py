@@ -5,7 +5,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from pdf_fakes import FAKE_PNG, FakePdfPage, span, stroke
+from pdf_fakes import FAKE_PNG, FakePdfPage, in_font, sized, span, stroke
 from extraction.equations.math_scan import CROP_DPI, CROP_PADDING, LINE_MERGE_RATIO, MathScanner, placeholder
 from extraction.pdf.geometry import Box
 from extraction.settings import with_defaults
@@ -22,14 +22,18 @@ STEP = 0.1
 
 
 def _math(text, box):
-    return span(text, box, MATH_FONT, MATH_SIZE)
+    return sized(MATH_SIZE, in_font(MATH_FONT, span(text, box)))
+
+
+def _superscript(text, box):
+    return sized(SUPERSCRIPT_SIZE, in_font(MATH_FONT, span(text, box)))
 
 
 def _page():
     """Ayrı satırda bir denklem, cümle içinde üst simgeli bir denklem ve düz metin."""
     display = (_math("E = mc2", (72, 50, 115, 62)),)
     inline = (span("Goal: find ", (72, 90, 126, 102)), _math("x", (126, 90, 132, 102)),
-              span("2", (133, 88, 137, 95), MATH_FONT, SUPERSCRIPT_SIZE), span(" to minimize", (140, 90, 200, 102)))
+              _superscript("2", (133, 88, 137, 95)), span(" to minimize", (140, 90, 200, 102)))
     prose = (span("Body text without math.", (72, 130, 200, 142)),)
     return FakePdfPage(lines=[display, inline, prose])
 
@@ -38,7 +42,7 @@ def _display_with_mixed_line():
     """İki tam denklem satırı ve aralarında denklem fontunda olmayan '…' taşıyan
     bir satır (ai-engineering PDF 245): ayrı satır denkleminin parçası."""
     top = (_math("P(x1, x2)", (72, 50, 150, 62)),)
-    mixed = (_math("P(x", (72, 58, 90, 68)), span("1", (90, 62, 94, 69), MATH_FONT, SUPERSCRIPT_SIZE),
+    mixed = (_math("P(x", (72, 58, 90, 68)), _superscript("1", (90, 62, 94, 69)),
              span("…", (121, 58, 130, 68)), _math(",xn)", (131, 58, 160, 68)))
     bottom = (_math("= (1/P)", (72, 66, 130, 78)),)
     return FakePdfPage(lines=[top, mixed, bottom])
@@ -74,7 +78,7 @@ def _fraction_above_display():
 
 def _superscripted(base, mark):
     """Üst simgeli denklem: iki punto, basit sayılmaz."""
-    return _math(base, (0, 90, 6, 102)), span(mark, (6, 88, 10, 95), MATH_FONT, SUPERSCRIPT_SIZE)
+    return _math(base, (0, 90, 6, 102)), _superscript(mark, (6, 88, 10, 95))
 
 
 def _images_around_a_symbol():

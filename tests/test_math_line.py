@@ -3,7 +3,7 @@ Parçalar metin sırasıyla verilir; kutuları bu kurallarda rol oynamaz, hepsi 
 import dataclasses
 import unittest
 
-from pdf_fakes import SIZE, span
+from pdf_fakes import SIZE, in_font, span
 from extraction.equations.math_line import SIMPLE_MAX_SPANS, MathLine, MathRun, SpanRun
 
 MATH_FONT = "Helvetica-Oblique"
@@ -17,7 +17,7 @@ def _is_math(piece):
 
 
 def _math(text):
-    return span(text, LINE_BOX, MATH_FONT)
+    return in_font(MATH_FONT, span(text, LINE_BOX))
 
 
 def _prose(text):

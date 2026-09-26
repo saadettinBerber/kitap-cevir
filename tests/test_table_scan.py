@@ -4,7 +4,7 @@ ayırdığı terim tablosu."""
 import dataclasses
 import unittest
 
-from pdf_fakes import FakePdfPage, fill, span, stroke
+from pdf_fakes import FakePdfPage, fill, in_font, sized, span, stroke
 from extraction.pdf.geometry import Box
 from extraction.settings import with_defaults
 from extraction.tables.table_grid import MAX_BAND_GAP_RATIO, MIN_CELL_WIDTH, RULE_MAX_HEIGHT, PageFills
@@ -23,8 +23,8 @@ TABLE_TOP = 150
 PADDING, TEXT_DROP, TEXT_HEIGHT, CHAR_WIDTH = 5, 10, 12, 6
 BODY_SIZE = 11
 MARK_SIZE = BODY_SIZE / 2
-CAPTION = span("Table 1-1. A caption that spans the whole table width", (70, 121, 370, 132), size=9)
-BODY = span("Body text far below the table, spanning columns.", (70, 391, 370, 402), size=BODY_SIZE)
+CAPTION = sized(9, span("Table 1-1. A caption that spans the whole table width", (70, 121, 370, 132)))
+BODY = sized(BODY_SIZE, span("Body text far below the table, spanning columns.", (70, 391, 370, 402)))
 
 
 def _bold(line):
@@ -33,8 +33,8 @@ def _bold(line):
 
 def _cell_row(y0, texts):
     """Zebra sütunlarına oturan metin satırı; boş metin o sütunu boş bırakır."""
-    return tuple(span(text, (left + PADDING, y0, left + PADDING + CHAR_WIDTH * len(text), y0 + TEXT_HEIGHT),
-                      size=BODY_SIZE)
+    return tuple(sized(BODY_SIZE, span(text, (left + PADDING, y0, left + PADDING + CHAR_WIDTH * len(text),
+                                               y0 + TEXT_HEIGHT)))
                  for (left, _), text in zip(COLUMNS, texts) if text)
 
 
@@ -114,7 +114,8 @@ class ZebraTableTest(unittest.TestCase):
 
     def test_lines_read_bottom_up_still_give_rows_top_down(self):
         page = _zebra_page()
-        self.assertEqual(_texts(_scan(FakePdfPage(lines=page.text_lines()[::-1], shapes=page.drawings()))[0]), [HEADER] + ROWS)
+        bottom_up = FakePdfPage(lines=page.text_lines()[::-1], shapes=page.drawings())
+        self.assertEqual(_texts(_scan(bottom_up)[0]), [HEADER] + ROWS)
 
     def test_cell_text_is_stripped(self):
         layout = ZebraLayout([[" Alpha ", "1", "10%"]])
@@ -191,7 +192,7 @@ def _shaded_rows(lines):
 
 class HeaderTest(unittest.TestCase):
     def test_small_regular_mark_does_not_unbold_the_header(self):
-        mark = span("a", (360, TABLE_TOP + TEXT_DROP, 364, TABLE_TOP + TEXT_DROP + MARK_SIZE), size=MARK_SIZE)
+        mark = sized(MARK_SIZE, span("a", (360, TABLE_TOP + TEXT_DROP, 364, TABLE_TOP + TEXT_DROP + MARK_SIZE)))
         header = _bold(_cell_row(TABLE_TOP + TEXT_DROP, HEADER)) + (mark,)
         layout = ZebraLayout(ROWS)
         [table] = _scan(FakePdfPage(lines=[header] + layout.lines()[1:], shapes=layout.shading(0)))
@@ -222,7 +223,7 @@ class LineBreakTest(unittest.TestCase):
         """Sarılmış düz metnin ölçüsü hücrenin kendi sütunudur."""
         left, right = COLUMNS[0]
         top = self.BODY_TOP + SUBLINE_DROPS[0]
-        filling = span("wrapped", (left + PADDING, top, right - PADDING, top + TEXT_HEIGHT), size=BODY_SIZE)
+        filling = sized(BODY_SIZE, span("wrapped", (left + PADDING, top, right - PADDING, top + TEXT_HEIGHT)))
         first, second = _split_row(self.BODY_TOP, ("", "c", "e"), ("b", "d", ""))
         rows = _shaded_rows(self._header() + [(filling,) + first, second])
         self.assertEqual(rows[1][:2], [{"en": "wrapped b"}, {"en": "c<br>d", "html": True}])
@@ -343,8 +344,8 @@ RULE_TOP = TABLE_TOP + CELL_HEIGHT * 2 + RULE_GAP   # tek gövde satırlı terim
 
 def _cell_lines(top, texts):
     """PyMuPDF her hücreyi ayrı satır olarak verir; 9 puntoluk metin hücrenin 0.4 altından başlar."""
-    return [(span(text, (left + CELL_INSET, top + CELL_TEXT_DROP,
-                         left + CELL_INSET + CELL_CHAR_WIDTH * len(text), top + CELL_TEXT_BOTTOM), size=CELL_SIZE),)
+    return [(sized(CELL_SIZE, span(text, (left + CELL_INSET, top + CELL_TEXT_DROP,
+                         left + CELL_INSET + CELL_CHAR_WIDTH * len(text), top + CELL_TEXT_BOTTOM))),)
             for (left, _), text in zip(TERM_COLUMNS, texts)]
 
 
@@ -439,8 +440,8 @@ class RowGapBoundaryTest(unittest.TestCase):
     FIRST_ROW, SECOND_ROW = ("Latency", "Time to answer"), ("Load", "Requests per second")
 
     def _row(self, top, texts):
-        return [(span(text, (left + CELL_INSET, top, left + CELL_INSET + CELL_CHAR_WIDTH * len(text),
-                             top + self.TEXT_HEIGHT), size=CELL_SIZE),)
+        return [(sized(CELL_SIZE, span(text, (left + CELL_INSET, top, left + CELL_INSET + CELL_CHAR_WIDTH * len(text),
+                             top + self.TEXT_HEIGHT))),)
                 for (left, _), text in zip(TERM_COLUMNS, texts)]
 
     def _row_count(self, second_row):
@@ -552,13 +553,14 @@ class TableEndTest(unittest.TestCase):
     def _caption(self, bottom):
         top = bottom + self.CAPTION_DROP
         caption = "Table 4-1. Operational characteristics"
-        return (span(caption, (72, top, 222, top + self.CAPTION_HEIGHT), size=CELL_SIZE),)
+        return (sized(CELL_SIZE, span(caption, (72, top, 222, top + self.CAPTION_HEIGHT))),)
 
     def _prose(self, bottom):
         top = bottom + self.BODY_DROP
-        return (span("See ", (72, top, 92, top + self.BODY_HEIGHT), size=self.PROSE_SIZE),
-                span("Chapter 5", (92, top, 138, top + self.BODY_HEIGHT), "Helvetica-Oblique", self.PROSE_SIZE),
-                span(" for details.", (138, top, 200, top + self.BODY_HEIGHT), size=self.PROSE_SIZE))
+        chapter = in_font("Helvetica-Oblique", span("Chapter 5", (92, top, 138, top + self.BODY_HEIGHT)))
+        return (sized(self.PROSE_SIZE, span("See ", (72, top, 92, top + self.BODY_HEIGHT))),
+                sized(self.PROSE_SIZE, chapter),
+                sized(self.PROSE_SIZE, span(" for details.", (138, top, 200, top + self.BODY_HEIGHT))))
 
     def test_text_below_the_rule_is_outside(self):
         table = TermTableLayout(TABLE_TOP, [self.ROW])

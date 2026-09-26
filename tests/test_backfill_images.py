@@ -5,7 +5,8 @@ import tempfile
 import unittest
 
 import _paths  # noqa: F401
-from backfill_images import ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ExtractedImages, ImageBackfiller, ImagePlacement, PageImages
+from backfill_images import (ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ExtractedImages, ImageBackfiller, ImagePlacement,
+                             PageImages)
 from image_folder import ImageFolder
 from page_document import PageDocument
 from page_input import BuiltInput

@@ -3,7 +3,7 @@ niteliğindeki çok satırlı hücreler korur; sütunu dolduran satırlar sarıl
 import dataclasses
 import unittest
 
-from pdf_fakes import span
+from pdf_fakes import sized, span
 from extraction.pdf.geometry import Box
 from extraction.tables.table_cell import SUPERSCRIPT_RATIO, WRAP_FILL_RATIO, CellText, TableCell
 
@@ -18,7 +18,7 @@ STEP = 0.1
 
 
 def _span(text, line_y):
-    return span(text, (TEXT_LEFT, line_y, SHORT_RIGHT, line_y + MAIN_SIZE), size=MAIN_SIZE)
+    return sized(MAIN_SIZE, span(text, (TEXT_LEFT, line_y, SHORT_RIGHT, line_y + MAIN_SIZE)))
 
 
 def _reaching(right, piece):

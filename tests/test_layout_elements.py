@@ -1,7 +1,8 @@
 """Düzen öğeleri üzerindeki düzeltmeler (LayoutFixer), düzeltme başına bir test sınıfı."""
+import dataclasses
 import unittest
 
-from pdf_fakes import element
+from pdf_fakes import element, of_kind
 from extraction.layout_elements import LayoutFixer
 from extraction.pdf.geometry import Box
 
@@ -56,9 +57,11 @@ class NestedListTest(unittest.TestCase):
     BOX = (70, 100, 430, 120)
 
     def _list_with_kids(self):
-        kids = (element("Term Definition Configurability", self.BOX), element("Cross-Cutting", self.BOX, "heading"))
-        item = element("Table 4-2. Structural characteristics", self.BOX, "list item", children=kids)
-        return element("", self.BOX, "list", is_ordered=True, list_items=(item,))
+        heading = of_kind("heading", element("Cross-Cutting", self.BOX))
+        kids = (element("Term Definition Configurability", self.BOX), heading)
+        item = of_kind("list item", element("Table 4-2. Structural characteristics", self.BOX))
+        numbered = of_kind("list", element("", self.BOX))
+        return dataclasses.replace(numbered, is_ordered=True, list_items=(dataclasses.replace(item, children=kids),))
 
     def test_nested_content_returns_to_the_stream(self):
         flat = _fixed([self._list_with_kids()])
@@ -71,8 +74,8 @@ class NestedListTest(unittest.TestCase):
         self.assertTrue(all(flat.is_nested for flat in _fixed([self._list_with_kids()])))
 
     def test_plain_list_is_untouched(self):
-        items = (element("first", self.BOX, "list item"), element("second", self.BOX, "list item"))
-        plain = element("", self.BOX, "list", list_items=items)
+        items = (of_kind("list item", element("first", self.BOX)), of_kind("list item", element("second", self.BOX)))
+        plain = dataclasses.replace(of_kind("list", element("", self.BOX)), list_items=items)
         self.assertEqual(_fixed([plain]), [plain])
 
 
@@ -95,7 +98,7 @@ class CodeImageLinkTest(unittest.TestCase):
         return LayoutFixer([], [self.SLOT]).fixed(list(elements)).elements
 
     def test_element_that_is_only_the_link_is_dropped(self):
-        self.assertEqual(self._without_links(element(self.LINK, self.LINK_LINE, "heading")), [])
+        self.assertEqual(self._without_links(of_kind("heading", element(self.LINK, self.LINK_LINE))), [])
 
     def test_code_glued_under_the_link_keeps_its_text_and_loses_the_slot(self):
         kept = self._without_links(element(f"{self.LINK} // Two classes", self.LINK_WITH_CODE_BELOW))
@@ -106,7 +109,7 @@ class CodeImageLinkTest(unittest.TestCase):
         self.assertEqual(kept, [element("reduces the time to 9.2 seconds:", self.PROSE_ABOVE_THE_SLOT)])
 
     def test_elements_away_from_the_link_are_untouched(self):
-        body, image = element("Body text", self.FAR_BELOW), element("", self.IMAGE, "image")
+        body, image = element("Body text", self.FAR_BELOW), of_kind("image", element("", self.IMAGE))
         self.assertEqual(self._without_links(body, image), [body, image])
 
 

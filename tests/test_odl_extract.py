@@ -1,3 +1,4 @@
+import dataclasses
 import unittest
 
 from pdf_fakes import PAGE_HEIGHT, FakeLayoutReader, FakePdfPage, element, span
@@ -25,7 +26,7 @@ STEP = 0.1
 
 
 def _element(content, box):
-    return element(content, box, font_size=BODY_FONT_SIZE)
+    return dataclasses.replace(element(content, box), font_size=BODY_FONT_SIZE)
 
 
 def _split(zones, elements):
@@ -174,7 +175,7 @@ class HeadingBySizeTest(unittest.TestCase):
 
     @staticmethod
     def _blocks(text, **fields):
-        return _builder(DEFAULTS).blocks_of(element(text, BODY_Y, **fields))
+        return _builder(DEFAULTS).blocks_of(dataclasses.replace(element(text, BODY_Y), **fields))
 
     def test_paragraph_at_chapter_title_size_is_the_chapter(self):
         self.assertEqual(self._blocks("Chapter 1. Introduction", font_size=self.CHAPTER_SIZE),
