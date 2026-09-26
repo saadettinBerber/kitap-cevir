@@ -220,6 +220,62 @@ class PageMigrationTest(unittest.TestCase):
         self.assertEqual(latex_items[-1], {"path": "math[0]", "src": "eq-9.png"})
 
 
+def _carried(new_blocks, *old_units):
+    """(taşınmış bloklar, bekleyen birimler); eski sayfanın birimleri altyazı olarak verilir."""
+    document = {"chapter": {"num": 1, "en": "One", "tr": "Bir"}, "blocks": list(new_blocks)}
+    old = {"blocks": [{"type": "caption", "en": en, "tr": tr} for en, tr in old_units]}
+    return document["blocks"], PageMigration(document, old).run({})["units"]
+
+
+def _caption(en):
+    return {"type": "caption", "en": en}
+
+
+class CarriedUnitTest(unittest.TestCase):
+    """Birim kuralları sayfa taşıma düzeyinde sınanır."""
+
+    def test_blank_unit_is_complete_without_a_translation(self):
+        blocks, pending = _carried([_caption("  ")])
+        self.assertEqual((blocks[0]["tr"], pending), ("", []))
+
+    def test_numeric_cell_without_an_old_translation_keeps_its_english(self):
+        blocks, pending = _carried([_caption("42 %")])
+        self.assertEqual((blocks[0]["tr"], pending), ("42 %", []))
+
+    def test_numeric_cell_keeps_its_old_translation(self):
+        blocks, _ = _carried([_caption("42 %")], ("42 %", "%42"))
+        self.assertEqual(blocks[0]["tr"], "%42")
+
+    def test_unit_losing_its_placeholder_waits_with_the_old_translation_as_hint(self):
+        blocks, pending = _carried([_caption("Loss is ⟦eq-1⟧.")], ("Loss is ⟦eq-1⟧.", "Kayıp budur."))
+        self.assertEqual((blocks[0]["tr"], pending),
+                         ("", [{"path": "blocks[0]", "en": "Loss is ⟦eq-1⟧.", "tr_hint": "Kayıp budur."}]))
+
+    def test_sentences_split_from_one_old_unit_are_merged_back(self):
+        para = {"type": "para", "sentences": [{"en": "Whole sentence"}, {"en": "split later."}]}
+        blocks, _ = _carried([para], ("Whole sentence split later.", "Sonra bölünen tüm cümle."))
+        self.assertEqual(blocks[0]["sentences"], [_unit("Whole sentence split later.", "Sonra bölünen tüm cümle.")])
+
+    def test_pending_sentence_path_counts_merged_sentences(self):
+        para = {"type": "para", "sentences": [{"en": "A"}, {"en": "B"}, {"en": "Yeni."}]}
+        _, pending = _carried([para], ("A B", "ab"))
+        self.assertEqual([unit["path"] for unit in pending], ["blocks[0].sentences[1]"])
+
+    def test_pending_list_item_carries_its_item_path(self):
+        items = {"type": "list", "items": [{"en": "Known."}, {"en": "Yeni."}]}
+        _, pending = _carried([items], ("Known.", "Bilinen."))
+        self.assertEqual([unit["path"] for unit in pending], ["blocks[0].items[1]"])
+
+    def test_pending_table_cell_carries_its_cell_path(self):
+        table = {"type": "table", "rows": [[{"en": "Name"}, {"en": "Yeni"}]]}
+        _, pending = _carried([table], ("Name", "Ad"))
+        self.assertEqual([unit["path"] for unit in pending], ["blocks[0].rows[0][1]"])
+
+    def test_pending_units_keep_the_page_order(self):
+        _, pending = _carried([_caption("Birinci."), _caption("İkinci.")])
+        self.assertEqual([unit["path"] for unit in pending], ["blocks[0]", "blocks[1]"])
+
+
 class NodePathTest(unittest.TestCase):
     def test_path_leads_to_the_pending_unit(self):
         self.assertEqual(node_at(_new_document(), "blocks[1].sentences[1]"), {"en": "Unseen sentence."})
