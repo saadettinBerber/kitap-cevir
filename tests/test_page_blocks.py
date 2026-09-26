@@ -102,6 +102,12 @@ class PageQueriesTest(unittest.TestCase):
                        {"type": "math", "src": "eq-1.png", "latex": ""}, PARA],
             "math": [{"id": "eq-2", "src": "eq-2.png", "latex": ""}]}
 
+    def test_pages_with_the_same_json_are_equal(self):
+        self.assertEqual(PageDocument(dict(self.PAGE)), PageDocument(self.PAGE))
+
+    def test_pages_with_different_json_differ(self):
+        self.assertNotEqual(PageDocument({**self.PAGE, "page": self.NUMBER + 1}), PageDocument(self.PAGE))
+
     def test_json_is_a_copy_of_the_page(self):
         document = PageDocument(self.PAGE)
         document.as_json()["blocks"].clear()

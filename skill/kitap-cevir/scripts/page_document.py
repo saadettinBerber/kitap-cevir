@@ -14,6 +14,9 @@ class PageDocument:
     def __init__(self, data):
         self.data = data
 
+    def __eq__(self, other):
+        return isinstance(other, PageDocument) and self.data == other.data
+
     def as_json(self):
         """Diske yazılacak sözlüğün kopyası; belge yalnız kendi metotlarıyla değişir."""
         return copy.deepcopy(self.data)
