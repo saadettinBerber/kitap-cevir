@@ -9,6 +9,7 @@ Kod fontu ve boyut eşiği progress.json -> extraction ayarlarından gelir.
 import itertools
 import re
 
+from extraction.pdf import geometry
 from extraction.settings import optional_pattern
 from extraction.text_layer.code_lines import CodeFont, PageLineReader
 from extraction.text_layer.script_marks import ScriptFixes
@@ -53,7 +54,7 @@ class CodeListing:
     def _blank_lines_before(line, previous):
         if previous is None:
             return 0
-        return 1 if line.box.y0 - previous.box.y0 > line.box.height * BLANK_LINE_GAP_RATIO else 0
+        return 1 if line.box.y0 - previous.box.y0 > geometry.height(line.box) * BLANK_LINE_GAP_RATIO else 0
 
 
 class ProseRepairs:

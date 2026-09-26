@@ -9,7 +9,7 @@ import unicodedata
 from typing import NamedTuple
 
 from extraction.equations.math_scan import placeholder
-from extraction.pdf.geometry import Box
+from extraction.pdf import geometry
 
 _FOOTNOTE_MARKER = re.compile(r"^[a-z0-9]$")
 
@@ -62,7 +62,7 @@ class LayoutFixer:
     @staticmethod
     def _is_fragment_of(element, host):
         """Başka öğenin kutusu içindeki tek karakterlik öğe (alt/üst simge) parçadır."""
-        return element is not host and len(element.text.strip()) == 1 and host.box.contains(element.box)
+        return element is not host and len(element.text.strip()) == 1 and geometry.contains(host.box, element.box)
 
     @staticmethod
     def _merge_footnote_markers(elements):
@@ -81,7 +81,7 @@ class LayoutFixer:
 
     @staticmethod
     def _same_line(marker, element):
-        return marker.box.vertical_overlap(element.box) > 0 and element.box.x0 > marker.box.x0
+        return geometry.vertical_overlap(marker.box, element.box) > 0 and element.box.x0 > marker.box.x0
 
     def _with_inline_math(self, elements):
         """(öğeler, atlanan denklemlerin uyarıları). Satır içi denklemleri ev sahibi öğenin metnine
@@ -128,7 +128,7 @@ class InlineEquation:
         return self._spliced_into(elements, hosts[0])
 
     def _is_hosted_by(self, element):
-        return element.box.y0 <= self._box.center_y <= element.box.y1
+        return element.box.y0 <= geometry.center_y(self._box) <= element.box.y1
 
     def _spliced_into(self, elements, host):
         """Komşu kelimeler ev sahibinin metninde yoksa öğeler değişmez ve atlandığı uyarısı döner."""
@@ -193,6 +193,6 @@ class CodeImageLink:
     def _box_without_slot(self, box):
         """Şerit kutunun üst yarısındaysa bağlantı öğenin başındadır, alt kısım
         kalır; alt yarısındaysa sonundadır, üst kısım kalır."""
-        if (self._top + self._bottom) / 2 < box.center_y:
-            return Box(box.x0, max(box.y0, self._bottom), box.x1, box.y1)
-        return Box(box.x0, box.y0, box.x1, min(box.y1, self._top))
+        if (self._top + self._bottom) / 2 < geometry.center_y(box):
+            return geometry.Box(box.x0, max(box.y0, self._bottom), box.x1, box.y1)
+        return geometry.Box(box.x0, box.y0, box.x1, min(box.y1, self._top))
