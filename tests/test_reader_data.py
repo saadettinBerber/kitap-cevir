@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 import _paths  # noqa: F401
+from json_file import write_json
 from progress import Progress
 from project import Project
 from reader_data import Glossary, ReaderData
@@ -32,8 +33,9 @@ class _ProjectTestCase(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = self.tmp.name
-        open(os.path.join(root, "progress.json"), "w", encoding="utf-8").write(json.dumps(PROGRESS))
-        open(os.path.join(root, "glossary.md"), "w", encoding="utf-8").write(GLOSSARY_TEMPLATE)
+        write_json(os.path.join(root, "progress.json"), PROGRESS)
+        with open(os.path.join(root, "glossary.md"), "w", encoding="utf-8") as glossary:
+            glossary.write(GLOSSARY_TEMPLATE)
         self.project = Project(root)
 
     def tearDown(self):
@@ -41,7 +43,8 @@ class _ProjectTestCase(unittest.TestCase):
 
     @staticmethod
     def _js_payload(path, prefix):
-        raw = open(path, encoding="utf-8").read().strip()
+        with open(path, encoding="utf-8") as script:
+            raw = script.read().strip()
         return json.loads(raw[len(prefix):-1])
 
 
