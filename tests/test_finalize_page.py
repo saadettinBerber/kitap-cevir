@@ -93,6 +93,10 @@ class ReaderDataUpdateTest(_FinalizeTestCase):
     def test_new_glossary_term_is_counted(self):
         self.assertEqual(self._finalize(DOCUMENT)["terms"], 1)
 
+    def test_page_without_new_terms_adds_none(self):
+        without_terms = {key: value for key, value in DOCUMENT.items() if key != "glossary_new"}
+        self.assertEqual(self._finalize(without_terms)["terms"], 0)
+
     def test_new_glossary_term_is_written(self):
         self._finalize(DOCUMENT)
         self.assertIn("| Heading | Başlık (Heading) |", self._read_text(self.project.glossary_md()))
