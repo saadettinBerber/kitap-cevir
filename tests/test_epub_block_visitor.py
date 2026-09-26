@@ -128,6 +128,9 @@ class TableAndCodeTest(unittest.TestCase):
         table = {"type": "table", "rows": [[{"en": "1", "tr": "1"}]]}
         self.assertNotIn("<thead>", _html(table))
 
+    def test_code_is_written_in_its_block(self):
+        self.assertIn("x = 1", _html({"type": "code", "code": "x = 1"}))
+
     def test_code_caption_is_turkish_above_the_code(self):
         code = {"type": "code", "code": "x = 1", "caption": {"en": "Listing", "tr": "Liste"}}
         self.assertTrue(_html(code).startswith('<p class="caption">Liste</p><pre'))
