@@ -56,14 +56,20 @@ class PageDocument:
     def inline_math(self):
         return self.data.get("math", [])
 
-    def equation_count(self):
-        return len(self.display_math()) + len(self.inline_math())
 
     def media_sources(self):
         """Sayfanın görsel klasörüne kopyalanacak PNG adları."""
         sources = [src for block in self.blocks() for src in block.media_sources()]
         return sources + [item["src"] for item in self.inline_math()]
 
-    def block_summary(self):
+    def summary(self):
+        """Hazırlanan girdinin özeti: sayfa, PDF sayfası, sırayla blok türleri, denklem sayısı."""
+        return {"page": self.number(), "pdf_page": self.data["pdf_page"],
+                "blocks": self._block_summary(), "math": self._equation_count()}
+
+    def _block_summary(self):
         counts = Counter(block.kind for block in self.blocks())
         return ", ".join(f"{kind}:{count}" for kind, count in counts.items())
+
+    def _equation_count(self):
+        return len(self.display_math()) + len(self.inline_math())

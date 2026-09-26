@@ -97,7 +97,8 @@ class BlockTest(unittest.TestCase):
 
 
 class PageQueriesTest(unittest.TestCase):
-    PAGE = {"blocks": [PARA, {"type": "image", "src": "a.png"},
+    NUMBER, PDF_PAGE = 3, 5
+    PAGE = {"page": NUMBER, "pdf_page": PDF_PAGE, "blocks": [PARA, {"type": "image", "src": "a.png"},
                        {"type": "math", "src": "eq-1.png", "latex": ""}, PARA],
             "math": [{"id": "eq-2", "src": "eq-2.png", "latex": ""}]}
 
@@ -110,14 +111,18 @@ class PageQueriesTest(unittest.TestCase):
         [(first_path, _), *_] = PageDocument({"blocks": [CODE, TABLE]}).unit_paths()
         self.assertEqual(first_path, "blocks[1].rows[0][0]")
 
+    def test_summary_names_the_page_and_its_pdf_page(self):
+        summary = PageDocument(self.PAGE).summary()
+        self.assertEqual((summary["page"], summary["pdf_page"]), (self.NUMBER, self.PDF_PAGE))
+
     def test_summary_counts_block_kinds_in_order(self):
-        self.assertEqual(PageDocument(self.PAGE).block_summary(), "para:2, image:1, math:1")
+        self.assertEqual(PageDocument(self.PAGE).summary()["blocks"], "para:2, image:1, math:1")
 
     def test_media_sources_include_inline_equations(self):
         self.assertEqual(PageDocument(self.PAGE).media_sources(), ["a.png", "eq-1.png", "eq-2.png"])
 
-    def test_equation_count_adds_display_and_inline(self):
-        self.assertEqual(PageDocument(self.PAGE).equation_count(), 2)
+    def test_summary_counts_display_and_inline_equations(self):
+        self.assertEqual(PageDocument(self.PAGE).summary()["math"], 2)
 
     def test_page_with_only_images_is_blank(self):
         self.assertTrue(PageDocument({"blocks": [{"type": "image", "src": "a.png"}]}).is_blank())
