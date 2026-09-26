@@ -29,7 +29,8 @@ class PyMuPdfDocument:
 
     @property
     def metadata(self):
-        return self._document.metadata or {}
+        """PyMuPDF bilinen bütün alanları verir, boşları da; yalnız doluları kalır."""
+        return {key: value for key, value in (self._document.metadata or {}).items() if value}
 
     def has_page(self, number):
         return FIRST_PAGE_NUMBER <= number <= self.page_count

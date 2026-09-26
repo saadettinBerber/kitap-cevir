@@ -47,7 +47,7 @@ class PdfDocument(Protocol):
 
     @property
     def metadata(self) -> dict:
-        """Başlık, yazar…; boş değerler olabilir."""
+        """Dolu metadata alanları (başlık, yazar…); boş değerli alan yoktur."""
 
     def has_page(self, number: int) -> bool:
         """Numara FIRST_PAGE_NUMBER ile son sayfa arasında mı?"""

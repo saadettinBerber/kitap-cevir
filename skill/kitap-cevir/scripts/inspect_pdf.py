@@ -100,8 +100,7 @@ class PdfInspector:
         return first.width, first.height
 
     def metadata(self):
-        """Boş olmayan metadata alanları."""
-        return {key: value for key, value in self._document.metadata.items() if value}
+        return self._document.metadata
 
     def page_texts(self, pages):
         """[(PDF sayfası, düz metin)]; pages '5' ya da '5-9'."""

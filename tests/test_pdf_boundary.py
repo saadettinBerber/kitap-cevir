@@ -43,8 +43,9 @@ class BoxTest(unittest.TestCase):
         self.assertEqual(Box(0, 14, 10, 20).vertical_gap(Box(0, 0, 10, 10)), 4)
 
 
-def _write_pdf(path):
+def _write_pdf(path, title=""):
     document = fitz.open()
+    document.set_metadata({"title": title})
     page = document.new_page()
     page.insert_text(fitz.Point(72, 100), "Top line", fontsize=11, fontname="helvetica")
     page.insert_text(fitz.Point(72, 700), "Bottom line", fontsize=11, fontname="helvetica")
@@ -107,6 +108,16 @@ class PyMuPdfAdapterTest(unittest.TestCase):
     def test_document_metadata_is_a_dict_even_when_empty(self):
         with PyMuPdfDocument.open(self.pdf) as document:
             self.assertIsInstance(document.metadata, dict)
+
+    def test_document_metadata_leaves_empty_fields_out(self):
+        with PyMuPdfDocument.open(self.pdf) as document:
+            self.assertTrue(all(document.metadata.values()))
+
+    def test_document_metadata_keeps_filled_fields(self):
+        titled = os.path.join(self.tmp.name, "titled.pdf")
+        _write_pdf(titled, "Book")
+        with PyMuPdfDocument.open(titled) as document:
+            self.assertEqual(document.metadata["title"], "Book")
 
     def test_page_knows_where_it_comes_from(self):
         with real_page(self.pdf) as page:
