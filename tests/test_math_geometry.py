@@ -154,6 +154,13 @@ def _chain_below(count):
     return [_line_below(BAR_Y + EQUATION_LINE_GAP + index * pitch) for index in range(count)]
 
 
+def _chain_regions(chain):
+    """Zincirin üstünde ve altında birer kesir çizgisi; ikisi de zincire doğru büyür."""
+    lower_bar_y = chain[-1].y1 + EQUATION_LINE_GAP
+    lower_bar = stroke(FRACTION_LEFT, lower_bar_y, FRACTION_RIGHT, lower_bar_y)
+    return FractionEquationFinder([BODY, *chain]).regions([_bar(FRACTION_RIGHT - FRACTION_LEFT, 0), lower_bar])
+
+
 class BarShapeTest(unittest.TestCase):
     """Kesir çizgisi ince ve kısa bir yatay çizgidir; kalını dolgu, çok kısası nokta ya da imdir."""
 
@@ -223,6 +230,17 @@ class GrowthTest(unittest.TestCase):
         shared_line = Box(FRACTION_LEFT, BAR_Y + EQUATION_LINE_GAP, SECOND_BAR_LEFT + SHORT_BAR, BAR_Y + LINE_HEIGHT)
         regions = FractionEquationFinder([BODY, shared_line]).regions([_bar(SHORT_BAR, 0), second_bar])
         self.assertEqual(len(regions), 1)
+
+    def test_regions_that_only_overlap_make_one_region(self):
+        """Satır zincirinin iki ucundaki çizgiler büyüme sınırında durur: bölgeler birbirini içermez,
+        yalnız ortadaki satırlarda kesişir."""
+        chain = _chain_below(MAX_GROWTH_PASSES + 2)
+        self.assertEqual(len(_chain_regions(chain)), 1)
+
+    def test_merged_region_covers_both_regions(self):
+        chain = _chain_below(MAX_GROWTH_PASSES + 2)
+        [region] = _chain_regions(chain)
+        self.assertEqual((region.y0, region.y1), (chain[0].y0, chain[-1].y1))
 
 
 if __name__ == "__main__":
