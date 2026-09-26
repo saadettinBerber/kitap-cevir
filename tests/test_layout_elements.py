@@ -45,10 +45,15 @@ class FootnoteMarkerTest(unittest.TestCase):
 class NestedFragmentTest(unittest.TestCase):
     HOST = (70, 100, 300, 120)
     INSIDE_HOST = (120, 110, 125, 118)
+    ACROSS_HOST_BOTTOM = (120, 115, 125, 125)
 
     def test_single_character_inside_another_box_is_dropped(self):
         host = element("x squared", self.HOST)
         self.assertEqual(_fixed([host, element("2", self.INSIDE_HOST)]), [host])
+
+    def test_single_character_reaching_out_of_the_box_stays(self):
+        items = [element("x squared", self.HOST), element("2", self.ACROSS_HOST_BOTTOM)]
+        self.assertEqual(_fixed(items), items)
 
 
 class NestedListTest(unittest.TestCase):
