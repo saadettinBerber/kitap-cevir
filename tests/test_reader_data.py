@@ -27,6 +27,11 @@ PROGRESS = {"book": {"slug": "demo", "title": "Dönüşüm", "subtitle_tr": "Alt
                       "2": {"blank": True, "pdf_page": 7}}}
 
 
+def _write_text(path, text):
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
 class _ProjectTestCase(unittest.TestCase):
     """PROGRESS ve GLOSSARY_TEMPLATE'le kurulmuş bir kitap projesi; testi yoktur."""
 
@@ -34,8 +39,7 @@ class _ProjectTestCase(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         root = self.tmp.name
         write_json(os.path.join(root, "progress.json"), PROGRESS)
-        with open(os.path.join(root, "glossary.md"), "w", encoding="utf-8") as glossary:
-            glossary.write(GLOSSARY_TEMPLATE)
+        _write_text(os.path.join(root, "glossary.md"), GLOSSARY_TEMPLATE)
         self.project = Project(root)
 
     def tearDown(self):
