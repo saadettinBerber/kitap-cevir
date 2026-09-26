@@ -21,12 +21,12 @@ import unittest
 import fitz
 
 from pdf_fakes import real_page
+from pdf_writer import PageWriter, write_pdf
 
 HAS_LITEPARSE = importlib.util.find_spec("liteparse") is not None
 if HAS_LITEPARSE:
     from extraction.pdf.liteparse_adapter import LiteParseRunner
 
-BODY_SIZE = 11
 LIST_STEPS = ("First step of the list", "Second step of the list", "Third step of the list")
 FOOTER = "Learning Tests | 42"
 LINE_STEP = 14
@@ -42,21 +42,6 @@ TABLE_HEADER_BASELINE = 120
 
 
 LEFT = 72
-
-
-class PageWriter:
-    """Test sayfasını satır satır yazar; satır içinde font değişebilir. Alt sınıfın
-    write'ı sayfanın içeriğidir."""
-
-    def __init__(self, page):
-        self._page = page
-
-    def _line(self, origin, *parts):
-        """origin: ilk parçanın (x, taban çizgisi); parçalar (metin, font) çiftleridir."""
-        x, y = origin
-        for text, font in parts:
-            self._page.insert_text((x, y), text, fontsize=BODY_SIZE, fontname=font)
-            x += fitz.get_text_length(text, font, BODY_SIZE)
 
 
 class LearningPage(PageWriter):
@@ -106,14 +91,6 @@ class TablePage(PageWriter):
             y += TABLE_ROW_GAP
 
 
-def _write_pdf(path, page_writer):
-    document = fitz.open()
-    writer = page_writer(document.new_page())
-    writer.write()
-    document.save(path)
-    document.close()
-
-
 class _ParsedPage:
     """TEMPLATE METHOD: alt sınıfın page_writer'ı sayfayı yazar, LiteParse onu
     üretimdeki ayarlarla bir kez okur."""
@@ -123,7 +100,7 @@ class _ParsedPage:
         cls.tmp = tempfile.TemporaryDirectory()
         cls.images = os.path.join(cls.tmp.name, "images")
         pdf = os.path.join(cls.tmp.name, "learning.pdf")
-        _write_pdf(pdf, cls.page_writer)
+        write_pdf(pdf, cls.page_writer)
         with real_page(pdf) as page:
             cls.page_height, cls.text_lines = page.height, page.text_lines()
             cls.result = LiteParseRunner().parse(page, cls.images)

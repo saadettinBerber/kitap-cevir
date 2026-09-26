@@ -10,6 +10,7 @@ import unittest
 import fitz
 
 from pdf_fakes import FakeLayoutReader, FakePdfPage, element, in_font, real_page, sized, span
+from pdf_writer import PageWriter, write_pdf
 from extraction.page_extractor import PageExtractor
 from extraction.pdf import geometry
 from extraction.pdf.geometry import Box
@@ -65,24 +66,26 @@ class BoxTest(unittest.TestCase):
         self.assertEqual(geometry.vertical_gap(Box(0, 14, 10, 20), SQUARE), 4)
 
 
-def _write_pdf(path, title=""):
-    document = fitz.open()
-    document.set_metadata({"title": title})
-    page = document.new_page()
-    page.insert_text(fitz.Point(72, 100), "Top line", fontsize=11, fontname="helvetica")
-    page.insert_text(fitz.Point(72, 700), "Bottom line", fontsize=11, fontname="helvetica")
-    page.insert_text(fitz.Point(72, 400), "   ", fontsize=11, fontname="helvetica")
-    page.draw_rect(fitz.Rect(72, 200, 300, 230), color=None, fill=(0.9, 0.9, 0.9))
-    page.draw_line(fitz.Point(72, 300), fitz.Point(300, 300), width=0.6)
-    document.save(path)
-    document.close()
+class BoundaryPage(PageWriter):
+    """Üstte ve altta birer satır, yalnız boşluktan oluşan bir satır, bir dolgu ve bir çizgi."""
+
+    def write(self):
+        self._page.insert_text(fitz.Point(72, 100), "Top line", fontsize=11, fontname="helvetica")
+        self._page.insert_text(fitz.Point(72, 700), "Bottom line", fontsize=11, fontname="helvetica")
+        self._page.insert_text(fitz.Point(72, 400), "   ", fontsize=11, fontname="helvetica")
+        self._page.draw_rect(fitz.Rect(72, 200, 300, 230), color=None, fill=(0.9, 0.9, 0.9))
+        self._page.draw_line(fitz.Point(72, 300), fitz.Point(300, 300), width=0.6)
+
+
+class TitledBoundaryPage(BoundaryPage):
+    TITLE = "Book"
 
 
 class PyMuPdfAdapterTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.pdf = os.path.join(self.tmp.name, "a.pdf")
-        _write_pdf(self.pdf)
+        write_pdf(self.pdf, BoundaryPage)
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -137,7 +140,7 @@ class PyMuPdfAdapterTest(unittest.TestCase):
 
     def test_document_metadata_keeps_filled_fields(self):
         titled = os.path.join(self.tmp.name, "titled.pdf")
-        _write_pdf(titled, "Book")
+        write_pdf(titled, TitledBoundaryPage)
         with PyMuPdfDocument.open(titled) as document:
             self.assertEqual(document.metadata["title"], "Book")
 
@@ -164,16 +167,14 @@ class PyMuPdfAdapterTest(unittest.TestCase):
         self.assertEqual(image_size(path), (144, 72))
 
 
-def _write_code_line_pdf(path):
+class CodeLinePage(PageWriter):
     """Kod satırı: '10' üstünde küçük '23', aynı taban çizgisinde uzakta '236 days'."""
-    document = fitz.open()
-    page = document.new_page()
-    page.insert_text(fitz.Point(72, 100), "(3 x 10", fontsize=11, fontname="courier")
-    page.insert_text(fitz.Point(120, 95), "23", fontsize=7, fontname="courier")
-    page.insert_text(fitz.Point(132, 100), ") =", fontsize=11, fontname="courier")
-    page.insert_text(fitz.Point(200, 100), "236 days", fontsize=11, fontname="courier")
-    document.save(path)
-    document.close()
+
+    def write(self):
+        self._page.insert_text(fitz.Point(72, 100), "(3 x 10", fontsize=11, fontname="courier")
+        self._page.insert_text(fitz.Point(120, 95), "23", fontsize=7, fontname="courier")
+        self._page.insert_text(fitz.Point(132, 100), ") =", fontsize=11, fontname="courier")
+        self._page.insert_text(fitz.Point(200, 100), "236 days", fontsize=11, fontname="courier")
 
 
 class PyMuPdfLineGroupingTest(unittest.TestCase):
@@ -182,7 +183,7 @@ class PyMuPdfLineGroupingTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.pdf = os.path.join(self.tmp.name, "code.pdf")
-        _write_code_line_pdf(self.pdf)
+        write_pdf(self.pdf, CodeLinePage)
 
     def tearDown(self):
         self.tmp.cleanup()
