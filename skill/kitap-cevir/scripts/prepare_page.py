@@ -61,7 +61,8 @@ class PagePreparer:
         page_document = PageDocument(self._builder.build(page, self._project.work_images(page)))
         if page_document.is_blank():
             return []
-        path = write_json(self._project.work_input(page), page_document.as_json())
+        path = self._project.work_input(page)
+        write_json(path, page_document.as_json())
         return [{**page_document.summary(), "path": self._project.relative_to_root(path)}]
 
     def _mark_blank(self, progress, page):

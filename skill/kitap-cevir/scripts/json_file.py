@@ -12,9 +12,8 @@ def read_json(path):
 
 
 def write_json(path, payload):
-    """Klasörü gerekirse kurar; yazılan yolu döndürür."""
+    """Klasörü gerekirse kurar."""
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as handle:
         json.dump(payload, handle, ensure_ascii=False, indent=2)
         handle.write("\n")
-    return path
