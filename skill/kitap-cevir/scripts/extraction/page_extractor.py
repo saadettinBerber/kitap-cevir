@@ -42,15 +42,17 @@ class PageExtractor:
         return cls(settings, layout_reader_for(settings))
 
     def extract(self, page, image_dir):
-        """page: PdfPage → {blocks, running_header, math}; görseller image_dir'e yazılır."""
+        """page: PdfPage → {blocks, running_header, math, skipped_equations}; görseller image_dir'e yazılır.
+        skipped_equations yerleştirilemeyen satır içi denklemlerin uyarılarıdır; komut basar."""
         header, body = self._zones.split(self._layout_reader.read(page, image_dir))
         layout = self._text_layer.scan(page)
         math = self._math.scan(page, image_dir)
         regions = PageRegions.of(self._tables.scan(page) + math["display"], self._code_regions(layout))
-        body = LayoutFixer(math["inline"], layout["code_image_links"]).fixed(body)
+        fixed = LayoutFixer(math["inline"], layout["code_image_links"]).fixed(body)
         builder = BlockBuilder(self._settings, TextFixer(layout))
-        return {"blocks": ChapterOpener(regions.place(body, builder.blocks_of)).merged(),
-                "running_header": header, "math": self._inline_images(math)}
+        return {"blocks": ChapterOpener(regions.place(fixed.elements, builder.blocks_of)).merged(),
+                "running_header": header, "math": self._inline_images(math),
+                "skipped_equations": list(fixed.skipped_equations)}
 
     def hyphen_fixes(self, page):
         """page: PdfPage; satır sonunda bölünmüş sözcüklerin onarımı ('McGraw-' + 'Hill')."""

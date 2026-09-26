@@ -14,7 +14,7 @@ import sys
 
 from image_folder import ImageFolder
 from page_blocks import Block
-from page_input import PageInputBuilder
+from page_input import PageInputBuilder, report_skipped
 from project import Project
 from translated_pages import TranslatedPages
 
@@ -112,7 +112,9 @@ class ExtractedImages:
 
     def of(self, page):
         image_dir = self._project.work_images(page)
-        return PageImages(self._builder.build(page, image_dir)["blocks"], ImageFolder(image_dir))
+        built = self._builder.build(page, image_dir)
+        report_skipped(built.skipped_equations)
+        return PageImages(built.document["blocks"], ImageFolder(image_dir))
 
 
 class ImageBackfiller:

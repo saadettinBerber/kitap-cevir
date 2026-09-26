@@ -207,6 +207,16 @@ class ReplaceableLayoutReaderTest(unittest.TestCase):
         self.assertEqual(extracted["blocks"], [{"type": "para", "sentences": [{"en": "Top line."}]}])
         self.assertIsNone(extracted["running_header"])
 
+    def test_equation_without_a_host_is_returned_as_skipped(self):
+        """Satır içi denklemi kutusunu kapsayan öğe yoksa uyarısı sonuçla döner; basmak komutun işidir."""
+        line = (span("Let ", (72, 90, 90, 104)), span("θ", (90, 90, 96, 104), font="Type3Math"),
+                span(" be", (96, 90, 110, 104)))
+        reader = FakeLayoutReader([element("Far below.", (72, 300, 300, 314))])
+        with tempfile.TemporaryDirectory() as images:
+            extracted = PageExtractor(with_defaults({"running_header": "none"}), reader).extract(
+                FakePdfPage(lines=[line]), images)
+        self.assertEqual(extracted["skipped_equations"], ["satır içi denklem için öğe bulunamadı: θ"])
+
 
 class LayoutReaderChoiceTest(unittest.TestCase):
     """extraction.layout_reader okuyucuyu seçer; yanlış ad kurulumda reddedilir."""

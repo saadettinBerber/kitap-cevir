@@ -1,4 +1,6 @@
+import contextlib
 import copy
+import io
 import json
 import os
 import tempfile
@@ -9,6 +11,7 @@ from json_file import write_json
 from migrate_match import TranslationFiller, Translations
 from migrate_page import MigrationFinisher, Migrator, PageMigration, node_at
 from page_document import PageDocument
+from page_input import BuiltInput
 from project import Project
 from translated_pages import TranslatedPages
 
@@ -226,13 +229,14 @@ class NodePathTest(unittest.TestCase):
 
 
 class FakePageInputBuilder:
-    """PageInputBuilder gibi; PDF yerine hazır yeni belgeyi verir."""
+    """PageInputBuilder gibi; PDF yerine hazır yeni belgeyi ve verilen denklem uyarılarını verir."""
 
-    def __init__(self, document):
+    def __init__(self, document, skipped_equations=()):
         self._document = document
+        self._skipped_equations = list(skipped_equations)
 
     def build(self, page, image_dir):
-        return copy.deepcopy(self._document)
+        return BuiltInput(copy.deepcopy(self._document), self._skipped_equations)
 
     def hyphen_fixes(self, pdf_page):
         return {}
@@ -296,6 +300,12 @@ class MigratorTest(unittest.TestCase):
 
     def test_complete_page_is_reported_complete(self):
         self.assertTrue(self._migrator(COMPLETE_DOCUMENT).run(PAGE)["complete"])
+
+    def test_skipped_equations_are_printed_while_migrating(self):
+        migrator = Migrator(self.project, FakePageInputBuilder(COMPLETE_DOCUMENT, ["satır içi denklem atlandı"]))
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            migrator.run(PAGE)
+        self.assertEqual(output.getvalue(), "  ! satır içi denklem atlandı\n")
 
     def test_done_answers_are_written_before_finalizing(self):
         self._migrator(_new_document()).run(PAGE)

@@ -14,7 +14,7 @@ import sys
 
 from json_file import write_json
 from page_document import PageDocument
-from page_input import PageInputBuilder
+from page_input import PageInputBuilder, report_skipped
 from project import Project
 
 MAX_BLANK_SKIPS = 3
@@ -58,7 +58,9 @@ class PagePreparer:
         return self._prepare(page)
 
     def _prepare(self, page):
-        page_document = PageDocument(self._builder.build(page, self._project.work_images(page)))
+        built = self._builder.build(page, self._project.work_images(page))
+        report_skipped(built.skipped_equations)
+        page_document = PageDocument(built.document)
         if page_document.is_blank():
             return []
         path = write_json(self._project.work_input(page), page_document.data)

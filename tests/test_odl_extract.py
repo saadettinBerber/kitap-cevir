@@ -209,7 +209,7 @@ class CodeImageLinkPlacementTest(unittest.TestCase):
         code = {"type": "code", "lang": "java", "code": "// Two classes"}
         regions = PageRegions([Region({**self.CODE_LINE, "block": code})])
         glued = _element(f"{self.LINK} // Two classes", self.LINK_WITH_CODE_BELOW)
-        body = LayoutFixer([], [self.SLOT]).fixed([glued])
+        body = LayoutFixer([], [self.SLOT]).fixed([glued]).elements
         self.assertEqual(regions.place(body, _builder(DEFAULTS).blocks_of), [code])
 
 

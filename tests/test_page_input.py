@@ -1,7 +1,9 @@
+import contextlib
+import io
 import unittest
 
 import _paths  # noqa: F401
-from page_input import PageInputBuilder
+from page_input import PageInputBuilder, report_skipped
 from progress import Progress
 
 PAGE = 5
@@ -10,6 +12,7 @@ IMAGE_DIR = "/proje/_work/in/page-5_images"
 PARA = {"type": "para", "sentences": [{"en": "Text."}]}
 EQUATION = {"src": "eq-1.png", "text": "x", "latex": ""}
 CONTEXT = {"prev_tail": "önceki", "next_head": "sonraki"}
+SKIPPED = ["satır içi denklem atlandı: ⟦eq-2⟧"]
 CHAPTER = {"num": 1, "en": "One", "tr": "Bir", "start": 1}
 PREVIOUS_SECTION = {"section_en": "Layers", "section_tr": "Katmanlar"}
 
@@ -23,7 +26,8 @@ class FakeBookPdf:
 
     def extract(self, pdf_page, image_dir):
         self._image_dirs.append((pdf_page, image_dir))
-        return {"blocks": [PARA], "math": [EQUATION], "context": CONTEXT, "running_header": self._running_header}
+        return {"blocks": [PARA], "math": [EQUATION], "context": CONTEXT, "running_header": self._running_header,
+                "skipped_equations": SKIPPED}
 
     def hyphen_fixes(self, pdf_page):
         return {f"PDF {pdf_page}": "onarım"}
@@ -36,8 +40,12 @@ def _progress():
     return Progress({"pdf_offset": PDF_OFFSET, "chapters": [CHAPTER], "pages": {str(PAGE - 1): PREVIOUS_SECTION}})
 
 
-def _input(running_header=None):
+def _built(running_header=None):
     return PageInputBuilder(_progress(), FakeBookPdf(running_header)).build(PAGE, IMAGE_DIR)
+
+
+def _input(running_header=None):
+    return _built(running_header).document
 
 
 class PageInputTest(unittest.TestCase):
@@ -62,6 +70,14 @@ class PageInputTest(unittest.TestCase):
         book_pdf = FakeBookPdf(None)
         PageInputBuilder(_progress(), book_pdf).build(PAGE, IMAGE_DIR)
         self.assertEqual(book_pdf.image_dirs(), [(PAGE + PDF_OFFSET, IMAGE_DIR)])
+
+    def test_skipped_equations_come_from_the_pdf(self):
+        self.assertEqual(_built().skipped_equations, SKIPPED)
+
+    def test_skipped_equations_are_printed_as_warnings(self):
+        with contextlib.redirect_stdout(io.StringIO()) as output:
+            report_skipped(["a", "b"])
+        self.assertEqual(output.getvalue(), "  ! a\n  ! b\n")
 
     def test_hyphen_fixes_come_from_the_pdf(self):
         builder = PageInputBuilder(_progress(), FakeBookPdf(None))

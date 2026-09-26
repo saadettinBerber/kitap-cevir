@@ -16,7 +16,7 @@ from finalize_page import PageFinalizer
 from json_file import read_json, write_json
 from migrate_match import TranslationFiller, Translations
 from page_document import PageDocument
-from page_input import PageInputBuilder
+from page_input import PageInputBuilder, report_skipped
 from project import Project
 from translated_pages import TranslatedPages
 
@@ -82,7 +82,8 @@ class Migrator:
     def run(self, page):
         """Sayfayı yeniden çıkarıp eski çevirileri taşır; sonlandırmaz."""
         old = self._pages.get(page).data
-        document = self._builder.build(page, self._project.work_images(page))
+        document, skipped_equations = self._builder.build(page, self._project.work_images(page))
+        report_skipped(skipped_equations)
         pending = PageMigration(document, old).run(self._builder.hyphen_fixes(document["pdf_page"]))
         write_json(self._project.work_output(page), document)
         self._write_pending(page, pending)

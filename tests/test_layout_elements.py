@@ -1,6 +1,4 @@
 """Düzen öğeleri üzerindeki düzeltmeler (LayoutFixer), düzeltme başına bir test sınıfı."""
-import contextlib
-import io
 import unittest
 
 from pdf_fakes import element
@@ -10,6 +8,7 @@ from extraction.pdf.geometry import Box
 HOST_BOX = (70, 100, 400, 120)
 INSIDE_HOST = Box(120, 104, 140, 116)
 BELOW_HOST = Box(120, 204, 140, 216)
+SKIPPED = "satır içi denklem yerleştirilemedi, atlandı: ⟦eq-1⟧"
 
 
 def _equation(**fields):
@@ -19,14 +18,13 @@ def _equation(**fields):
 
 def _fixed(elements):
     """Yalnız yapı düzeltmeleri: sayfada satır içi denklem ya da kod görseli bağlantısı yok."""
-    return LayoutFixer([], []).fixed(elements)
+    return LayoutFixer([], []).fixed(elements).elements
 
 
 def _spliced(equation, text="find to minimize"):
-    """(ev sahibinin denklemli metni, bildirilen uyarılar)."""
-    with contextlib.redirect_stdout(io.StringIO()) as output:
-        [host] = LayoutFixer([equation], []).fixed([element(text, HOST_BOX)])
-    return host.text, output.getvalue()
+    """(ev sahibinin denklemli metni, atlanan denklemlerin uyarıları)."""
+    [host], skipped = LayoutFixer([equation], []).fixed([element(text, HOST_BOX)])
+    return host.text, skipped
 
 
 class FootnoteMarkerTest(unittest.TestCase):
@@ -94,7 +92,7 @@ class CodeImageLinkTest(unittest.TestCase):
     IMAGE = (70, 500, 430, 700)
 
     def _without_links(self, *elements):
-        return LayoutFixer([], [self.SLOT]).fixed(list(elements))
+        return LayoutFixer([], [self.SLOT]).fixed(list(elements)).elements
 
     def test_element_that_is_only_the_link_is_dropped(self):
         self.assertEqual(self._without_links(element(self.LINK, self.LINK_LINE, "heading")), [])
@@ -131,11 +129,10 @@ class InlineMathTest(unittest.TestCase):
         self.assertEqual(_spliced(_equation(before="seek", after="into"))[0], "find to minimize")
 
     def test_equation_whose_neighbours_are_missing_is_reported(self):
-        self.assertEqual(_spliced(_equation(before="seek", after="into"))[1],
-                         "  ! satır içi denklem yerleştirilemedi, atlandı: ⟦eq-1⟧\n")
+        self.assertEqual(_spliced(_equation(before="seek", after="into"))[1], (SKIPPED,))
 
     def test_placed_equation_is_not_reported(self):
-        self.assertEqual(_spliced(_equation(before="find", after="to"))[1], "")
+        self.assertEqual(_spliced(_equation(before="find", after="to"))[1], ())
 
     def test_simple_symbol_is_inserted_as_text(self):
         equation = _equation(before="find", after="to", kind="text", text="πr")
@@ -143,8 +140,7 @@ class InlineMathTest(unittest.TestCase):
 
     def test_equation_goes_into_the_first_host_only(self):
         hosts = [element("find to minimize", HOST_BOX), element("find to maximize", HOST_BOX)]
-        with contextlib.redirect_stdout(io.StringIO()):
-            spliced = LayoutFixer([_equation(before="find", after="to")], []).fixed(hosts)
+        spliced = LayoutFixer([_equation(before="find", after="to")], []).fixed(hosts).elements
         self.assertEqual([host.text for host in spliced], ["find ⟦eq-1⟧ to minimize", "find to maximize"])
 
     def test_equation_below_every_element_is_left_out(self):
@@ -152,14 +148,13 @@ class InlineMathTest(unittest.TestCase):
 
     def test_equation_below_every_element_is_reported(self):
         self.assertEqual(_spliced(_equation(before="find", after="to", bbox=BELOW_HOST))[1],
-                         "  ! satır içi denklem için öğe bulunamadı: ⟦eq-1⟧\n")
+                         ("satır içi denklem için öğe bulunamadı: ⟦eq-1⟧",))
 
     def test_skipped_equations_are_reported_in_their_order(self):
         equations = [_equation(before="find", after="to", bbox=BELOW_HOST), _equation(id="eq-2", before="seek")]
-        with contextlib.redirect_stdout(io.StringIO()) as output:
-            LayoutFixer(equations, []).fixed([element("find to minimize", HOST_BOX)])
-        self.assertEqual(output.getvalue(), "  ! satır içi denklem için öğe bulunamadı: ⟦eq-1⟧\n"
-                                            "  ! satır içi denklem yerleştirilemedi, atlandı: ⟦eq-2⟧\n")
+        fixed = LayoutFixer(equations, []).fixed([element("find to minimize", HOST_BOX)])
+        self.assertEqual(fixed.skipped_equations, ("satır içi denklem için öğe bulunamadı: ⟦eq-1⟧",
+                                                   "satır içi denklem yerleştirilemedi, atlandı: ⟦eq-2⟧"))
 
 
 
@@ -172,28 +167,28 @@ class FlattenedInlineMathTest(unittest.TestCase):
 
     def test_flattened_text_between_neighbours_gives_way_to_the_placeholder(self):
         equation = _equation(before="sequence", after="given", text="x1, . . . , xn")
-        self.assertEqual(_spliced(equation, "the sequence x 1, , xn given"), ("the sequence ⟦eq-1⟧ given", ""))
+        self.assertEqual(_spliced(equation, "the sequence x 1, , xn given"), ("the sequence ⟦eq-1⟧ given", ()))
 
     def test_simple_symbol_already_in_the_text_is_not_repeated(self):
         equation = _equation(before="want", after="to", kind="text", text="α")
-        self.assertEqual(_spliced(equation, "you might want α to be larger"), ("you might want α to be larger", ""))
+        self.assertEqual(_spliced(equation, "you might want α to be larger"), ("you might want α to be larger", ()))
 
     def test_gap_as_long_as_the_equation_text_is_taken(self):
-        self.assertEqual(_spliced(self.ABC, "the xyz grows"), ("the ⟦eq-1⟧ grows", ""))
+        self.assertEqual(_spliced(self.ABC, "the xyz grows"), ("the ⟦eq-1⟧ grows", ()))
 
     def test_gap_longer_than_the_equation_text_is_left_alone(self):
         self.assertEqual(_spliced(self.ABC, "the wxyz grows")[0], "the wxyz grows")
 
     def test_gap_longer_than_the_equation_text_is_reported(self):
-        self.assertIn("atlandı", _spliced(self.ABC, "the wxyz grows")[1])
+        self.assertEqual(_spliced(self.ABC, "the wxyz grows")[1], (SKIPPED,))
 
     def test_following_word_inside_the_equation_does_not_cut_it(self):
         equation = _equation(before="sample", after=",", text="(x, yw, yl)")
-        self.assertEqual(_spliced(equation, "each sample (x, yw, yl), the loss"), ("each sample ⟦eq-1⟧ , the loss", ""))
+        self.assertEqual(_spliced(equation, "each sample (x, yw, yl), the loss"), ("each sample ⟦eq-1⟧ , the loss", ()))
 
     def test_ligature_in_a_neighbour_matches_its_letters(self):
         equation = _equation(before="\ufb01nd", after="to", text="θ")
-        self.assertEqual(_spliced(equation, "find θ to minimize"), ("find ⟦eq-1⟧ to minimize", ""))
+        self.assertEqual(_spliced(equation, "find θ to minimize"), ("find ⟦eq-1⟧ to minimize", ()))
 
     def test_adjacent_neighbours_come_before_a_gap(self):
         """ODL metninde denklem yoktur; bitişik komşular bulunursa öncelik onlarındır."""
@@ -221,7 +216,7 @@ class NeighbourWordBoundaryTest(unittest.TestCase):
         self.assertEqual(_spliced(_equation(before="u", text="u = W + α"), "for your use case")[0], "for your use case")
 
     def test_preceding_word_that_only_starts_another_word_is_reported(self):
-        self.assertIn("atlandı", _spliced(_equation(before="u", text="u = W + α"), "for your use case")[1])
+        self.assertEqual(_spliced(_equation(before="u", text="u = W + α"), "for your use case")[1], (SKIPPED,))
 
     def test_neighbours_around_flattened_text_are_whole_words(self):
         equation = _equation(before="is", after="The", text="[x1, x2, . . . , xN]")
@@ -231,7 +226,7 @@ class NeighbourWordBoundaryTest(unittest.TestCase):
         self.assertEqual(_spliced(self.GLUED, self.GLUED_TEXT)[0], self.GLUED_TEXT)
 
     def test_flattened_text_glued_to_a_neighbour_is_reported(self):
-        self.assertIn("atlandı", _spliced(self.GLUED, self.GLUED_TEXT)[1])
+        self.assertEqual(_spliced(self.GLUED, self.GLUED_TEXT)[1], (SKIPPED,))
 
     def test_following_punctuation_may_touch_the_flattened_text(self):
         equation = _equation(before="sum", after=",", text="∑j exj")
