@@ -66,6 +66,12 @@ class CardInputsTest(_BookTestCase):
         self.assertEqual({key: document[key] for key in ("id", "page", "chapter", "section", "title")},
                          {key: PAGE_DATA[key] for key in ("id", "page", "chapter", "section", "title")})
 
+    def test_heading_fields_missing_on_the_page_are_empty(self):
+        heading_fields = ("chapter", "section", "title")
+        bare_page = {key: value for key, value in PAGE_DATA.items() if key not in heading_fields}
+        document = self.inputs.card_input(PageDocument(bare_page))
+        self.assertEqual([document[key] for key in heading_fields], [{}, {}, {}])
+
     def test_card_input_flattens_text_blocks(self):
         document = self.inputs.card_input(PageDocument(PAGE_DATA))
         self.assertEqual(document["content"], [
