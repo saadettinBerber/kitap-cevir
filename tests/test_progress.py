@@ -80,6 +80,12 @@ class PageRecordTest(unittest.TestCase):
                                                      "title_en": "T", "title_tr": "B",
                                                      "section_en": "S", "section_tr": "K"})
 
+    def test_bare_page_is_recorded_without_toc_fields(self):
+        self.progress.record_translation({"page": self.NEXT, "pdf_page": self.NEXT + self.OFFSET})
+        self.assertEqual(self._recorded(self.NEXT), {"pdf_page": self.NEXT + self.OFFSET, "chapter": None,
+                                                     "title_en": "", "title_tr": "",
+                                                     "section_en": "", "section_tr": ""})
+
     def test_pages_per_run_defaults_to_one(self):
         self.assertEqual(self.progress.pages_per_run(), 1)
 
