@@ -78,14 +78,12 @@ class PageFills:
         return shares_column and first.vertical_gap(second) <= max(first.height, second.height) * MAX_BAND_GAP_RATIO
 
     def extent(self, cells):
-        """Arka plan varsa tablo odur. Yoksa zebra dolguda ilk satır beyaz
-        kalabilir (bir hücre yukarı); alt sınır altındaki ilk yatay çizgidir."""
+        """Arka plan varsa tablo odur. Yoksa hücrelerin üst kenarından altındaki ilk yatay çizgiye uzanır."""
         union = Box.enclosing(cells)
         for background in self._backgrounds():
             if background.contains(union):
                 return background
-        row_height = sorted(r.height for r in cells)[len(cells) // 2]
-        return Box(union.x0, union.y0 - row_height, union.x1, self._bottom_below(union))
+        return Box(union.x0, union.y0, union.x1, self._bottom_below(union))
 
     def _bottom_below(self, union):
         """Tablo, altındaki ilk yatay çizgide biter; çizgi yoksa metin alanının
