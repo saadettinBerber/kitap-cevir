@@ -11,6 +11,7 @@ from epub.manifest import EpubMetadata
 from epub.package import EpubPackage
 from export_epub import BookExport, chapters_of
 from page_document import PageDocument
+from progress import Progress
 from project import Project
 from translated_pages import TranslatedPages
 
@@ -20,7 +21,7 @@ CHAPTER = 1
 IMAGE = "a.png"
 MISSING_IMAGE = "yok.png"
 ILLUSTRATED_PAGE, LEFT_OUT_PAGE, PAGE_WITHOUT_IMAGE_FILE = 1, 2, 3
-EXPORTED_PAGES = [ILLUSTRATED_PAGE, PAGE_WITHOUT_IMAGE_FILE]
+PROGRESS = {"pages": {str(ILLUSTRATED_PAGE): {}, str(PAGE_WITHOUT_IMAGE_FILE): {}}}
 
 
 def _chapter(chapter_num):
@@ -68,7 +69,7 @@ class BookExportTest(unittest.TestCase):
         """Paketi yazar; stderr'e düşen uyarıları döner."""
         package = EpubPackage(EpubMetadata.for_book(BOOK, MODIFIED), "")
         with contextlib.redirect_stderr(io.StringIO()) as warnings:
-            BookExport(self.pages, self.epub_path).write(package, EXPORTED_PAGES)
+            BookExport(self.pages, self.epub_path).write(package, Progress(PROGRESS))
         return warnings.getvalue()
 
     def _exported_files(self):
@@ -80,7 +81,7 @@ class BookExportTest(unittest.TestCase):
         self._export()
         self.assertTrue(zipfile.is_zipfile(self.epub_path))
 
-    def test_page_not_given_is_left_out(self):
+    def test_page_not_recorded_as_translated_is_left_out(self):
         chapter = self._exported_files()["OEBPS/text/chapter-01.xhtml"].decode("utf-8")
         self.assertNotIn(f'id="page-{LEFT_OUT_PAGE}"', chapter)
 

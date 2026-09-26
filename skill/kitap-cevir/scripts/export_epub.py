@@ -28,10 +28,10 @@ class BookExport:
         self._pages = pages
         self._epub_path = epub_path
 
-    def write(self, package, page_numbers):
-        """Verilen sayfalar pakete girer, paket EPUB olarak yazılır. Boş sayfaları progress.json zaten
-        dışarıda bırakır; tek görselli sayfa şekildir, kalır."""
-        documents = [self._pages.get(page) for page in page_numbers]
+    def write(self, package, progress):
+        """İlerleme kaydındaki çevrilmiş sayfalar pakete girer, paket EPUB olarak yazılır. Boş sayfaları
+        kayıt zaten dışarıda bırakır; tek görselli sayfa şekildir, kalır."""
+        documents = [self._pages.get(page) for page in progress.translated_pages()]
         for chapter in chapters_of(documents):
             package.add_chapter(chapter)
         for href, source in self._present(self._images(documents)):
@@ -82,7 +82,7 @@ def _read_text(path):
 def main():
     project = Project.discover()
     export = BookExport(TranslatedPages(project), project.epub_file())
-    export.write(_package(project.load_settings()), project.load_progress().translated_pages())
+    export.write(_package(project.load_settings()), project.load_progress())
     print("yazıldı:", project.relative_to_root(project.epub_file()))
 
 
