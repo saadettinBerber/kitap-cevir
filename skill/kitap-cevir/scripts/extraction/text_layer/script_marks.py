@@ -3,6 +3,11 @@ olarak verir, ODL ise düz karaktere indirger. Simge ev sahibi satıra x konumun
 göre bağlanır; kodda '^23' / '_K' olarak dizilir, gövde metninde Unicode
 karşılığıyla sözcük düzeltmesine dönüşür.
 """
+from dataclasses import replace
+from itertools import islice
+from typing import NamedTuple
+
+from extraction.text_layer.text_line import Piece, TextLine, char_width, uses_script_layout
 
 SCRIPT_SIZE_RATIO = 0.85          # ev sahibi puntosunun altındaki kaydırılmış parça = alt/üst simge
 SCRIPT_SHIFT_RATIO = 0.12         # taban çizgisi kayması / punto: bunun üstü üst (^) ya da alt (_) simge
@@ -21,51 +26,69 @@ class ScriptMark:
     """Ev sahibi satıra bağlanmış bir simge; `marker` '^' (üst) ya da '_' (alt)."""
 
     def __init__(self, part, marker):
-        self.x0, self.x1 = part.left, part.right
-        self.marker = marker
-        self.body = part.raw_text.strip()
-
-    @property
-    def text(self):
-        return self.marker + self.body
+        self._left, self._right = part.box.x0, part.box.x1
+        self._marker = marker
+        self._body = part.raw_text.strip()
 
     def as_unicode(self):
         """Unicode karşılığı; karşılığı olmayan karakter varsa '^' / '_' gösterimi."""
-        table = SUPERSCRIPTS if self.marker == "^" else SUBSCRIPTS
-        if self.body and all(ord(char) in table for char in self.body):
-            return self.body.translate(table)
-        return self.text
+        table = SUPERSCRIPTS if self._marker == "^" else SUBSCRIPTS
+        if self._body and all(ord(char) in table for char in self._body):
+            return self._body.translate(table)
+        return self._notation()
+
+    def piece(self):
+        """Satır metnine x konumuna göre dizilen '^23' / '_K' parçası."""
+        return Piece(self._left, self._right, self._notation(), is_script=True)
+
+    def word_fix(self, line):
+        """{düz: simgeli} sözcük düzeltmesi ('ma' -> 'mᵃ'); simgenin solunda sözcük yoksa boş."""
+        word = _word_before(line, self._left)
+        return {word + self._body: word + self.as_unicode()} if word and self._body else {}
+
+    def _notation(self):
+        return self._marker + self._body
+
+
+def _word_before(line, left):
+    """Satırda verilen konumun solunda kalan son sözcük; simge sembole bu kadar yakın başlar."""
+    head = "".join(span.text for span in line.spans if span.box.x1 <= left + PROSE_SCRIPT_MAX_GAP).split()
+    return head[-1] if head else ""
+
+
+class _Placement(NamedTuple):
+    """Bir satırın parça dizisinin yeri: `attachments` tek (ev sahibi satır, simge) çiftidir,
+    parça dizisi kendi satırında kalıyorsa boştur."""
+    source: TextLine
+    spans: list
+    attachments: tuple
+
+
+def _kept(line, placements):
+    """[simgeleri eklenmiş, simge olarak bağlanan parçaları düşmüş satır]; hiç parçası kalmayan satır için []."""
+    orphans = [span for placement in placements if placement.source is line and not placement.attachments
+               for span in placement.spans]
+    scripts = tuple(mark for placement in placements for host, mark in placement.attachments if host is line)
+    return [replace(TextLine.of(orphans, line.is_code), scripts=scripts)] if orphans else []
 
 
 class ScriptAttacher:
     """Sayfa satırlarındaki simge parçalarını ev sahibi satırlara bağlar."""
 
     def __init__(self, lines):
-        self.lines = lines
+        self._lines = lines
 
     def attach(self):
-        """Simge olarak bağlanan parçalar düşülmüş satır listesi."""
-        return [rest for line in self.lines for rest in self._attach_runs(line)]
+        """Ev sahibi bulunan parçalar ev sahibinin simgesi olur ve kendi satırından düşer; bütün
+        parçaları düşen satır kaybolur. Önce her parçanın yeri bulunur, sonra satırlar yeniden kurulur."""
+        placements = [self._placement(line, run) for line in self._lines for run in self._runs(line)]
+        return [kept for line in self._lines for kept in _kept(line, placements)]
 
-    def _attach_runs(self, line):
-        """Ev sahibi bulunan parçalar simge olarak bağlanır; kalan parçalar satır olarak döner."""
-        orphans = [span for run in self._runs(line) for span in self._attach_or_keep(run, line)]
-        if len(orphans) == len(line.spans):
-            return [line]
-        if not orphans:
-            return []
-        rest = line.with_spans(orphans)
-        rest.scripts = line.scripts
-        return [rest]
-
-    def _attach_or_keep(self, run, line):
-        """Parça bir ev sahibine bağlanırsa boş liste, bağlanamazsa kendi span'ları."""
-        part = line.with_spans(run)
-        host, marker = self._host_of(part, line)
-        if host is None:
-            return run
-        host.scripts.append(ScriptMark(part, marker))
-        return []
+    def _placement(self, line, run):
+        part = TextLine.of(run, line.is_code)
+        candidates = ((host, self._marker(part, host)) for host in self._lines if host is not line)
+        attachments = ((host, ScriptMark(part, marker)) for host, marker in candidates if marker)
+        return _Placement(line, run, tuple(islice(attachments, 1)))
 
     @staticmethod
     def _runs(line):
@@ -78,10 +101,6 @@ class ScriptAttacher:
             else:
                 runs[-1].append(span)
         return runs
-
-    def _host_of(self, part, source):
-        candidates = ((host, self._marker(part, host)) for host in self.lines if host is not source)
-        return next(((host, marker) for host, marker in candidates if marker), (None, ""))
 
     def _marker(self, part, host):
         """part, host satırının üst simgesiyse '^', alt simgesiyse '_'; değilse boş.
@@ -111,9 +130,9 @@ class ScriptAttacher:
         gövde metninde cümlenin ortasında, sembolün hemen sağındadır ('mᵃ'). Sözcük
         ya da cümle sonundaki küçük işaret ('Photos.²²') dipnot göndermesidir."""
         if host.is_code:
-            return host.left <= part.left <= host.right + host.char_width
-        touches = any(abs(span.box.x1 - part.left) <= PROSE_SCRIPT_MAX_GAP for span in host.spans)
-        token = host.word_before(part.left, PROSE_SCRIPT_MAX_GAP)
+            return host.box.x0 <= part.box.x0 <= host.box.x1 + char_width(host)
+        touches = any(abs(span.box.x1 - part.box.x0) <= PROSE_SCRIPT_MAX_GAP for span in host.spans)
+        token = _word_before(host, part.box.x0)
         return touches and 0 < len(token) <= PROSE_SCRIPT_MAX_HOST_CHARS and token.isalnum()
 
 
@@ -121,27 +140,15 @@ class ScriptFixes:
     """Bağlanmış simgelerden ODL metnine uygulanacak {düz: simgeli} eşlemeleri."""
 
     def __init__(self, lines):
-        self.lines = lines
+        self._lines = lines
 
     def for_code(self):
         """Düz metne düşürülen simgeli kod parçaları ('3.14 × 10' -> '3.14 × 10^23');
         TextFixer.plain uygular."""
         return {line.raw_text.strip(): line.text.strip()
-                for line in self.lines if not line.is_code and line.uses_script_layout()}
+                for line in self._lines if not line.is_code and uses_script_layout(line)}
 
     def for_prose(self):
         """Gövde metnindeki simgeli sözcükler ('ma' -> 'mᵃ')."""
-        fixes = {}
-        for line in self.lines:
-            if not line.uses_script_layout():
-                fixes.update(self._word_fixes(line))
-        return fixes
-
-    @staticmethod
-    def _word_fixes(line):
-        fixes = {}
-        for mark in line.scripts:
-            word = line.word_before(mark.x0, PROSE_SCRIPT_MAX_GAP)
-            if word and mark.body:
-                fixes[word + mark.body] = word + mark.as_unicode()
-        return fixes
+        return {plain: scripted for line in self._lines if not uses_script_layout(line)
+                for mark in line.scripts for plain, scripted in mark.word_fix(line).items()}

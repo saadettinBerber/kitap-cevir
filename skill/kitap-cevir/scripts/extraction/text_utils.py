@@ -1,4 +1,9 @@
-"""Metin temizleme ve cümle ayırma yardımcıları (PDF çıkarımı için)."""
+"""Metin temizleme ve cümle ayırma yardımcıları (PDF çıkarımı için).
+
+Prosedürel (Bl.6): veri hep düz bir dizgedir ve yeni bir tür beklenmez; yeni kitaplar
+yeni işlemler getirir (ligatür, boşluk, cümle, liste işareti). Fonksiyonlar durum
+taşımaz ve tür üzerine dallanmaz; bu yüzden bir sınıfa sarılmaz.
+"""
 import re
 
 LIGATURES = {"ﬁ": "fi", "ﬀ": "ff", "ﬄ": "ffl", "ﬃ": "ffi", "ﬂ": "fl"}
@@ -30,11 +35,14 @@ def is_numeric_only(text):
 
 
 def split_sentences(paragraph):
-    protected = paragraph
-    for abbreviation, placeholder in ABBREVIATIONS.items():
-        protected = protected.replace(abbreviation, placeholder)
-    parts = _SENTENCE_BOUNDARY.split(protected)
+    parts = _SENTENCE_BOUNDARY.split(_with_protected_abbreviations(paragraph))
     return [part.replace("<DOT>", ".").strip() for part in parts if part.strip()]
+
+
+def _with_protected_abbreviations(paragraph):
+    for abbreviation, placeholder in ABBREVIATIONS.items():
+        paragraph = paragraph.replace(abbreviation, placeholder)
+    return paragraph
 
 
 def strip_list_marker(text):

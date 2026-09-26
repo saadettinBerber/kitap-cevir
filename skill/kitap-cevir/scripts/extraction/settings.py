@@ -4,6 +4,10 @@ Varsayılanlar 6x9 inç teknik kitap dizgisi içindir; anlamları
 references/extraction.md'dedir. Ayar üst düzeyde bir kez birleştirilir
 (BookSettings.extraction) ve tarayıcılara hazır verilir.
 """
+import re
+
+_NEVER_MATCHES = r"(?!)"
+
 DEFAULT_EXTRACTION = {
     "code_font_prefix": "Courier",
     "code_max_font_size": 9.5,
@@ -32,3 +36,9 @@ DEFAULT_EXTRACTION = {
 
 def with_defaults(overrides):
     return {**DEFAULT_EXTRACTION, **overrides}
+
+
+def optional_pattern(pattern):
+    """Boş desen ayarı kapalıdır: hiçbir metinle eşleşmeyen desen olur ki çağıran boş
+    deseni ayrıca sormasın (Bl.7 · Define the Normal Flow)."""
+    return re.compile(pattern or _NEVER_MATCHES)

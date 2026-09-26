@@ -14,7 +14,7 @@ yalnız `en` tarafıdır.
 from extraction.block_builder import BlockBuilder
 from extraction.chapter_opener import ChapterOpener
 from extraction.equations.math_scan import MathScanner
-from extraction.layout_elements import LayoutElements
+from extraction.layout_elements import LayoutFixer
 from extraction.page_regions import PageRegions
 from extraction.page_zones import PageZones
 from extraction.pdf.readers import layout_reader_for
@@ -29,11 +29,11 @@ class PageExtractor:
     """extraction ayarlarıyla bir PDF sayfasını blok şemasına dönüştürür."""
 
     def __init__(self, settings, layout_reader):
-        self.settings = settings
+        self._settings = settings
         self.layout_reader = layout_reader
-        self.zones = PageZones(self.settings)
-        self.tables = TableScanner(self.settings)
-        self.text_layer = LayoutScanner(self.settings)
+        self._zones = PageZones(self._settings)
+        self._tables = TableScanner(self._settings)
+        self._text_layer = LayoutScanner(self._settings)
 
     @classmethod
     def for_settings(cls, settings):
@@ -42,22 +42,23 @@ class PageExtractor:
 
     def extract(self, page, image_dir):
         """page: PdfPage → {blocks, running_header, math}; görseller image_dir'e yazılır."""
-        header, body = self.zones.split(self.layout_reader.read(page, image_dir))
-        layout = self.text_layer.scan(page)
-        math = MathScanner(self.settings, page, image_dir).scan()
-        regions = PageRegions.from_layout(layout, self.tables.scan(page) + math["display"], self._code_block)
-        body = (LayoutElements(body).flatten_nested_lists().drop_nested_fragments().merge_footnote_markers()
-                .with_inline_math(math["inline"]).without_code_image_links(layout["code_image_links"]).items)
-        builder = BlockBuilder(self.settings, TextFixer(layout))
+        header, body = self._zones.split(self.layout_reader.read(page, image_dir))
+        layout = self._text_layer.scan(page)
+        math = MathScanner(self._settings, page, image_dir).scan()
+        regions = PageRegions.of(self._tables.scan(page) + math["display"], self._code_regions(layout))
+        body = LayoutFixer(math["inline"], layout["code_image_links"]).fixed(body)
+        builder = BlockBuilder(self._settings, TextFixer(layout))
         return {"blocks": ChapterOpener(regions.place(body, builder.blocks_of)).merged(),
                 "running_header": header, "math": self._inline_images(math)}
 
     def hyphen_fixes(self, page):
         """page: PdfPage; satır sonunda bölünmüş sözcüklerin onarımı ('McGraw-' + 'Hill')."""
-        return self.text_layer.scan(page)["hyphen_fixes"]
+        return self._text_layer.scan(page)["hyphen_fixes"]
 
-    def _code_block(self, region):
-        return {"type": "code", "lang": self.settings["default_code_language"], "code": region["code"]}
+    def _code_regions(self, layout):
+        language = self._settings["default_code_language"]
+        return [{**region, "block": {"type": "code", "lang": language, "code": region["code"]}}
+                for region in layout["code_blocks"]]
 
     @staticmethod
     def _inline_images(math):

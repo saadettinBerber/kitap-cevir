@@ -1,8 +1,9 @@
 import unittest
 
-from pdf_fakes import PAGE_HEIGHT, element
+from pdf_fakes import PAGE_HEIGHT, FakeLayoutReader, FakePdfPage, element, span
 from extraction.block_builder import BlockBuilder
-from extraction.layout_elements import LayoutElements
+from extraction.layout_elements import LayoutFixer
+from extraction.page_extractor import PageExtractor
 from extraction.page_regions import PageRegions, Region
 from extraction.pdf.model import PageLayout
 from extraction.page_zones import InvalidRunningHeader, PageZones
@@ -14,13 +15,17 @@ FOOTER_TOP = 52
 BODY_Y = (70, 280, 430, 300)
 FOOTER_Y = (70, 752, 430, 762)
 PAGE_TOP_Y = (70, 80, 430, 100)
+HEADER_ZONE_Y = (70, 160, 430, 180)
+ABOVE_PAGE_TOP_Y = (70, 60, 430, 80)
+JUST_ABOVE_FOOTER_Y = (70, 740, 430, 752)
 
 
 BODY_FONT_SIZE = 10.5
+STEP = 0.1
 
 
-def _element(content, box, kind="paragraph"):
-    return element(content, box, kind, font_size=BODY_FONT_SIZE)
+def _element(content, box):
+    return element(content, box, font_size=BODY_FONT_SIZE)
 
 
 def _split(zones, elements):
@@ -41,55 +46,68 @@ def _settings(**overrides):
     return with_defaults({"footer_zone_top": FOOTER_TOP, **overrides})
 
 
-def _zones(**overrides):
-    return PageZones(_settings(**overrides))
+DEFAULTS = _settings()
+BOTTOM_HEADER = _settings(running_header="bottom")
+NO_HEADER = _settings(running_header="none")
 
 
-def _builder(**overrides):
-    return BlockBuilder(_settings(**overrides), PlainFixer())
+def _builder(settings):
+    return BlockBuilder(settings, PlainFixer())
 
 
 class BottomRunningHeaderTest(unittest.TestCase):
     """O'Reilly dizgisinde koşu başlığı sayfanın altındadır."""
 
+    TALL = (70, 150, 430, 200)
+
+    FOOTER = "Preventing Data Loss | 201"
+
     def test_section_name_is_read_from_the_footer(self):
-        elements = [_element("Body text", BODY_Y),
-                    _element("Preventing Data Loss | 201", FOOTER_Y)]
-        header, body = _split(_zones(running_header="bottom"), elements)
+        header, _ = _split(PageZones(BOTTOM_HEADER), [_element("Body text", BODY_Y), _element(self.FOOTER, FOOTER_Y)])
         self.assertEqual(header, {"text": "Preventing Data Loss", "is_chapter": False})
+
+    def test_footer_holding_the_header_leaves_the_body(self):
+        _, body = _split(PageZones(BOTTOM_HEADER), [_element("Body text", BODY_Y), _element(self.FOOTER, FOOTER_Y)])
         self.assertEqual([element.text for element in body], ["Body text"])
 
     def test_footer_split_into_separate_elements_is_joined(self):
         elements = [_element("Measuring Modularity", FOOTER_Y),
                     _element("|", FOOTER_Y), _element("41", FOOTER_Y)]
-        header, _ = _split(_zones(running_header="bottom"), elements)
+        header, _ = _split(PageZones(BOTTOM_HEADER), elements)
         self.assertEqual(header["text"], "Measuring Modularity")
 
     def test_chapter_footer_is_marked_as_chapter(self):
         elements = [_element("200 | Chapter 14: Event-Driven Architecture Style", FOOTER_Y)]
-        header, _ = _split(_zones(running_header="bottom"), elements)
+        header, _ = _split(PageZones(BOTTOM_HEADER), elements)
         self.assertTrue(header["is_chapter"])
 
     def test_page_number_alone_means_chapter_opening(self):
-        header, _ = _split(_zones(running_header="bottom"), [_element("1", FOOTER_Y)])
+        header, _ = _split(PageZones(BOTTOM_HEADER), [_element("1", FOOTER_Y)])
         self.assertIsNone(header)
 
     def test_top_header_is_unchanged_by_default(self):
-        top = _element("Chapter 3: Modularity 41", (70, 160, 430, 180))
-        header, body = _split(_zones(), [top, _element("Body", BODY_Y)])
+        top = _element("Chapter 3: Modularity 41", HEADER_ZONE_Y)
+        header, _ = _split(PageZones(DEFAULTS), [top, _element("Body", BODY_Y)])
         self.assertEqual(header["text"], "Chapter 3: Modularity")
-        self.assertEqual(len(body), 1)
+
+    def test_top_header_leaves_the_body(self):
+        top = _element("Chapter 3: Modularity 41", HEADER_ZONE_Y)
+        _, body = _split(PageZones(DEFAULTS), [top, _element("Body", BODY_Y)])
+        self.assertEqual([element.text for element in body], ["Body"])
 
     def test_top_header_takes_only_the_first_element_in_its_zone(self):
-        top = _element("Chapter 3: Modularity 41", (70, 60, 430, 80))
+        top = _element("Chapter 3: Modularity 41", ABOVE_PAGE_TOP_Y)
         carried = _element("continued paragraph", PAGE_TOP_Y)
-        _, body = _split(_zones(), [top, carried])
+        _, body = _split(PageZones(DEFAULTS), [top, carried])
         self.assertEqual([element.text for element in body], ["continued paragraph"])
 
-    def test_element_reaching_below_the_header_line_is_body(self):
-        tall = _element("Paragraph that starts high", (70, 150, 430, 200))
-        header, body = _split(_zones(), [tall])
+    def test_element_reaching_below_the_header_line_is_no_header(self):
+        header, _ = _split(PageZones(DEFAULTS), [_element("Paragraph that starts high", self.TALL)])
         self.assertIsNone(header)
+
+    def test_element_reaching_below_the_header_line_is_body(self):
+        tall = _element("Paragraph that starts high", self.TALL)
+        _, body = _split(PageZones(DEFAULTS), [tall])
         self.assertEqual(body, [tall])
 
 
@@ -97,19 +115,23 @@ class NoRunningHeaderTest(unittest.TestCase):
     """E-kitap kökenli PDF'lerde (Effective Java) koşu başlığı yoktur: sayfanın
     en üstündeki öğe önceki sayfadan süren paragraf ya da tablo satırıdır."""
 
-    def test_first_element_at_page_top_stays_in_body(self):
-        carried = _element("to be avoided. Such examples...", PAGE_TOP_Y)
-        header, body = _split(_zones(running_header="none"), [carried, _element("Body", BODY_Y)])
+    CARRIED = "to be avoided. Such examples..."
+
+    def test_first_element_at_page_top_is_no_header(self):
+        header, _ = _split(PageZones(NO_HEADER), [_element(self.CARRIED, PAGE_TOP_Y), _element("Body", BODY_Y)])
         self.assertIsNone(header)
-        self.assertEqual([element.text for element in body], ["to be avoided. Such examples...", "Body"])
+
+    def test_first_element_at_page_top_stays_in_body(self):
+        _, body = _split(PageZones(NO_HEADER), [_element(self.CARRIED, PAGE_TOP_Y), _element("Body", BODY_Y)])
+        self.assertEqual([element.text for element in body], [self.CARRIED, "Body"])
 
     def test_footer_is_still_dropped(self):
-        _, body = _split(_zones(running_header="none"), [_element("Body", BODY_Y), _element("21", FOOTER_Y)])
+        _, body = _split(PageZones(NO_HEADER), [_element("Body", BODY_Y), _element("21", FOOTER_Y)])
         self.assertEqual([element.text for element in body], ["Body"])
 
     def test_element_starting_above_the_footer_line_is_body(self):
-        closing = _element("Last line", (70, 740, 430, 752))
-        _, body = _split(_zones(running_header="none"), [closing])
+        closing = _element("Last line", JUST_ABOVE_FOOTER_Y)
+        _, body = _split(PageZones(NO_HEADER), [closing])
         self.assertEqual(body, [closing])
 
 
@@ -119,28 +141,29 @@ class RunningHeaderSettingTest(unittest.TestCase):
 
     def test_unknown_position_is_rejected(self):
         with self.assertRaises(InvalidRunningHeader):
-            _zones(running_header="left")
+            PageZones(_settings(running_header="left"))
 
     def test_removed_header_at_bottom_setting_names_its_replacement(self):
         with self.assertRaisesRegex(InvalidRunningHeader, "running_header"):
-            _zones(header_at_bottom=True)
+            PageZones(_settings(header_at_bottom=True))
 
 
 class ChapterLabelTest(unittest.TestCase):
     """Bölüm açılışındaki "CHAPTER 7" satırı bölüm numarasıdır, paragraf değil."""
 
-    PATTERN = r"^CHAPTER (\d+)$"
+    LABELLED = _settings(chapter_label_pattern=r"^CHAPTER (\d+)$")
+    CHAPTER = 7
 
     def test_label_becomes_chapter_number_block(self):
-        blocks = _builder(chapter_label_pattern=self.PATTERN).blocks_of(_element("CHAPTER 7", BODY_Y))
-        self.assertEqual(blocks, [{"type": "chapter_number", "num": 7}])
+        blocks = _builder(self.LABELLED).blocks_of(_element(f"CHAPTER {self.CHAPTER}", BODY_Y))
+        self.assertEqual(blocks, [{"type": "chapter_number", "num": self.CHAPTER}])
 
     def test_other_paragraphs_are_untouched(self):
-        blocks = _builder(chapter_label_pattern=self.PATTERN).blocks_of(_element("CHAPTER 7 covers modularity.", BODY_Y))
+        blocks = _builder(self.LABELLED).blocks_of(_element("CHAPTER 7 covers modularity.", BODY_Y))
         self.assertEqual(blocks[0]["type"], "para")
 
     def test_pattern_is_disabled_by_default(self):
-        blocks = _builder().blocks_of(_element("CHAPTER 7", BODY_Y))
+        blocks = _builder(DEFAULTS).blocks_of(_element("CHAPTER 7", BODY_Y))
         self.assertEqual(blocks[0]["type"], "para")
 
 
@@ -149,22 +172,27 @@ class HeadingBySizeTest(unittest.TestCase):
 
     CHAPTER_SIZE = DEFAULT_EXTRACTION["chapter_title_min_size"]
 
-    def _blocks(self, text, size, **fields):
-        return _builder().blocks_of(element(text, BODY_Y, font_size=size, **fields))
+    @staticmethod
+    def _blocks(text, **fields):
+        return _builder(DEFAULTS).blocks_of(element(text, BODY_Y, **fields))
 
     def test_paragraph_at_chapter_title_size_is_the_chapter(self):
-        self.assertEqual(self._blocks("Chapter 1. Introduction", self.CHAPTER_SIZE),
+        self.assertEqual(self._blocks("Chapter 1. Introduction", font_size=self.CHAPTER_SIZE),
                          [{"type": "chapter", "en": "Chapter 1. Introduction"}])
 
     def test_paragraph_just_below_chapter_size_stays_a_paragraph(self):
-        self.assertEqual(self._blocks("Chapter 1. Introduction", self.CHAPTER_SIZE - 0.1)[0]["type"], "para")
+        self.assertEqual(self._blocks("Chapter 1. Introduction", font_size=self.CHAPTER_SIZE - STEP)[0]["type"], "para")
 
     def test_large_sentence_is_still_a_paragraph(self):
-        self.assertEqual(self._blocks("A large opening sentence.", self.CHAPTER_SIZE)[0]["type"], "para")
+        self.assertEqual(self._blocks("A large opening sentence.", font_size=self.CHAPTER_SIZE)[0]["type"], "para")
 
     def test_nested_element_needs_only_subsection_size(self):
         size = DEFAULT_EXTRACTION["subsection_min_size"]
-        self.assertEqual(self._blocks("Cross-Cutting", size, is_nested=True)[0]["type"], "heading")
+        self.assertEqual(self._blocks("Cross-Cutting", font_size=size, is_nested=True)[0]["type"], "heading")
+
+    def test_nested_element_just_below_subsection_size_stays_a_paragraph(self):
+        size = DEFAULT_EXTRACTION["subsection_min_size"] - STEP
+        self.assertEqual(self._blocks("Cross-Cutting", font_size=size, is_nested=True)[0]["type"], "para")
 
 
 
@@ -175,13 +203,24 @@ class CodeImageLinkPlacementTest(unittest.TestCase):
     LINK = "Click here to view code image"
     SLOT = {"text": LINK, "y0": 50, "y1": 80}
     CODE_LINE = {"y0": 80, "y1": 90}
+    LINK_WITH_CODE_BELOW = (70, 60, 430, 90)
 
     def test_one_line_listing_glued_under_the_link_is_placed_as_code(self):
         code = {"type": "code", "lang": "java", "code": "// Two classes"}
-        regions = PageRegions([Region(self.CODE_LINE, code)])
-        glued = _element(f"{self.LINK} // Two classes", (70, 60, 430, 90))
-        body = LayoutElements([glued]).without_code_image_links([self.SLOT]).items
-        self.assertEqual(regions.place(body, _builder().blocks_of), [code])
+        regions = PageRegions([Region({**self.CODE_LINE, "block": code})])
+        glued = _element(f"{self.LINK} // Two classes", self.LINK_WITH_CODE_BELOW)
+        body = LayoutFixer([], [self.SLOT]).fixed([glued])
+        self.assertEqual(regions.place(body, _builder(DEFAULTS).blocks_of), [code])
+
+
+
+class PageExtractorTest(unittest.TestCase):
+    """Satır sonunda bölünen özel isim, metin katmanından onarılır ('McGraw-' + 'Hill')."""
+
+    def test_hyphen_fixes_come_from_the_text_layer(self):
+        page = FakePdfPage(lines=[(span("published by McGraw-", PAGE_TOP_Y),), (span("Hill in 2019.", BODY_Y),)])
+        fixes = PageExtractor(DEFAULTS, FakeLayoutReader()).hyphen_fixes(page)
+        self.assertEqual(fixes, {"McGrawHill": "McGraw-Hill"})
 
 
 if __name__ == "__main__":
