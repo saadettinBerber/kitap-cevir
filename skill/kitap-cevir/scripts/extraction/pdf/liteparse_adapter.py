@@ -83,7 +83,7 @@ class LiteParseBlocks:
 
     def _text_element(self, block):
         box = _box(block.bbox)
-        font, size = self._typography.of(box)
+        font, size = self._typography.dominant_in(box)
         text = plain_text(block.text) if block.text else " ".join(block.lines or [])
         return LayoutElement(TEXT_KINDS[block.kind], box, text, font=font, font_size=size)
 
@@ -109,7 +109,7 @@ class Typography:
     def __init__(self, page):
         self._spans = [span for line in page.text_lines() for span in line]
 
-    def of(self, box):
+    def dominant_in(self, box):
         """(font, punto); kutuda parça yoksa ("", 0.0)."""
         weights = collections.Counter()
         for span in self._spans:
