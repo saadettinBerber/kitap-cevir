@@ -4,6 +4,7 @@ Kutular sol-üst orijinli (x0, y0, x1, y1) demetleriyle verilir. Gerçek PDF
 gereken sınır testleri `real_page` ile PyMuPDF adaptörünü kullanır.
 """
 import contextlib
+import copy
 import dataclasses
 
 import _paths  # noqa: F401
@@ -55,13 +56,19 @@ def of_kind(kind, item):
 
 
 class FakePdfPage:
-    """Satırları ve çizimleri elle verilen sayfa: FAKE_PDF'in PAGE_WIDTH × PAGE_HEIGHT boyutlu,
-    numarası verilen sayfası. Kırpılan görüntü sabit baytlardır."""
+    """Satırları ve çizimleri elle verilen sayfa: FAKE_PDF'in PAGE_WIDTH × PAGE_HEIGHT boyutlu
+    ilk sayfası; başka numarası numbered ile verilir. Kırpılan görüntü sabit baytlardır."""
 
-    def __init__(self, lines=(), shapes=(), number=FIRST_PAGE_NUMBER):
+    def __init__(self, lines=(), shapes=()):
         self._lines = [tuple(line) for line in lines]
         self._shapes = list(shapes)
-        self._number = number
+        self._number = FIRST_PAGE_NUMBER
+
+    def numbered(self, number):
+        """Aynı sayfa PDF'in başka bir numarasında."""
+        page = copy.copy(self)
+        page._number = number
+        return page
 
     @property
     def pdf_path(self):

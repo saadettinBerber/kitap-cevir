@@ -25,7 +25,7 @@ PROGRESS = {"book_pdf": "book.pdf", "pdf_offset": 1, "book_total_pages": 4, "las
 
 
 def _fake_document():
-    pages = [FakePdfPage(lines=[(span(f"Sayfa {number}", LINE_BOX),)], number=number)
+    pages = [FakePdfPage(lines=[(span(f"Sayfa {number}", LINE_BOX),)]).numbered(number)
              for number in range(1, PAGE_COUNT + 1)]
     return FakePdfDocument(pages)
 

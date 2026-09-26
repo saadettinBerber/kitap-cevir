@@ -11,7 +11,7 @@ IMAGE_DIR = "images"
 
 
 def _page(text, number=FIRST_PAGE):
-    return FakePdfPage(lines=[(span(text, LINE_BOX),)], number=number)
+    return FakePdfPage(lines=[(span(text, LINE_BOX),)]).numbered(number)
 
 
 def _document(page_count):
