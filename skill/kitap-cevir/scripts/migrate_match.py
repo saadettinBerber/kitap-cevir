@@ -22,31 +22,15 @@ class Translations:
     """Eski birimlerden kurulan arama tabloları: tek birim ve ardışık birleşimler."""
 
     def __init__(self, units):
-        self.single = {}
-        self.joined = {}
-        for index, unit in enumerate(units):
-            self.single.setdefault(self.key(unit["en"]), unit["tr"])
-            for window in self._windows(units, index):
-                self.joined.setdefault(self.key(" ".join(u["en"] for u in window)),
-                                       " ".join(u["tr"] for u in window))
-
-    @staticmethod
-    def _windows(units, start):
-        """start'tan başlayan, 2..MAX_JOIN uzunluğundaki ardışık birim grupları."""
-        return [units[start:start + count] for count in range(2, MAX_JOIN + 1) if start + count <= len(units)]
+        self._single = self._first_translations(units)
+        self._joined = self._first_translations(_joined_windows(units))
 
     @classmethod
     def of_page(cls, old_page, fixes):
         """Eski sayfanın çevrilmiş birimleri, sayfa sırasıyla. Yeni çıkarımın metin
         onarımları ('3.14 × 10' → '3.14 × 10^23') eski birimlere de uygulanır ki
         iki taraf aynı biçimde eşleşsin."""
-        units = [{"en": u.get("en", ""), "tr": u.get("tr", "")}
-                 for u in PageDocument(old_page).text_units() if u.get("en")]
-        for unit in units:
-            for wrong, right in fixes.items():
-                unit["en"] = unit["en"].replace(wrong, right)
-                unit["tr"] = unit["tr"].replace(wrong, right)
-        return cls(units)
+        return cls([_with_fixes(unit, fixes) for unit in PageDocument(old_page).text_units() if unit.get("en")])
 
     @staticmethod
     def key(text):
@@ -59,40 +43,61 @@ class Translations:
         key = self.key(text)
         if not key:
             return ""
-        return self.single.get(key) or self.joined.get(key) or ""
+        return self._single.get(key) or self._joined.get(key) or ""
 
     def lookup_single(self, text):
-        return self.single.get(self.key(text), "")
+        return self._single.get(self.key(text), "")
+
+    @classmethod
+    def _first_translations(cls, units):
+        """Anahtar → çeviri; aynı anahtarlı birimlerden ilkinin çevirisi kalır."""
+        table = {}
+        for unit in units:
+            table.setdefault(cls.key(unit["en"]), unit["tr"])
+        return table
+
+
+def _with_fixes(unit, fixes):
+    en, tr = unit.get("en", ""), unit.get("tr", "")
+    for wrong, right in fixes.items():
+        en, tr = en.replace(wrong, right), tr.replace(wrong, right)
+    return {"en": en, "tr": tr}
+
+
+def _joined_windows(units):
+    """Her birimden başlayan 2..MAX_JOIN uzunluğundaki ardışık grupların birleşimi, sayfa sırasıyla."""
+    return [{"en": " ".join(unit["en"] for unit in window), "tr": " ".join(unit["tr"] for unit in window)}
+            for start in range(len(units)) for window in _windows(units, start)]
+
+
+def _windows(units, start):
+    return [units[start:start + count] for count in range(2, MAX_JOIN + 1) if start + count <= len(units)]
 
 
 class TranslationFiller:
-    """Yeni birimlere eski çevirileri yazar; bulunamayanlar `pending`'e düşer."""
+    """Yeni birimlere eski çevirileri yazar; bulunamayanlar pending'e düşer. Blok türleri onu
+    Block.fill üzerinden birim birim çağırır."""
 
     def __init__(self, translations):
-        self.translations = translations
-        self.pending = []
+        self._translations = translations
+        self._pending = []
+
+    def pending(self):
+        """Çevirisi bulunamayan ya da yer tutucusu eksik kalan birimler: {path, en, tr_hint}."""
+        return list(self._pending)
 
     def fill_block(self, block, path):
         Block.of(block).fill(self, path)
 
     def fill_unit(self, unit, path):
-        """Birime tr yazar; bulunamazsa ya da yer tutucu eksikse pending'e ekler."""
+        """Birime tr yazar; bulunamazsa ya da yer tutucu eksikse tr boş kalır, birim pending'e düşer."""
         if not (unit["en"] or "").strip():
             unit["tr"] = ""
-            return True
-        translation = self.translations.lookup(unit["en"])
-        if not translation and NUMERIC_CELL.match(unit["en"]):
-            translation = unit["en"]
-        if translation and not self._drops_placeholder(unit, translation):
-            unit["tr"] = translation
-            return True
-        unit["tr"] = ""
-        self.pending.append({"path": path, "en": unit["en"], "tr_hint": translation})
-        return False
-
-    @staticmethod
-    def _drops_placeholder(unit, translation):
-        return bool(PLACEHOLDER.search(unit["en"])) and not PLACEHOLDER.search(translation)
+            return
+        translation = self._translation(unit["en"])
+        unit["tr"] = translation if _keeps_placeholders(unit["en"], translation) else ""
+        if not unit["tr"]:
+            self._pending.append({"path": path, "en": unit["en"], "tr_hint": translation})
 
     def fill_sentences(self, sentences, path):
         """Ardışık yeni cümlelerin birleşimi eski bir birime eşitse tek cümle olur."""
@@ -104,12 +109,25 @@ class TranslationFiller:
             index += taken
         return merged
 
+    def _translation(self, en):
+        """Eski çeviri; bulunamazsa ve hücre yalnız sayıysa İngilizcesi aynen kalır."""
+        translation = self._translations.lookup(en)
+        if not translation and NUMERIC_CELL.match(en):
+            return en
+        return translation
+
     def _merge_run(self, sentences, index):
-        if self.translations.lookup(sentences[index]["en"]):
+        """(birim, kapsadığı cümle sayısı): tek başına bulunan cümle kendisidir; değilse eski bir
+        birime eşit en uzun birleşim, o da yoksa yine kendisi."""
+        if self._translations.lookup(sentences[index]["en"]):
             return sentences[index], 1
-        for count in range(MAX_JOIN, 1, -1):
-            window = sentences[index:index + count]
-            joined = " ".join(s["en"] for s in window)
-            if len(window) == count and self.translations.lookup_single(joined):
+        for count in range(min(MAX_JOIN, len(sentences) - index), 1, -1):
+            joined = " ".join(sentence["en"] for sentence in sentences[index:index + count])
+            if self._translations.lookup_single(joined):
                 return {**sentences[index], "en": joined}, count
         return sentences[index], 1
+
+
+def _keeps_placeholders(en, translation):
+    """⟦eq-N⟧ taşıyan metnin çevirisi de yer tutucuyu taşımalı; yoksa denklem kaybolur."""
+    return not PLACEHOLDER.search(en) or bool(PLACEHOLDER.search(translation))

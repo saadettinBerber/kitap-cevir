@@ -3,13 +3,15 @@ import tempfile
 import unittest
 
 import _paths  # noqa: F401
-from backfill_images import ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ImageBackfiller, ImageFolder, ImagePlacement, PageImages
+from backfill_images import ANCHOR_CHARS, MIN_IMAGE_SIDE_PX, ImageBackfiller, ImagePlacement, PageImages
+from image_folder import ImageFolder
 from page_document import PageDocument
 from project import Project
 from translated_pages import TranslatedPages
 
 ANCHOR = "layers separate concerns"
 FIGURE = (MIN_IMAGE_SIDE_PX, MIN_IMAGE_SIDE_PX)
+WIDE_SIDE_PX = 400
 CODE = {"type": "code", "code": "x = 1"}
 
 
@@ -22,20 +24,27 @@ def _image(src):
 
 
 class FakeImageFolder:
-    """ImageFolder gibi; dosyalar {src: (genişlik, yükseklik)} olarak verilir."""
+    """ImageFolder gibi; dosyalar {src: (genişlik, yükseklik)} olarak verilir, kopyalar kaydedilir."""
 
     def __init__(self, sizes):
-        self.sizes = sizes
-        self.copied = []
+        self._sizes = sizes
+        self._copies = []
 
     def has(self, src):
-        return src in self.sizes
+        return src in self._sizes
 
     def size(self, src):
-        return self.sizes[src]
+        return self._sizes[src]
 
-    def copy(self, src, target_dir):
-        self.copied.append((src, target_dir))
+    def copy(self, sources, target_dir):
+        """Gerçek klasör gibi, klasörde olmayan görseli kopyalayamaz."""
+        missing = [src for src in sources if not self.has(src)]
+        if missing:
+            raise FileNotFoundError(missing)
+        self._copies += [(src, target_dir) for src in sources]
+
+    def copied(self):
+        return list(self._copies)
 
 
 def _anchored(blocks, sizes):
@@ -61,37 +70,22 @@ class PageImagesTest(unittest.TestCase):
         self.assertEqual(_anchored([_para("Layers separate concerns."), _image("missing.png")], {}), [])
 
     def test_image_whose_shorter_side_reaches_the_limit_is_kept(self):
-        self.assertEqual(len(_anchored([_image("fig.png")], {"fig.png": (400, MIN_IMAGE_SIDE_PX)})), 1)
+        self.assertEqual(len(_anchored([_image("fig.png")], {"fig.png": (WIDE_SIDE_PX, MIN_IMAGE_SIDE_PX)})), 1)
 
     def test_image_whose_shorter_side_is_below_the_limit_is_an_ornament(self):
-        self.assertEqual(_anchored([_image("dot.png")], {"dot.png": (400, MIN_IMAGE_SIDE_PX - 1)}), [])
+        self.assertEqual(_anchored([_image("dot.png")], {"dot.png": (WIDE_SIDE_PX, MIN_IMAGE_SIDE_PX - 1)}), [])
 
     def test_anchor_keeps_only_the_first_characters(self):
         [(_, anchor)] = _anchored([_para("x" * (ANCHOR_CHARS + 1)), _image("fig.png")], {"fig.png": FIGURE})
         self.assertEqual(anchor, "x" * ANCHOR_CHARS)
 
 
-class ImageFolderTest(unittest.TestCase):
-    """Diskteki klasör; piksel boyutunu okuyan image_size'ın öğrenme testi test_pdf_boundary'dedir."""
-
-    def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.source = os.path.join(self.tmp.name, "work")
-        os.makedirs(self.source)
-        with open(os.path.join(self.source, "fig.png"), "wb") as png:
-            png.write(b"png")
-
-    def tearDown(self):
-        self.tmp.cleanup()
-
-    def test_has_only_files_in_the_folder(self):
-        folder = ImageFolder(self.source)
-        self.assertEqual((folder.has("fig.png"), folder.has("missing.png")), (True, False))
-
-    def test_copy_creates_the_target_folder(self):
-        target = os.path.join(self.tmp.name, "pages", "page-5_images")
-        ImageFolder(self.source).copy("fig.png", target)
-        self.assertEqual(os.listdir(target), ["fig.png"])
+class PageImagesCopyTest(unittest.TestCase):
+    def test_nothing_to_add_leaves_the_page_without_an_image_folder(self):
+        with tempfile.TemporaryDirectory() as root:
+            target = os.path.join(root, "page-5_images")
+            PageImages([], ImageFolder(root)).copy([], target)
+            self.assertFalse(os.path.exists(target))
 
 
 class ImagePlacementTest(unittest.TestCase):
@@ -108,17 +102,26 @@ class ImagePlacementTest(unittest.TestCase):
         self.placement.add("fig.png", "")
         self.assertEqual(self.blocks[1], _image("fig.png"))
 
-    def test_has_sees_only_images_already_on_the_page(self):
-        self.assertFalse(self.placement.has("fig.png"))
-        self.placement.add("fig.png", "")
-        self.assertTrue(self.placement.has("fig.png"))
+    def test_image_not_on_the_page_is_missing(self):
+        self.assertEqual(self.placement.missing([("fig.png", ANCHOR)]), [("fig.png", ANCHOR)])
+
+    def test_image_on_the_page_is_not_missing(self):
+        self.assertEqual(ImagePlacement(self.blocks + [_image("fig.png")]).missing([("fig.png", ANCHOR)]), [])
+
+    def test_repeated_image_keeps_its_first_anchor(self):
+        self.assertEqual(self.placement.missing([("fig.png", ANCHOR), ("fig.png", "")]), [("fig.png", ANCHOR)])
+
+    def test_unanchored_images_each_go_right_below_the_headings(self):
+        self.placement.add_all([("fig.png", ""), ("fig-2.png", "")])
+        self.assertEqual(self.blocks[1:3], [_image("fig-2.png"), _image("fig.png")])
 
 
 
 class AnchorMatchTest(unittest.TestCase):
     """Çapa, blok metninin başıyla karşılaştırılır; etiket ve büyük harf sayılmaz."""
 
-    def _placed_at(self, anchor, *texts):
+    @staticmethod
+    def _placed_at(anchor, *texts):
         blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"}] + [_para(text) for text in texts]
         ImagePlacement(blocks).add("fig.png", anchor)
         return blocks.index(_image("fig.png"))
@@ -143,6 +146,11 @@ class AnchorMatchTest(unittest.TestCase):
         """10 ortak harf / 40 harf: oran 0.5."""
         self.assertEqual(self._placed_at("a" * 10 + "b" * 10, "Other.", "a" * 10 + "c" * 10), 1)
 
+    def test_characters_inserted_before_the_text_still_match(self):
+        """10 harflik çapa; blok başındaki 5 fazla harf karşılaştırılan paya sığar:
+        oran 2 × 10 / 25 = 0.8."""
+        self.assertEqual(self._placed_at("a" * 10, "Other.", "b" * 5 + "a" * 10), 3)
+
     def test_unmatched_image_on_a_page_of_headings_goes_last(self):
         blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"}]
         ImagePlacement(blocks).add("fig.png", "")
@@ -153,28 +161,31 @@ class FakeExtractedImages:
     """ExtractedImages gibi; sayfayı PDF'ten çıkarmak yerine hazır blokları verir."""
 
     def __init__(self, blocks, folder):
-        self.blocks = blocks
-        self.folder = folder
+        self._blocks = blocks
+        self._folder = folder
 
     def of(self, page):
-        return PageImages(self.blocks, self.folder)
+        return PageImages(self._blocks, self._folder)
 
 
 class ImageBackfillerTest(unittest.TestCase):
     """PDF'ten çıkan görseller çevrilmiş sayfaya eklenir; tekrar çalıştırmak güvenlidir."""
 
     PAGE = 5
+    EXTRACTED = [_para("Layers separate concerns."), _image("fig.png")]
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.project = Project(self.tmp.name)
         self.folder = FakeImageFolder({"fig.png": FIGURE})
-        extracted = FakeExtractedImages([_para("Layers separate concerns."), _image("fig.png")], self.folder)
         self.pages = TranslatedPages(self.project)
-        self.backfiller = ImageBackfiller(self.pages, extracted)
+        self.backfiller = self._backfiller(self.EXTRACTED)
 
     def tearDown(self):
         self.tmp.cleanup()
+
+    def _backfiller(self, extracted_blocks):
+        return ImageBackfiller(self.pages, FakeExtractedImages(extracted_blocks, self.folder))
 
     def _write_page(self, blocks):
         self.pages.save(PageDocument({"page": self.PAGE, "blocks": blocks}))
@@ -182,20 +193,33 @@ class ImageBackfillerTest(unittest.TestCase):
     def _page_blocks(self):
         return self.pages.get(self.PAGE).data["blocks"]
 
-    def test_missing_image_goes_below_its_text(self):
+    def test_missing_image_is_counted(self):
         self._write_page([_para("Layers separate concerns."), _para("Microservices are small.")])
         self.assertEqual(self.backfiller.backfill_page(self.PAGE), 1)
+
+    def test_missing_image_goes_below_its_text(self):
+        self._write_page([_para("Layers separate concerns."), _para("Microservices are small.")])
+        self.backfiller.backfill_page(self.PAGE)
         self.assertEqual(self._page_blocks()[1], _image("fig.png"))
 
     def test_added_image_is_copied_next_to_the_page(self):
         self._write_page([_para("Layers separate concerns.")])
         self.backfiller.backfill_page(self.PAGE)
-        self.assertEqual(self.folder.copied, [("fig.png", self.pages.images_dir(self.PAGE))])
+        self.assertEqual(self.folder.copied(), [("fig.png", self.pages.images_dir(self.PAGE))])
+
+    def test_image_repeated_in_the_pdf_is_added_once(self):
+        self._write_page([_para("Layers separate concerns.")])
+        self.assertEqual(self._backfiller(self.EXTRACTED + [_image("fig.png")]).backfill_page(self.PAGE), 1)
 
     def test_second_run_adds_nothing(self):
         self._write_page([_para("Layers separate concerns.")])
         self.backfiller.backfill_page(self.PAGE)
         self.assertEqual((self.backfiller.backfill_page(self.PAGE), len(self._page_blocks())), (0, 2))
+
+    def test_image_already_on_the_page_is_not_copied(self):
+        self._write_page([_para("Layers separate concerns."), _image("fig.png")])
+        self.backfiller.backfill_page(self.PAGE)
+        self.assertEqual(self.folder.copied(), [])
 
     def test_page_without_new_images_is_not_rewritten(self):
         path = self.project.page_js(self.PAGE)
@@ -205,6 +229,7 @@ class ImageBackfillerTest(unittest.TestCase):
         self.backfiller.backfill_page(self.PAGE)
         with open(path, encoding="utf-8") as page_js:
             self.assertTrue(page_js.read().endswith("// elle eklenmiş satır\n"))
+
 
 if __name__ == "__main__":
     unittest.main()

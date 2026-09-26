@@ -12,6 +12,8 @@ from progress import Progress
 
 PROGRESS_FILE = "progress.json"
 GLOSSARY_FILE = "glossary.md"
+DATA_DIR = "data"
+PAGES_DIR = os.path.join(DATA_DIR, "pages")
 WORK_DIR = "_work"
 DIST_DIR = "dist"
 ENV_ROOT = "KITAP_ROOT"
@@ -40,21 +42,10 @@ def _nearest_project(directory):
 
 
 class Project:
-    """Bir kitap projesinin dosya yolları ve progress.json erişimi."""
+    """Bir kitap projesinin dosya yolları ve progress.json erişimi; her yol proje kökünden kurulur."""
 
     def __init__(self, root):
-        self.root = root
-        self.progress_path = os.path.join(self.root, PROGRESS_FILE)
-        self.glossary_md = os.path.join(self.root, GLOSSARY_FILE)
-        self._data_dir = os.path.join(self.root, "data")
-        self._pages_dir = os.path.join(self._data_dir, "pages")
-        self.toc_js = os.path.join(self._data_dir, "toc.js")
-        self.glossary_js = os.path.join(self._data_dir, "glossary.js")
-        self._work_in = os.path.join(self.root, WORK_DIR, "in")
-        self._work_out = os.path.join(self.root, WORK_DIR, "out")
-        self._work_cards = os.path.join(self.root, WORK_DIR, "cards")
-        self.work_migrate = os.path.join(self.root, WORK_DIR, "migrate")
-        self._dist_dir = os.path.join(self.root, DIST_DIR)
+        self._root = root
 
     @classmethod
     def discover(cls):
@@ -62,45 +53,62 @@ class Project:
         return cls(find_root())
 
     def load_progress(self):
-        return Progress(read_json(self.progress_path))
+        return Progress(read_json(self._path(PROGRESS_FILE)))
 
     def load_settings(self):
-        return BookSettings(read_json(self.progress_path))
+        return BookSettings(read_json(self._path(PROGRESS_FILE)))
 
     def save_progress(self, progress):
-        write_json(self.progress_path, progress.data)
+        write_json(self._path(PROGRESS_FILE), progress.as_json())
 
     def pdf_path(self):
         configured = self.load_settings().book_pdf()
         if os.path.isabs(configured):
             return configured
-        return os.path.join(self.root, configured)
+        return self._path(configured)
 
     def relative_to_root(self, path):
-        return os.path.relpath(path, self.root)
+        return os.path.relpath(path, self._root)
+
+    def glossary_md(self):
+        return self._path(GLOSSARY_FILE)
+
+    def toc_js(self):
+        return self._path(DATA_DIR, "toc.js")
+
+    def glossary_js(self):
+        return self._path(DATA_DIR, "glossary.js")
 
     def epub_file(self, slug):
-        return os.path.join(self._dist_dir, f"{slug}.epub")
+        return self._path(DIST_DIR, f"{slug}.epub")
 
     def page_js(self, page):
-        return _page_path(self._pages_dir, page, ".js")
+        return self._path(PAGES_DIR, _page_name(page, ".js"))
 
     def page_images(self, page):
-        return _page_path(self._pages_dir, page, "_images")
+        return self._path(PAGES_DIR, _page_name(page, "_images"))
 
     def work_input(self, page):
-        return _page_path(self._work_in, page, ".json")
+        return self._path(WORK_DIR, "in", _page_name(page, ".json"))
 
     def work_images(self, page):
-        return _page_path(self._work_in, page, "_images")
+        return self._path(WORK_DIR, "in", _page_name(page, "_images"))
 
     def work_output(self, page):
-        return _page_path(self._work_out, page, ".json")
+        return self._path(WORK_DIR, "out", _page_name(page, ".json"))
 
     def work_cards_file(self, stage, page):
-        return _page_path(os.path.join(self._work_cards, stage), page, ".json")
+        return self._path(WORK_DIR, "cards", stage, _page_name(page, ".json"))
+
+    def work_migration_file(self, stage, page):
+        """Taşımada çevirisi bekleyen (pending) ve ajanın doldurduğu (done) birimler:
+        pending-N.json, done-N.json."""
+        return self._path(WORK_DIR, "migrate", f"{stage}-{page}.json")
+
+    def _path(self, *parts):
+        return os.path.join(self._root, *parts)
 
 
-def _page_path(directory, page, suffix):
+def _page_name(page, suffix):
     """Sayfa dosyalarının ad kuralı: page-N.js, page-N.json, page-N_images."""
-    return os.path.join(directory, f"page-{page}{suffix}")
+    return f"page-{page}{suffix}"

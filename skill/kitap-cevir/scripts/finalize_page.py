@@ -8,15 +8,14 @@
 
 Kullanım (proje dizininde): python3 finalize_page.py _work/out/page-N.json
 """
-import os
-import shutil
 import sys
 
 from concept_check import CardChecker
+from image_folder import ImageFolder
 from json_file import read_json
 from page_document import PageDocument
 from project import Project
-from reader_data import Glossary, TableOfContents
+from reader_data import Glossary, ReaderData
 from translated_pages import TranslatedPages
 
 _REQUIRED_FIELDS = ("id", "page", "pdf_page", "blocks")
@@ -29,64 +28,71 @@ class IncompletePage(ValueError):
 class PageFinalizer:
     """Çevirmen çıktısını projeye işler: sayfa dosyası, görseller, ilerleme, sözlük, içindekiler."""
 
-    def __init__(self, project):
-        self.project = project
-        self.pages = TranslatedPages(project)
+    def __init__(self, project, settings):
+        self._project = project
+        self._settings = settings
+        self._pages = TranslatedPages(project)
+
+    @classmethod
+    def for_project(cls, project):
+        return cls(project, project.load_settings())
 
     def finalize(self, translated_path):
         """Sayfayı projeye işler; dönen özet, CLI'ın basacağı uyarıları taşır."""
-        page = self._read(translated_path)
-        page_js = self.pages.save(page)
-        images = self._copy_images(page)
-        progress = self._register(page.data)
-        cards = page.data.get("concepts", [])
-        return {"page_js": page_js, "images": images, "terms": self._rebuild_reader_data(page, progress),
-                "untranslated": page.missing_translations(), "page": page.data["page"],
+        page = _read_page(translated_path)
+        written = {"page_js": self._pages.save(page), "images": self._copy_images(page)}
+        terms = self._rebuild_reader_data(page, self._register(page))
+        return {**written, "terms": terms, **self._notes(page)}
+
+    def _copy_images(self, page):
+        """Sayfanın andığı görsellerden çevirmen girdisinde bulunanlar kopyalanır; kopyalanan sayısı."""
+        sources = page.media_sources()
+        if not sources:
+            return 0
+        work_images = ImageFolder(self._project.work_images(page.number()))
+        present = [src for src in sources if work_images.has(src)]
+        work_images.copy(present, self._pages.images_dir(page.number()))
+        return len(present)
+
+    def _register(self, page):
+        """Sayfayı progress.json'a kaydeder, last_translated_page'i ilerletir."""
+        progress = self._project.load_progress()
+        progress.record_translation(page.data)
+        self._project.save_progress(progress)
+        return progress
+
+    def _rebuild_reader_data(self, page, progress):
+        """Yeni terimleri sözlüğe ekler, toc.js ve glossary.js'i yeniden yazar; eklenen terim sayısı."""
+        glossary = Glossary(self._project.glossary_md())
+        new_terms = glossary.unknown(page.data.get("glossary_new", []))
+        glossary.add(new_terms)
+        reader_data = ReaderData(self._project)
+        reader_data.write_toc(progress)
+        reader_data.write_glossary(glossary)
+        return len(new_terms)
+
+    def _notes(self, page):
+        cards = page.concepts()
+        return {"untranslated": page.missing_translations(), "page": page.number(),
                 "cards_pending": not cards, "card_problems": self._card_problems(cards)}
 
     def _card_problems(self, cards):
         """Kartlar çeviriden sonra ayrı üretilir; kartsız sayfa sorun değil, bekleyen iştir."""
         if not cards:
             return []
-        return CardChecker(self.project.load_settings().concepts()).problems(cards)
+        return CardChecker(self._settings.concepts()).problems(cards)
 
-    def _read(self, translated_path):
-        page = PageDocument(read_json(translated_path))
-        self._require_fields(page.data)
-        return page
 
-    def _rebuild_reader_data(self, page, progress):
-        """Yeni terimleri sözlüğe ekler, toc.js ve glossary.js'i yeniden yazar; eklenen terim sayısı."""
-        glossary = Glossary(self.project)
-        added = glossary.add(page.data.get("glossary_new", []))
-        TableOfContents(self.project, progress).write()
-        glossary.write_js()
-        return added
+def _read_page(translated_path):
+    document = read_json(translated_path)
+    _require_fields(document)
+    return PageDocument(document)
 
-    @staticmethod
-    def _require_fields(document):
-        missing = [field for field in _REQUIRED_FIELDS if field not in document]
-        if missing:
-            raise IncompletePage(f"Eksik alanlar: {missing}")
 
-    def _copy_images(self, page):
-        sources = page.media_sources()
-        if not sources:
-            return 0
-        src_dir = self.project.work_images(page.data["page"])
-        dst_dir = self.pages.images_dir(page.data["page"])
-        os.makedirs(dst_dir, exist_ok=True)
-        present = [name for name in sources if os.path.isfile(os.path.join(src_dir, name))]
-        for name in present:
-            shutil.copy2(os.path.join(src_dir, name), os.path.join(dst_dir, name))
-        return len(present)
-
-    def _register(self, document):
-        """Sayfayı progress.json'a kaydeder, last_translated_page'i ilerletir."""
-        progress = self.project.load_progress()
-        progress.record_translation(document)
-        self.project.save_progress(progress)
-        return progress
+def _require_fields(document):
+    missing = [field for field in _REQUIRED_FIELDS if field not in document]
+    if missing:
+        raise IncompletePage(f"Eksik alanlar: {missing}")
 
 
 def main():
@@ -94,7 +100,10 @@ def main():
         print(__doc__)
         sys.exit(1)
     project = Project.discover()
-    result = PageFinalizer(project).finalize(sys.argv[1])
+    _print_result(project, PageFinalizer.for_project(project).finalize(sys.argv[1]))
+
+
+def _print_result(project, result):
     print(f"✓ Sayfa {result['page']}: {project.relative_to_root(result['page_js'])} yazıldı, "
           f"{result['images']} görsel, {result['terms']} yeni terim; toc.js + glossary.js güncellendi")
     _print_notes(result)

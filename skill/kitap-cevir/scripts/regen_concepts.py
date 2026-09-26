@@ -36,66 +36,67 @@ def _expand(spec):
 class CardInputs:
     """Çevrilmiş sayfalardan kart agent'ının girdisini (_work/cards/in) hazırlar."""
 
-    def __init__(self, project, spec):
-        """spec = BookSettings.concepts(); agent'a gider, kart türlerini buna göre seçer."""
-        self.project = project
-        self.pages = TranslatedPages(project)
-        self.spec = spec
+    def __init__(self, project, settings):
+        self._project = project
+        self._pages = TranslatedPages(project)
+        self._spec = settings.concepts()
 
     @classmethod
     def for_project(cls, project):
-        return cls(project, project.load_settings().concepts())
+        return cls(project, project.load_settings())
 
     def prepare(self, pages):
         """Yazılan girdilerin proje köküne göre yolları."""
         return [self._write_input(page) for page in pages]
 
     def _write_input(self, page):
-        path = self.project.work_cards_file("in", page)
-        write_json(path, self.card_input(self.pages.get(page)))
-        return self.project.relative_to_root(path)
+        path = self._project.work_cards_file("in", page)
+        write_json(path, self.card_input(self._pages.get(page)))
+        return self._project.relative_to_root(path)
 
     def card_input(self, document):
+        """Kart agent'ının girdisi; kitabın kart ayarı (concepts_spec) da gider, agent kart
+        türlerini ona göre seçer."""
         page_data = document.data
         content = [unit for unit in (block.card_unit() for block in document.blocks()) if unit]
         return {"id": page_data["id"], "page": page_data["page"],
                 "chapter": page_data.get("chapter", {}), "section": page_data.get("section", {}),
                 "title": page_data.get("title", {}), "content": content,
-                "concepts_spec": self.spec, "concepts": []}
+                "concepts_spec": self._spec, "concepts": []}
 
 
 class CardOutputs:
     """Kart agent'ının çıktısını (_work/cards/out) denetler; geçerli kartları sayfaya yazar."""
 
-    def __init__(self, project, checker):
-        self.project = project
-        self.pages = TranslatedPages(project)
-        self.checker = checker
+    def __init__(self, project, settings):
+        self._project = project
+        self._pages = TranslatedPages(project)
+        self._checker = CardChecker(settings.concepts())
 
     @classmethod
     def for_project(cls, project):
-        return cls(project, CardChecker(project.load_settings().concepts()))
+        return cls(project, project.load_settings())
 
     def apply(self, pages):
         """{sayfa: sorunlar}; sorunsuz sayfaların kartları yazılmıştır."""
         return {page: self._apply_page(page) for page in pages}
 
     def _apply_page(self, page):
-        path = self.project.work_cards_file("out", page)
+        path = self._project.work_cards_file("out", page)
         try:
             cards = read_json(path).get("concepts", [])
         except FileNotFoundError:
-            return [f"çıktı yok: {self.project.relative_to_root(path)}"]
+            return [f"çıktı yok: {self._project.relative_to_root(path)}"]
         return self._write_if_valid(page, cards)
 
     def _write_if_valid(self, page, cards):
-        problems = self.checker.problems(cards)
+        problems = self._checker.problems(cards)
         if not problems:
             self._replace_cards(page, cards)
         return problems
 
     def _replace_cards(self, page, cards):
-        self.pages.save(PageDocument({**self.pages.get(page).data, "concepts": cards}))
+        self._pages.save(PageDocument({**self._pages.get(page).data, "concepts": cards}))
 
 
 def _run_prepare(project, pages):
@@ -121,14 +122,20 @@ ACTIONS = {"prepare": _run_prepare, "apply": _run_apply}
 
 
 def main():
-    if len(sys.argv) < 3 or sys.argv[1] not in ACTIONS:
+    action, *specs = sys.argv[1:] or [""]
+    if not specs or action not in ACTIONS:
         print(__doc__)
         sys.exit(1)
     project = Project.discover()
-    pages, skipped = select_pages(sys.argv[2:], project.load_progress().translated_pages())
+    ACTIONS[action](project, _select_pages_reporting_skipped(specs, project.load_progress()))
+
+
+def _select_pages_reporting_skipped(specs, progress):
+    """İstenen sayfalardan çevrilmiş olanlar; çevrilmemiş olanların atlandığı basılır."""
+    pages, skipped = select_pages(specs, progress.translated_pages())
     if skipped:
         print(f"  ! çevrilmemiş sayfalar atlandı: {', '.join(map(str, skipped))}")
-    ACTIONS[sys.argv[1]](project, pages)
+    return pages
 
 
 if __name__ == "__main__":

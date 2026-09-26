@@ -25,7 +25,7 @@ from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 from json_file import read_json
 from progress import Progress
 from project import PROGRESS_FILE, Project
-from reader_data import rebuild
+from reader_data import ReaderData
 
 SKILL_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATE_DIR = os.path.join(SKILL_DIR, "templates", "project")
@@ -83,44 +83,38 @@ class BookSetup:
     """Komut satırı seçeneklerinden yeni bir kitap projesi kurar; open_pdf: yol → PdfDocument."""
 
     def __init__(self, args, open_pdf):
-        self.args = args
-        self.target = os.path.abspath(args.target)
-        self.open_pdf = open_pdf
+        self._args = args
+        self._target = os.path.abspath(args.target)
+        self._open_pdf = open_pdf
 
     def run(self):
         self._ensure_empty_target()
-        shutil.copytree(TEMPLATE_DIR, self.target, dirs_exist_ok=True)
-        self._fill_placeholders({"TITLE": self.args.title, "AUTHOR": self.args.author})
-        project = Project(self.target)
+        shutil.copytree(TEMPLATE_DIR, self._target, dirs_exist_ok=True)
+        self._fill_placeholders({"TITLE": self._args.title, "AUTHOR": self._args.author})
+        project = Project(self._target)
         project.save_progress(Progress(self._progress(self._place_pdf())))
-        rebuild(project)
+        ReaderData(project).rebuild()
         return project
 
     def _ensure_empty_target(self):
-        os.makedirs(self.target, exist_ok=True)
-        if os.path.exists(os.path.join(self.target, PROGRESS_FILE)):
-            raise SystemExit(f"{self.target} zaten bir kitap projesi ({PROGRESS_FILE} var); durduruldu.")
+        os.makedirs(self._target, exist_ok=True)
+        if os.path.exists(os.path.join(self._target, PROGRESS_FILE)):
+            raise SystemExit(f"{self._target} zaten bir kitap projesi ({PROGRESS_FILE} var); durduruldu.")
 
     def _fill_placeholders(self, mapping):
         for name in PLACEHOLDER_FILES:
-            path = os.path.join(self.target, name)
-            with open(path, encoding="utf-8") as handle:
-                text = handle.read()
-            for key, value in mapping.items():
-                text = text.replace("{{" + key + "}}", value)
-            with open(path, "w", encoding="utf-8") as handle:
-                handle.write(text)
+            _fill_file(os.path.join(self._target, name), mapping)
 
     def _place_pdf(self):
         """PDF'i projeye kopyalar; zaten proje içindeyse yalnız göreli adını verir."""
-        source = os.path.abspath(self.args.pdf)
-        if os.path.commonpath([source, self.target]) == self.target:
-            return os.path.relpath(source, self.target)
-        shutil.copy2(source, os.path.join(self.target, PDF_NAME))
+        source = os.path.abspath(self._args.pdf)
+        if os.path.commonpath([source, self._target]) == self._target:
+            return os.path.relpath(source, self._target)
+        shutil.copy2(source, os.path.join(self._target, PDF_NAME))
         return PDF_NAME
 
     def _progress(self, pdf_name):
-        args = self.args
+        args = self._args
         return {"book": self._book(), "book_pdf": pdf_name, "pdf_offset": args.offset,
                 "book_total_pages": args.total, "pdf_total_pages": self._page_count(pdf_name),
                 "pages_per_run": args.pages_per_run, "translator": {"vision": True},
@@ -129,35 +123,52 @@ class BookSetup:
                 "last_translated_page": 0, "chapters": self._chapters(), "pages": {}}
 
     def _book(self):
-        args = self.args
+        args = self._args
         return {"slug": args.slug or slugify(args.title), "title": args.title, "subtitle": args.subtitle,
                 "subtitle_tr": args.subtitle_tr, "author": args.author, "series": args.series}
 
     def _page_count(self, pdf_name):
-        with self.open_pdf(os.path.join(self.target, pdf_name)) as document:
+        with self._open_pdf(os.path.join(self._target, pdf_name)) as document:
             return document.page_count
 
     def _chapters(self):
-        if not self.args.chapters:
+        if not self._args.chapters:
             return []
-        return read_json(self.args.chapters)
+        return read_json(self._args.chapters)
 
 
-def report(project, progress):
-    print(f"✓ Kitap projesi kuruldu: {project.root}")
-    settings, data = project.load_settings(), progress.data
-    book = settings.book()
-    print(f"  kitap: {book['title']} — {book['author']}")
-    print(f"  PDF: {settings.book_pdf()} ({data['pdf_total_pages']} sayfa), "
-          f"ofset {data['pdf_offset']}, kitap {data['book_total_pages']} sayfa")
-    print(f"  bölüm sayısı: {len(data['chapters'])}")
-    print(f"  kart türleri: {', '.join(settings.concepts()['kinds'])}")
+def _fill_file(path, mapping):
+    """Şablondaki {{AD}} yer tutucuları mapping'deki değerlerle doldurulur."""
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(_filled(text, mapping))
+
+
+def _filled(text, mapping):
+    for key, value in mapping.items():
+        text = text.replace("{{" + key + "}}", value)
+    return text
+
+
+def report(root, project):
+    print(f"✓ Kitap projesi kuruldu: {root}")
+    _print_book(project.load_settings(), project.load_progress())
     print(NEXT_STEPS)
 
 
+def _print_book(settings, progress):
+    record, book = progress.as_json(), settings.book()
+    print(f"  kitap: {book['title']} — {book['author']}")
+    print(f"  PDF: {settings.book_pdf()} ({record['pdf_total_pages']} sayfa), "
+          f"ofset {record['pdf_offset']}, kitap {record['book_total_pages']} sayfa")
+    print(f"  bölüm sayısı: {len(record['chapters'])}")
+    print(f"  kart türleri: {', '.join(settings.concepts()['kinds'])}")
+
+
 def main():
-    project = BookSetup(parse_args(), PyMuPdfDocument.open).run()
-    report(project, project.load_progress())
+    args = parse_args()
+    report(os.path.abspath(args.target), BookSetup(args, PyMuPdfDocument.open).run())
 
 
 if __name__ == "__main__":

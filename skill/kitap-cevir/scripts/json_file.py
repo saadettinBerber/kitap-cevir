@@ -1,4 +1,7 @@
-"""Projenin elle de okunan JSON dosyaları: UTF-8, Türkçe karakterler kaçışsız, iki boşluk girinti, sonda satır sonu."""
+"""Projenin elle de okunan JSON dosyaları: UTF-8, Türkçe karakterler kaçışsız, iki boşluk girinti,
+sonda satır sonu.
+
+Prosedüreldir (Bl.6): veri düz JSON'dur, işlem yalnız okuma ve yazmadır, tutulacak durum yoktur."""
 import json
 import os
 
