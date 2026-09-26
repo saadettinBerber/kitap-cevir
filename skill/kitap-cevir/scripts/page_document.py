@@ -28,6 +28,16 @@ class PageDocument:
     def text_units(self):
         return [unit for block in self.blocks() for unit in block.units()]
 
+    def unit_paths(self):
+        """(yol, birim) çiftleri; yol sayfa kökünden yazılır: 'blocks[3].sentences[1]'."""
+        return [(f"blocks[{index}]{suffix}", unit)
+                for index, block in enumerate(self.blocks()) for suffix, unit in block.unit_paths()]
+
+    def fill_translations(self, filler):
+        """Her blok birimlerine eski çevirileri yazar (taşıma)."""
+        for block in self.blocks():
+            block.fill(filler)
+
     def missing_translations(self):
         return sum(1 for unit in self.text_units() if unit.get("en") and not unit.get("tr"))
 

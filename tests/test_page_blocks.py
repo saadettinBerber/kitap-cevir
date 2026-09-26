@@ -14,17 +14,13 @@ TABLE = {"type": "table", "rows": [[_unit("a"), _unit("b")], [_unit("c"), _unit(
 CODE = {"type": "code", "lang": "python", "code": "x = 1"}
 
 
-class _RecordingFiller:
-    """Doldurduğu birimlerin yollarını testin verdiği listeye yazar; cümleleri ilkine indirir."""
+class _UpperFiller:
+    """TranslationFiller gibi; çeviri İngilizcenin büyük harflisidir, cümleleri ilkine indirir."""
 
-    def __init__(self, paths):
-        self._paths = paths
+    def translation(self, en):
+        return en.upper()
 
-    def fill_unit(self, unit, path):
-        self._paths.append(path)
-
-    def fill_sentences(self, sentences, path):
-        self._paths.append(f"{path}:sentences")
+    def merged_sentences(self, sentences):
         return sentences[:1]
 
 
@@ -59,15 +55,20 @@ class BlockTest(unittest.TestCase):
         for data in ({"type": "image", "src": "a.png"}, {"type": "yeni"}):
             self.assertEqual(Block.of(data).units(), [], data["type"])
 
-    def test_list_fill_uses_item_paths(self):
-        paths = []
-        Block.of({"type": "list", "items": [_unit("x"), _unit("y")]}).fill(_RecordingFiller(paths), "blocks[2]")
-        self.assertEqual(paths, ["blocks[2].items[0]", "blocks[2].items[1]"])
+    def test_fill_writes_the_translation_of_every_unit(self):
+        items = {"type": "list", "items": [_unit("x"), _unit("y")]}
+        Block.of(items).fill(_UpperFiller())
+        self.assertEqual(items["items"], [_unit("x", "X"), _unit("y", "Y")])
 
     def test_para_fill_replaces_sentences_with_merged_ones(self):
         para = {"type": "para", "sentences": [_unit("a"), _unit("b")]}
-        Block.of(para).fill(_RecordingFiller([]), "blocks[0]")
-        self.assertEqual(para["sentences"], [_unit("a")])
+        Block.of(para).fill(_UpperFiller())
+        self.assertEqual([sentence["en"] for sentence in para["sentences"]], ["a"])
+
+    def test_para_fill_translates_the_merged_sentences(self):
+        para = {"type": "para", "sentences": [_unit("a"), _unit("b")]}
+        Block.of(para).fill(_UpperFiller())
+        self.assertEqual(para["sentences"][0]["tr"], "A")
 
     def test_card_unit_joins_text(self):
         self.assertEqual(Block.of(PARA).card_unit(), {"type": "para", "en": "One. Two.", "tr": "Bir. İki."})
@@ -99,6 +100,10 @@ class PageQueriesTest(unittest.TestCase):
     PAGE = {"blocks": [PARA, {"type": "image", "src": "a.png"},
                        {"type": "math", "src": "eq-1.png", "latex": ""}, PARA],
             "math": [{"id": "eq-2", "src": "eq-2.png", "latex": ""}]}
+
+    def test_unit_paths_start_at_the_page(self):
+        [(first_path, _), *_] = PageDocument({"blocks": [CODE, TABLE]}).unit_paths()
+        self.assertEqual(first_path, "blocks[1].rows[0][0]")
 
     def test_summary_counts_block_kinds_in_order(self):
         self.assertEqual(PageDocument(self.PAGE).block_summary(), "para:2, image:1, math:1")

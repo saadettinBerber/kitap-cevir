@@ -36,11 +36,11 @@ class PageMigration:
     def run(self, fixes):
         """Bekleyenler: çevirisi bulunamayan birimler (units) ve LaTeX'i olmayan denklemler (latex)."""
         filler = TranslationFiller(Translations.of_page(self._old, fixes))
-        for index, block in enumerate(self._document["blocks"]):
-            filler.fill_block(block, f"blocks[{index}]")
+        page = PageDocument(self._document)
+        page.fill_translations(filler)
         self._carry_fields()
         self._carry_latex()
-        return {"units": filler.pending(), "latex": self._missing_latex()}
+        return {"units": filler.pending(page.unit_paths()), "latex": self._missing_latex()}
 
     def _carry_fields(self):
         """Başlık, kesit ve kartlar eski sayfadan gelir; bölümün Türkçesi yoksa bölüm de. Eski sayfanın

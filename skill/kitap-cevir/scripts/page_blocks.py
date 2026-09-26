@@ -27,9 +27,10 @@ class Block:
     def units(self):
         return [unit for _, unit in self.unit_paths()]
 
-    def fill(self, filler, path):
-        for suffix, unit in self.unit_paths():
-            filler.fill_unit(unit, path + suffix)
+    def fill(self, filler):
+        """Birimlere eski çevirileri yazar; çeviriyi dolduran (migrate_match.TranslationFiller) söyler."""
+        for unit in self.units():
+            unit["tr"] = filler.translation(unit["en"])
 
     def card_unit(self):
         """Kart agent'ının okuyacağı tek {type, en, tr} birimi; metni yoksa boş."""
@@ -91,8 +92,10 @@ class ParaBlock(Block):
     def unit_paths(self):
         return [(f".sentences[{index}]", sentence) for index, sentence in enumerate(self._data["sentences"])]
 
-    def fill(self, filler, path):
-        self._data["sentences"] = filler.fill_sentences(self._data["sentences"], path)
+    def fill(self, filler):
+        """Eski bir birime eşit ardışık cümleler önce tek cümle olur."""
+        self._data["sentences"] = filler.merged_sentences(self._data["sentences"])
+        super().fill(filler)
 
     def anchor_text(self):
         return self._joined("en")

@@ -9,7 +9,6 @@ Eşleşmeyen birimler `pending` listesine düşer (küçük bir çeviri geçişi
 import re
 
 from extraction.text_utils import clean_ligatures, normalize_spaces
-from page_blocks import Block
 from page_document import PageDocument
 
 MAX_JOIN = 4
@@ -75,41 +74,34 @@ def _windows(units, start):
 
 
 class TranslationFiller:
-    """Yeni birimlere eski çevirileri yazar; bulunamayanlar pending'e düşer. Blok türleri onu
-    Block.fill üzerinden birim birim çağırır."""
+    """Yeni birimin eski çevirisini söyler; birime yazmak bloğun işidir (Block.fill). Çevirisi boş kalan
+    birimler doldurmadan sonra pending'den okunur."""
 
     def __init__(self, translations):
         self._translations = translations
-        self._pending = []
 
-    def pending(self):
-        """Çevirisi bulunamayan ya da yer tutucusu eksik kalan birimler: {path, en, tr_hint}."""
-        return list(self._pending)
+    def translation(self, en):
+        """Birime yazılacak çeviri; metin yoksa, çeviri bulunamazsa ya da yer tutucu eksikse boş."""
+        if not _has_text(en):
+            return ""
+        translation = self._old_translation(en)
+        return translation if _keeps_placeholders(en, translation) else ""
 
-    def fill_block(self, block, path):
-        Block.of(block).fill(self, path)
-
-    def fill_unit(self, unit, path):
-        """Birime tr yazar; bulunamazsa ya da yer tutucu eksikse tr boş kalır, birim pending'e düşer."""
-        if not (unit["en"] or "").strip():
-            unit["tr"] = ""
-            return
-        translation = self._translation(unit["en"])
-        unit["tr"] = translation if _keeps_placeholders(unit["en"], translation) else ""
-        if not unit["tr"]:
-            self._pending.append({"path": path, "en": unit["en"], "tr_hint": translation})
-
-    def fill_sentences(self, sentences, path):
+    def merged_sentences(self, sentences):
         """Ardışık yeni cümlelerin birleşimi eski bir birime eşitse tek cümle olur."""
         merged, index = [], 0
         while index < len(sentences):
             unit, taken = self._merge_run(sentences, index)
-            self.fill_unit(unit, f"{path}.sentences[{len(merged)}]")
             merged.append(unit)
             index += taken
         return merged
 
-    def _translation(self, en):
+    def pending(self, unit_paths):
+        """Doldurulmuş (yol, birim) çiftlerinden metni olup çevirisi boş kalanlar: {path, en, tr_hint}."""
+        return [{"path": path, "en": unit["en"], "tr_hint": self._old_translation(unit["en"])}
+                for path, unit in unit_paths if _has_text(unit["en"]) and not unit["tr"]]
+
+    def _old_translation(self, en):
         """Eski çeviri; bulunamazsa ve hücre yalnız sayıysa İngilizcesi aynen kalır."""
         translation = self._translations.lookup(en)
         if not translation and NUMERIC_CELL.match(en):
@@ -126,6 +118,10 @@ class TranslationFiller:
             if self._translations.lookup_single(joined):
                 return {**sentences[index], "en": joined}, count
         return sentences[index], 1
+
+
+def _has_text(en):
+    return bool((en or "").strip())
 
 
 def _keeps_placeholders(en, translation):

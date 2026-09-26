@@ -32,10 +32,6 @@ OLD_PAGE = {
 }
 
 
-def _pending(filler):
-    return filler.pending()
-
-
 COMPLETE_DOCUMENT = {"id": "page-9", "page": PAGE, "pdf_page": PAGE, "chapter": {"num": 1, "en": "One", "tr": "Bir"},
                      "blocks": [{"type": "heading", "level": 1, "en": "Coupling"}]}
 
@@ -88,58 +84,57 @@ class TranslationsTest(unittest.TestCase):
 
 
 class TranslationFillerTest(unittest.TestCase):
-    def test_found_translation_is_written(self):
-        unit, filler = {"en": "Coupling"}, TranslationFiller(Translations.of_page(OLD_PAGE, {}))
-        filler.fill_unit(unit, "p")
-        self.assertEqual(unit["tr"], "Bağlılık")
+    def test_found_translation_is_given(self):
+        self.assertEqual(TranslationFiller(Translations.of_page(OLD_PAGE, {})).translation("Coupling"), "Bağlılık")
 
-    def test_blank_unit_gets_an_empty_translation(self):
-        unit, filler = {"en": "  "}, TranslationFiller(Translations([]))
-        filler.fill_unit(unit, "p")
-        self.assertEqual((unit["tr"], _pending(filler)), ("", []))
+    def test_blank_unit_has_an_empty_translation(self):
+        self.assertEqual(TranslationFiller(Translations([])).translation("  "), "")
 
     def test_numeric_cell_copies_english(self):
-        unit, filler = {"en": "42 %"}, TranslationFiller(Translations([]))
-        filler.fill_unit(unit, "p")
-        self.assertEqual((unit["tr"], _pending(filler)), ("42 %", []))
+        self.assertEqual(TranslationFiller(Translations([])).translation("42 %"), "42 %")
 
     def test_numeric_cell_keeps_its_old_translation(self):
-        unit, filler = {"en": "42 %"}, TranslationFiller(Translations([_unit("42 %", "%42")]))
-        filler.fill_unit(unit, "p")
-        self.assertEqual(unit["tr"], "%42")
+        self.assertEqual(TranslationFiller(Translations([_unit("42 %", "%42")])).translation("42 %"), "%42")
 
-    def test_unmatched_unit_goes_to_pending(self):
-        unit, filler = {"en": "Brand new."}, TranslationFiller(Translations([]))
-        filler.fill_unit(unit, "blocks[3]")
-        self.assertEqual((unit["tr"], _pending(filler)),
-                         ("", [{"path": "blocks[3]", "en": "Brand new.", "tr_hint": ""}]))
+    def test_unmatched_unit_has_an_empty_translation(self):
+        self.assertEqual(TranslationFiller(Translations([])).translation("Brand new."), "")
 
-    def test_translation_missing_placeholder_goes_to_pending(self):
+    def test_translation_missing_the_placeholder_is_not_given(self):
         filler = TranslationFiller(Translations([_unit("Loss is ⟦eq-1⟧.", "Kayıp budur.")]))
-        filler.fill_unit({"en": "Loss is ⟦eq-1⟧."}, "p")
-        self.assertEqual(_pending(filler)[0]["tr_hint"], "Kayıp budur.")
+        self.assertEqual(filler.translation("Loss is ⟦eq-1⟧."), "")
+
+
+class PendingTest(unittest.TestCase):
+    def test_untranslated_unit_is_pending(self):
+        pending = TranslationFiller(Translations([])).pending([("blocks[3]", _unit("Brand new.", ""))])
+        self.assertEqual(pending, [{"path": "blocks[3]", "en": "Brand new.", "tr_hint": ""}])
+
+    def test_translated_unit_is_not_pending(self):
+        self.assertEqual(TranslationFiller(Translations([])).pending([("p", _unit("A.", "Bir."))]), [])
+
+    def test_blank_unit_is_not_pending(self):
+        self.assertEqual(TranslationFiller(Translations([])).pending([("p", _unit("  ", ""))]), [])
+
+    def test_old_translation_missing_the_placeholder_is_the_hint(self):
+        filler = TranslationFiller(Translations([_unit("Loss is ⟦eq-1⟧.", "Kayıp budur.")]))
+        self.assertEqual(filler.pending([("p", _unit("Loss is ⟦eq-1⟧.", ""))])[0]["tr_hint"], "Kayıp budur.")
 
 
 class SentenceMergeTest(unittest.TestCase):
     def test_new_split_sentences_are_merged_back(self):
         filler = TranslationFiller(Translations.of_page(OLD_PAGE, {}))
-        merged = filler.fill_sentences([{"en": "Whole sentence"}, {"en": "split later."}], "blocks[0]")
-        self.assertEqual(merged, [_unit("Whole sentence split later.", "Sonra bölünen tüm cümle.")])
+        merged = filler.merged_sentences([{"en": "Whole sentence"}, {"en": "split later."}])
+        self.assertEqual(merged, [{"en": "Whole sentence split later."}])
 
     def test_sentence_found_alone_is_not_merged(self):
         filler = TranslationFiller(Translations([_unit("A.", "bir"), _unit("A. B.", "bir iki")]))
-        merged = filler.fill_sentences([{"en": "A."}, {"en": "B."}], "blocks[0]")
+        merged = filler.merged_sentences([{"en": "A."}, {"en": "B."}])
         self.assertEqual([sentence["en"] for sentence in merged], ["A.", "B."])
 
     def test_longest_join_is_tried_first(self):
         filler = TranslationFiller(Translations([_unit("A B", "ab"), _unit("A B C", "abc")]))
-        merged = filler.fill_sentences([{"en": "A"}, {"en": "B"}, {"en": "C"}], "blocks[0]")
-        self.assertEqual(merged, [_unit("A B C", "abc")])
-
-    def test_merged_sentences_are_numbered_again(self):
-        filler = TranslationFiller(Translations([_unit("A B", "ab")]))
-        filler.fill_sentences([{"en": "A"}, {"en": "B"}, {"en": "Yeni."}], "blocks[0]")
-        self.assertEqual(_pending(filler)[0]["path"], "blocks[0].sentences[1]")
+        merged = filler.merged_sentences([{"en": "A"}, {"en": "B"}, {"en": "C"}])
+        self.assertEqual(merged, [{"en": "A B C"}])
 
 
 def _new_document():
