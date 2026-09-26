@@ -21,7 +21,7 @@ class TranslatedPagesTest(unittest.TestCase):
 
     def test_saved_page_is_read_back_by_its_number(self):
         self.pages.save(PageDocument(PAGE))
-        self.assertEqual(self.pages.get(PAGE_NUMBER).data, PAGE)
+        self.assertEqual(self.pages.get(PAGE_NUMBER).as_json(), PAGE)
 
     def test_page_number_comes_from_the_document(self):
         self.assertEqual(self.pages.save(PageDocument(PAGE)), self.project.page_js(PAGE_NUMBER))
@@ -32,7 +32,7 @@ class TranslatedPagesTest(unittest.TestCase):
 
     def test_agent_only_fields_do_not_reach_the_reader(self):
         self.pages.save(PageDocument({**PAGE, "context": {"prev_tail": "gizli"}}))
-        self.assertNotIn("context", self.pages.get(PAGE_NUMBER).data)
+        self.assertNotIn("context", self.pages.get(PAGE_NUMBER).as_json())
 
     def test_page_file_is_a_reader_callback(self):
         with open(self.pages.save(PageDocument(PAGE)), encoding="utf-8") as page_js:

@@ -101,6 +101,11 @@ class PageQueriesTest(unittest.TestCase):
                        {"type": "math", "src": "eq-1.png", "latex": ""}, PARA],
             "math": [{"id": "eq-2", "src": "eq-2.png", "latex": ""}]}
 
+    def test_json_is_a_copy_of_the_page(self):
+        document = PageDocument(self.PAGE)
+        document.as_json()["blocks"].clear()
+        self.assertEqual(document.as_json(), self.PAGE)
+
     def test_unit_paths_start_at_the_page(self):
         [(first_path, _), *_] = PageDocument({"blocks": [CODE, TABLE]}).unit_paths()
         self.assertEqual(first_path, "blocks[1].rows[0][0]")

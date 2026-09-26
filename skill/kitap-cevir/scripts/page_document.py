@@ -1,6 +1,7 @@
 """Çevrilmiş sayfa belgesi: bloklar, çevrilecek metin birimleri, görseller ve denklemler.
 Şema: references/FORMAT.md; dosyaya okunup yazılması translated_pages'tedir.
 """
+import copy
 from collections import Counter
 
 from page_blocks import Block
@@ -12,6 +13,10 @@ class PageDocument:
 
     def __init__(self, data):
         self.data = data
+
+    def as_json(self):
+        """Diske yazılacak sözlüğün kopyası; belge yalnız kendi metotlarıyla değişir."""
+        return copy.deepcopy(self.data)
 
     def number(self):
         return self.data["page"]

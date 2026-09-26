@@ -25,7 +25,7 @@ class TranslatedPages:
         path = self._project.page_js(document.number())
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as handle:
-            handle.write(_page_js(document.data))
+            handle.write(_page_js(document.as_json()))
         return path
 
     def images_dir(self, page):
