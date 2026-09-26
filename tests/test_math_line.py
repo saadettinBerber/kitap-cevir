@@ -1,9 +1,8 @@
 """Satırın denklem fontundaki ve düz metindeki parçaları (SpanRun, MathLine).
 Parçalar metin sırasıyla verilir; kutuları bu kurallarda rol oynamaz, hepsi aynı satır kutusundadır."""
-import dataclasses
 import unittest
 
-from pdf_fakes import SIZE, in_font, span
+from pdf_fakes import SIZE, in_font, sized, span
 from extraction.equations.math_line import SIMPLE_MAX_SPANS, MathLine, MathRun, SpanRun
 
 MATH_FONT = "Helvetica-Oblique"
@@ -22,10 +21,6 @@ def _math(text):
 
 def _prose(text):
     return span(text, LINE_BOX)
-
-
-def _sized(size, piece):
-    return dataclasses.replace(piece, size=size)
 
 
 def _neighbours(*spans):
@@ -49,10 +44,10 @@ class SimpleRunTest(unittest.TestCase):
         self.assertFalse(MathRun([_math("x")] * (SIMPLE_MAX_SPANS + 1)).is_simple())
 
     def test_sizes_equal_to_a_tenth_are_one_size(self):
-        self.assertTrue(MathRun([_math("x"), _sized(SIZE + PRINT_NOISE, _math("y"))]).is_simple())
+        self.assertTrue(MathRun([_math("x"), sized(SIZE + PRINT_NOISE, _math("y"))]).is_simple())
 
     def test_sizes_a_tenth_apart_are_two_sizes(self):
-        self.assertFalse(MathRun([_math("x"), _sized(SIZE + SIZE_STEP, _math("y"))]).is_simple())
+        self.assertFalse(MathRun([_math("x"), sized(SIZE + SIZE_STEP, _math("y"))]).is_simple())
 
     def test_run_text_has_single_spaces(self):
         self.assertEqual(MathRun([_math("π "), _math(" r")]).text, "π r")

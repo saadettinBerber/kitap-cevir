@@ -28,7 +28,7 @@ BODY = sized(BODY_SIZE, span("Body text far below the table, spanning columns.",
 
 
 def _bold(line):
-    return tuple(dataclasses.replace(piece, font=BOLD) for piece in line)
+    return tuple(in_font(BOLD, piece) for piece in line)
 
 
 def _cell_row(y0, texts):

@@ -3,7 +3,7 @@ sayfa sonuna düşen parça ve sayfayı açan başlıksız devam."""
 import dataclasses
 import unittest
 
-from pdf_fakes import PAGE_HEIGHT, SIZE, FakePdfPage, fill, span
+from pdf_fakes import PAGE_HEIGHT, SIZE, FakePdfPage, fill, in_font, sized, span
 from extraction.pdf.geometry import Box
 from extraction.settings import DEFAULT_EXTRACTION, with_defaults
 from extraction.tables.aligned_tables import COLUMN_GUTTER, AlignedTableFinder, SpanRow, TableColumns
@@ -26,12 +26,8 @@ def _span(text, origin):
     return span(text, (x, y, x + CHAR_WIDTH * len(text), y + LINE_HEIGHT))
 
 
-def _in_font(font, pieces):
-    return [dataclasses.replace(piece, font=font) for piece in pieces]
-
-
 def _bold(pieces):
-    return _in_font(BOLD, pieces)
+    return [in_font(BOLD, piece) for piece in pieces]
 
 
 def _shifted(shift, piece):
@@ -140,7 +136,7 @@ class AlignedTableFinderTest(unittest.TestCase):
 
 def _first_row_with_a_mark(size):
     """Üç gövde satırlı tablo; ilk gövde satırının ikinci hücresinin sonunda size puntolu "a" var."""
-    mark = dataclasses.replace(_span("a", (MARK_X, FIRST_ROW_Y + ROW_GAP)), size=size)
+    mark = sized(size, _span("a", (MARK_X, FIRST_ROW_Y + ROW_GAP)))
     return _rows(_table_spans(3) + [mark])[1]
 
 
@@ -192,7 +188,7 @@ class ContinuedTableTest(unittest.TestCase):
         self.assertEqual(len(_rows(_continued_rows(3) + after)), 3)
 
     def test_styled_span_inside_a_cell_does_not_open_a_column(self):
-        italic_x = [_span("JDK 1.9.", (72, FIRST_ROW_Y)), *_in_font(ITALIC, [_span("x", (120, FIRST_ROW_Y))]),
+        italic_x = [_span("JDK 1.9.", (72, FIRST_ROW_Y)), in_font(ITALIC, _span("x", (120, FIRST_ROW_Y))),
                     _span("Java 1.9", (200, FIRST_ROW_Y))]
         rows = _rows(italic_x + _continued_rows(2, FIRST_ROW_Y + ROW_GAP))
         self.assertEqual(rows[0], [{"en": "JDK 1.9. x"}, {"en": "Java 1.9"}])

@@ -26,10 +26,6 @@ def _reaching(right, piece):
     return dataclasses.replace(piece, box=Box(piece.box.x0, piece.box.y0, right, piece.box.y1))
 
 
-def _sized(size, piece):
-    return dataclasses.replace(piece, size=size)
-
-
 def _right_at(fill):
     """Sütunun `fill` oranını dolduran satırın sağ kenarı."""
     return LEFT + (RIGHT - LEFT) * fill
@@ -53,22 +49,22 @@ class LinesTest(unittest.TestCase):
 
 class SuperscriptTest(unittest.TestCase):
     def test_span_below_the_ratio_is_a_superscript(self):
-        mark = _sized(MAIN_SIZE * SUPERSCRIPT_RATIO - STEP, _span("a", FIRST_LINE))
+        mark = sized(MAIN_SIZE * SUPERSCRIPT_RATIO - STEP, _span("a", FIRST_LINE))
         self.assertEqual(_cell(_span("Latency", FIRST_LINE), mark).unit(), {"en": "Latency<sup>a</sup>", "html": True})
 
     def test_span_at_the_ratio_is_text(self):
-        mark = _sized(MAIN_SIZE * SUPERSCRIPT_RATIO, _span("a", FIRST_LINE))
+        mark = sized(MAIN_SIZE * SUPERSCRIPT_RATIO, _span("a", FIRST_LINE))
         self.assertEqual(_cell(_span("Latency", FIRST_LINE), mark).unit(), {"en": "Latency a"})
 
     def test_lines_stay_joined_with_spaces_before_the_superscripts(self):
-        mark = _sized(MAIN_SIZE / 2, _span("a", FIRST_LINE))
+        mark = sized(MAIN_SIZE / 2, _span("a", FIRST_LINE))
         self.assertEqual(_cell(_span("one", FIRST_LINE), _span("two", SECOND_LINE), mark).unit(),
                          {"en": "one two<sup>a</sup>", "html": True})
 
 
 class MultilineTest(unittest.TestCase):
     def test_superscript_on_its_own_line_makes_the_cell_multiline(self):
-        mark = _sized(MAIN_SIZE / 2, _span("a", SECOND_LINE))
+        mark = sized(MAIN_SIZE / 2, _span("a", SECOND_LINE))
         self.assertTrue(_cell(_span("one", FIRST_LINE), mark).is_multiline())
 
 
