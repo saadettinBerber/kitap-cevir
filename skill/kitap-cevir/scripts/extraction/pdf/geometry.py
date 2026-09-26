@@ -16,50 +16,6 @@ class Box:
     x1: float
     y1: float
 
-    @classmethod
-    def enclosing(cls, boxes):
-        return enclosing(boxes)
-
-    @property
-    def width(self):
-        return width(self)
-
-    @property
-    def height(self):
-        return height(self)
-
-    def is_empty(self):
-        return is_empty(self)
-
-    def union(self, other):
-        return union(self, other)
-
-    def expanded(self, margin):
-        return expanded(self, margin)
-
-    def contains(self, other):
-        return contains(self, other)
-
-    def contains_point(self, x, y):
-        return contains_point(self, (x, y))
-
-    def intersects(self, other):
-        return intersects(self, other)
-
-    def vertical_overlap(self, other):
-        return vertical_overlap(self, other)
-
-    def vertical_gap(self, other):
-        return vertical_gap(self, other)
-
-    @property
-    def center_x(self):
-        return center_x(self)
-
-    @property
-    def center_y(self):
-        return center_y(self)
-
 
 def width(box):
     return box.x1 - box.x0
