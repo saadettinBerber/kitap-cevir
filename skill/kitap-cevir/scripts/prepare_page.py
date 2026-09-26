@@ -85,8 +85,8 @@ class PreparationReport:
     """Hazırlanan girdilerin kullanıcıya özeti; denklem notu çevirmenin görsel okuyup
     okuyamadığına bağlıdır."""
 
-    def __init__(self, has_vision):
-        self._has_vision = has_vision
+    def __init__(self, settings):
+        self._settings = settings
 
     def show(self, prepared):
         if not prepared:
@@ -104,7 +104,7 @@ class PreparationReport:
             print(f"    denklem: {entry['math']} PNG — {self._math_note()}")
 
     def _math_note(self):
-        if self._has_vision:
+        if self._settings.translator_has_vision():
             return "çevirmen PNG'leri okuyup `latex` alanlarını doldursun"
         return "translator.vision=false: `latex` boş kalır, okuyucu PNG gösterir"
 
@@ -128,8 +128,7 @@ def main():
     project = Project.discover()
     preparer = PagePreparer.for_project(project)
     prepared = _prepare_next(preparer, count) if spec in NEXT_ALIASES else _prepare_one(preparer, spec)
-    settings = project.load_settings()
-    PreparationReport(settings.translator_has_vision()).show(prepared)
+    PreparationReport(project.load_settings()).show(prepared)
 
 
 if __name__ == "__main__":
