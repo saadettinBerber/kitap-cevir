@@ -269,7 +269,7 @@ python3 $SKILL/scripts/export_epub.py      # → dist/<slug>.epub
 | Kod paragraf olarak geliyor, başlıklar yanlış | `references/extraction.md` → `layout` ile ölç, `extraction` ayarla |
 | Denklem kayboluyor / `latex` boş | Denklem fontu Type3 değilse `references/extraction.md` → `math_font_prefix`; çevirmen görsel okuyamıyorsa `translator.vision` = `false` (PNG her zaman gösterilir) |
 | Tablonun bütün satırları tek hücrede `<br>` ile birleşik | `table_row_gap_ratio` kitaba göre ölçülmeli (`references/extraction.md`) |
-| Sayfadan koca bir bölüm (tablo, başlık, paragraf) eksik | ODL caption'ı liste sanıp altına gömmüş olabilir; `flatten_nested_lists` bunu açar, açmıyorsa ham ODL çıktısına bak |
+| Sayfadan koca bir bölüm (tablo, başlık, paragraf) eksik | ODL caption'ı liste sanıp altına gömmüş olabilir; `LayoutFixer` bunu açar, açmıyorsa ham ODL çıktısına bak |
 | Tablo düz metin olarak geliyor | Dolgulu (zebra), kenarlık çizgili ve kalın başlıklı sütun hizalı tablolar (sayfaya bölünmüşleri dahil) otomatik yakalanır. Geri kalanı elle `table` bloğuna çevrilir (`references/extraction.md` belirti tablosu) |
 | Sayfanın ilk paragrafı çıkarımda yok | Kitapta koşu başlığı yok: `extraction.running_header` = `"none"` |
 | Kod listelerinin üstünde "Click here to view code image" | E-kitap bağlantısı: `extraction.code_image_link_pattern` = `"Click here to view code image"` |
