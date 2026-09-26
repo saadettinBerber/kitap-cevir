@@ -46,7 +46,8 @@ class TableCell:
 
 
 class CellText:
-    """Hücreye düşen metin parçaları, satırın ana puntosuna göre ayrılmış: metin satırları ve üst simgeler."""
+    """Hücreye düşen metin parçaları, satırın ana puntosuna göre ayrılmış: metin satırları ve
+    üst simgeler."""
 
     def __init__(self, spans, main_size):
         self._spans = spans
