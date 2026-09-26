@@ -30,7 +30,7 @@ class PageExtractor:
 
     def __init__(self, settings, layout_reader):
         self._settings = settings
-        self.layout_reader = layout_reader
+        self._layout_reader = layout_reader
         self._zones = PageZones(self._settings)
         self._tables = TableScanner(self._settings)
         self._text_layer = LayoutScanner(self._settings)
@@ -42,7 +42,7 @@ class PageExtractor:
 
     def extract(self, page, image_dir):
         """page: PdfPage → {blocks, running_header, math}; görseller image_dir'e yazılır."""
-        header, body = self._zones.split(self.layout_reader.read(page, image_dir))
+        header, body = self._zones.split(self._layout_reader.read(page, image_dir))
         layout = self._text_layer.scan(page)
         math = MathScanner(self._settings, page, image_dir).scan()
         regions = PageRegions.of(self._tables.scan(page) + math["display"], self._code_regions(layout))
