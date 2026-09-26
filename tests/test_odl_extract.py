@@ -19,6 +19,8 @@ PAGE_TOP_Y = (70, 80, 430, 100)
 HEADER_ZONE_Y = (70, 160, 430, 180)
 ABOVE_PAGE_TOP_Y = (70, 60, 430, 80)
 JUST_ABOVE_FOOTER_Y = (70, 740, 430, 752)
+FOOTER_LINE = PAGE_HEIGHT - FOOTER_TOP
+LINE_HEIGHT = 10
 
 
 BODY_FONT_SIZE = 10.5
@@ -27,6 +29,10 @@ STEP = 0.1
 
 def _element(content, box):
     return dataclasses.replace(element(content, box), font_size=BODY_FONT_SIZE)
+
+
+def _starting_at(top):
+    return (BODY_Y[0], top, BODY_Y[2], top + LINE_HEIGHT)
 
 
 def _split(zones, elements):
@@ -86,6 +92,10 @@ class BottomRunningHeaderTest(unittest.TestCase):
         header, _ = _split(PageZones(BOTTOM_HEADER), [_element("1", FOOTER_Y)])
         self.assertIsNone(header)
 
+    def test_element_starting_on_the_footer_line_is_no_header(self):
+        header, _ = _split(PageZones(BOTTOM_HEADER), [_element(self.FOOTER, _starting_at(FOOTER_LINE))])
+        self.assertIsNone(header)
+
     def test_top_header_is_unchanged_by_default(self):
         top = _element("Chapter 3: Modularity 41", HEADER_ZONE_Y)
         header, _ = _split(PageZones(DEFAULTS), [top, _element("Body", BODY_Y)])
@@ -134,6 +144,15 @@ class NoRunningHeaderTest(unittest.TestCase):
         closing = _element("Last line", JUST_ABOVE_FOOTER_Y)
         _, body = _split(PageZones(NO_HEADER), [closing])
         self.assertEqual(body, [closing])
+
+    def test_element_starting_on_the_footer_line_is_body(self):
+        closing = _element("Last line", _starting_at(FOOTER_LINE))
+        _, body = _split(PageZones(NO_HEADER), [closing])
+        self.assertEqual(body, [closing])
+
+    def test_element_starting_just_below_the_footer_line_is_footer(self):
+        _, body = _split(PageZones(NO_HEADER), [_element("21", _starting_at(FOOTER_LINE + STEP))])
+        self.assertEqual(body, [])
 
 
 class RunningHeaderSettingTest(unittest.TestCase):
