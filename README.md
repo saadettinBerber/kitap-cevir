@@ -67,10 +67,10 @@ skill/kitap-cevir/            ~/.claude/skills/kitap-cevir buraya bağlanır
 │   ├── migrate_match.py      eski en→tr eşleşmelerini yeni birimlere bulur
 │   ├── epub/                 Kindle için EPUB 3 (disk bilmez; BookExport besler)
 │   │   ├── block_visitor.py  EpubBlockVisitor: blok → akış parçası (Block.accept ziyaretçisi)
-│   │   ├── fragments.py      Passage, ParaPassage, PassageList, Heading: Türkçe akış + EN açılır not
+│   │   ├── fragments.py      Passage, Paragraph, BodyParagraph, PassageList, Heading: Türkçe akış + EN açılır not
 │   │   ├── chapter.py        ChapterFlow, Chapter: sayfalar tek akış, bölünen paragraf birleşir
 │   │   ├── cards.py          kavram kartları → bölüm sonu XHTML (veri yapısı + fonksiyon)
-│   │   ├── manifest.py       EpubMetadata, content.opf, nav.xhtml (içindekiler, sayfa listesi)
+│   │   ├── manifest.py       EpubMetadata, Manifest, content.opf, nav.xhtml (içindekiler, sayfa listesi)
 │   │   ├── package.py        EpubPackage: zip arşivi, XHTML iyi biçim denetimi
 │   │   └── xhtml.py          metin birimi → XHTML (kaçış, güvenli satır içi etiketler)
 │   └── extraction/           PDF sayfası → blok şeması

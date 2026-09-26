@@ -1,6 +1,7 @@
 """Bir bölümün EPUB dosyası: sayfaların tek akışı, sonunda kavram kartları ve açılır notlar."""
 from html import escape
 from itertools import accumulate
+from typing import NamedTuple
 
 from epub.block_visitor import EpubBlockVisitor
 from epub.cards import ChapterCards, PageCards
@@ -17,6 +18,13 @@ def page_mark(page):
     return PAGE_MARK.format(n=page)
 
 
+class PageFragments(NamedTuple):
+    """Basılı bir sayfanın akışa giren parçaları: gövde ve sayfanın sonuna eklenen kart satırı."""
+    number: int
+    body: list
+    end: tuple = ()
+
+
 class ChapterFlow:
     """Sayfalar tek akışa dizilir; sayfa sonunda yarım kalan paragraf devamıyla birleşir.
     Sayfa sonu eki (kart satırı) bu birleşmeyi kırmasın diye sonraki sayfa gelene dek bekler."""
@@ -25,12 +33,9 @@ class ChapterFlow:
         self._fragments = []
         self._page_end = []
 
-    def add_page(self, page, fragments):
-        self._place(page, fragments)
-        self._page_end = []
-
-    def end_page(self, fragments):
-        self._page_end = fragments
+    def add_page(self, page):
+        self._place(page)
+        self._page_end = list(page.end)
 
     def english(self):
         return [en for fragment in self._flow() for en in fragment.english()]
@@ -45,21 +50,21 @@ class ChapterFlow:
     def _flow(self):
         return self._fragments + self._page_end
 
-    def _place(self, page, fragments):
-        if self._is_continued_by(fragments):
-            self._continue_paragraph(page, fragments)
+    def _place(self, page):
+        if self._is_continued_by(page.body):
+            self._continue_paragraph(page)
         else:
-            self._start_page(page, fragments)
+            self._start_page(page)
 
-    def _is_continued_by(self, fragments):
-        return bool(fragments and self._fragments) and self._fragments[-1].continues_into(fragments[0])
+    def _is_continued_by(self, body):
+        return bool(body and self._fragments) and self._fragments[-1].continues_into(body[0])
 
-    def _continue_paragraph(self, page, fragments):
-        self._fragments[-1] = self._fragments[-1].join(fragments[0], page_mark(page))
-        self._fragments += self._page_end + fragments[1:]
+    def _continue_paragraph(self, page):
+        self._fragments[-1] = self._fragments[-1].join(page.body[0], page_mark(page.number))
+        self._fragments += self._page_end + page.body[1:]
 
-    def _start_page(self, page, fragments):
-        self._fragments += [*self._page_end, Fragment(page_mark(page)), *fragments]
+    def _start_page(self, page):
+        self._fragments += [*self._page_end, Fragment(page_mark(page.number)), *page.body]
 
     def _first_note_numbers(self):
         """Her parçanın ilk not numarası; numaralar bölüm boyunca sürer."""
@@ -79,12 +84,10 @@ class Chapter:
 
     def add(self, page_document):
         page = page_document.number()
+        cards = PageCards(page, page_document.concepts())
+        body = EpubBlockVisitor(page_document).fragments()
         self._pages.append(page)
-        self._flow.add_page(page, EpubBlockVisitor(page_document).fragments())
-        self._add_cards(PageCards(page, page_document.concepts()))
-
-    def _add_cards(self, cards):
-        self._flow.end_page(cards.page_end())
+        self._flow.add_page(PageFragments(page, body, cards.page_end()))
         self._cards.add(cards)
 
     def href(self, anchor=""):

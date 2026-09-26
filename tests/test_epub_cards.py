@@ -30,11 +30,14 @@ class CommonPartsTest(unittest.TestCase):
     def test_card_returns_to_its_card_line(self):
         self.assertIn(f'<a href="#kartlar-{PAGE}">s. {PAGE}</a>', _html(_card("explain")))
 
-    def test_explain_card_has_title_summary_and_tip(self):
-        html = _html(_card("explain"))
-        self.assertIn("<h3>başlık</h3>", html)
-        self.assertIn("<p>özet</p>", html)
-        self.assertIn("<strong>Pratik ipucu:</strong> ipucu", html)
+    def test_card_opens_with_its_title(self):
+        self.assertIn("<h3>başlık</h3>", _html(_card("explain")))
+
+    def test_card_carries_its_summary(self):
+        self.assertIn("<p>özet</p>", _html(_card("explain")))
+
+    def test_explain_card_labels_its_tip_as_practical(self):
+        self.assertIn("<strong>Pratik ipucu:</strong> ipucu", _html(_card("explain")))
 
     def test_card_is_turkish(self):
         self.assertNotIn("BAŞLIK", _html(_card("explain")))
@@ -52,11 +55,12 @@ class KindTest(unittest.TestCase):
         html = _html(card)
         self.assertIn('<p class="label">Önce</p><pre class="code"><code>a&lt;b</code></pre>', html)
 
-    def test_tradeoff_card_lists_gains_and_costs(self):
+    def test_tradeoff_card_lists_gains_of_an_option(self):
         option = {"name": _pair("seçenek"), "gains": _pair("kazanç"), "costs": _pair("bedel")}
-        html = _html(_card("tradeoff", options=[option]))
-        self.assertIn("<em>Kazandırır:</em> kazanç", html)
-        self.assertIn("<strong>Ne zaman hangisi:</strong>", html)
+        self.assertIn("<em>Kazandırır:</em> kazanç", _html(_card("tradeoff", options=[option])))
+
+    def test_tradeoff_card_labels_its_tip_as_when_to_choose(self):
+        self.assertIn("<strong>Ne zaman hangisi:</strong>", _html(_card("tradeoff", options=[])))
 
     def test_contrast_side_explains_why(self):
         card = _card("contrast", bad={"text": _pair("kötü"), "why": _pair("çünkü")}, good={"text": _pair("iyi")})

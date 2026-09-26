@@ -1,6 +1,5 @@
 import contextlib
 import io
-import json
 import os
 import tempfile
 import unittest
@@ -13,28 +12,27 @@ from epub.package import EpubPackage
 from export_epub import BookExport, chapters_of
 from page_document import PageDocument
 from project import Project
+from translated_pages import TranslatedPages
 
 BOOK = {"slug": "demo", "title": "Demo", "author": "Yazar"}
 MODIFIED = datetime(2026, 9, 25, tzinfo=timezone.utc)
+CHAPTER = 1
+IMAGE = "a.png"
+MISSING_IMAGE = "yok.png"
+ILLUSTRATED_PAGE, LEFT_OUT_PAGE, PAGE_WITHOUT_IMAGE_FILE = 1, 2, 3
+EXPORTED_PAGES = [ILLUSTRATED_PAGE, PAGE_WITHOUT_IMAGE_FILE]
 
 
-def _document(page, chapter_num, blocks=()):
-    chapter = {"num": chapter_num, "en": f"C{chapter_num}", "tr": f"B{chapter_num}"}
-    return PageDocument({"page": page, "chapter": chapter, "blocks": list(blocks)})
+def _chapter(chapter_num):
+    return {"num": chapter_num, "en": f"C{chapter_num}", "tr": f"B{chapter_num}"}
 
 
-class _Pages:
-    """TranslatedPages sahtesi: belgeler bellekte, görsel klasörü geçici dizinde."""
+def _document(page, chapter_num):
+    return PageDocument({"page": page, "chapter": _chapter(chapter_num), "blocks": []})
 
-    def __init__(self, documents, images_root):
-        self.documents = {document.number(): document for document in documents}
-        self.images_root = images_root
 
-    def get(self, page):
-        return self.documents[page]
-
-    def images_dir(self, page):
-        return os.path.join(self.images_root, f"page-{page}_images")
+def _illustrated(page, src):
+    return PageDocument({"page": page, "chapter": _chapter(CHAPTER), "blocks": [{"type": "image", "src": src}]})
 
 
 class ChaptersOfTest(unittest.TestCase):
@@ -52,43 +50,48 @@ class ChaptersOfTest(unittest.TestCase):
 
 class BookExportTest(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(self.tmp.cleanup)
-        progress = {"book": BOOK, "book_pdf": "b.pdf", "pdf_offset": 0, "book_total_pages": 3,
-                    "last_translated_page": 3, "chapters": [],
-                    "pages": {"1": {"chapter": 1}, "2": {"blank": True}, "3": {"chapter": 1}}}
-        with open(os.path.join(self.tmp.name, "progress.json"), "w", encoding="utf-8") as handle:
-            json.dump(progress, handle)
-        image = {"type": "image", "src": "a.png"}
-        documents = [_document(1, 1, [image]), _document(3, 1, [{"type": "image", "src": "yok.png"}])]
-        self.pages = _Pages(documents, self.tmp.name)
-        os.makedirs(self.pages.images_dir(1))
-        with open(os.path.join(self.pages.images_dir(1), "a.png"), "wb") as handle:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.pages = TranslatedPages(Project(tmp.name))
+        self.epub_path = os.path.join(tmp.name, "dist", "demo.epub")
+        self._save_pages()
+
+    def _save_pages(self):
+        for document in (_illustrated(ILLUSTRATED_PAGE, IMAGE), _document(LEFT_OUT_PAGE, CHAPTER),
+                         _illustrated(PAGE_WITHOUT_IMAGE_FILE, MISSING_IMAGE)):
+            self.pages.save(document)
+        os.makedirs(self.pages.images_dir(ILLUSTRATED_PAGE))
+        with open(os.path.join(self.pages.images_dir(ILLUSTRATED_PAGE), IMAGE), "wb") as handle:
             handle.write(b"png")
 
     def _export(self):
+        """Paketi yazar; stderr'e düşen uyarıları döner."""
         package = EpubPackage(EpubMetadata.for_book(BOOK, MODIFIED), "")
         with contextlib.redirect_stderr(io.StringIO()) as warnings:
-            path = BookExport(Project(self.tmp.name), self.pages).write(package)
-        return path, warnings.getvalue()
+            BookExport(self.pages, self.epub_path).write(package, EXPORTED_PAGES)
+        return warnings.getvalue()
 
-    def test_epub_is_written_under_dist_with_the_slug(self):
-        path, _ = self._export()
-        self.assertEqual(path, os.path.join(self.tmp.name, "dist", "demo.epub"))
+    def _exported_files(self):
+        self._export()
+        with zipfile.ZipFile(self.epub_path) as archive:
+            return {name: archive.read(name) for name in archive.namelist()}
 
-    def test_blank_page_is_left_out(self):
-        path, _ = self._export()
-        chapter = zipfile.ZipFile(path).read("OEBPS/text/chapter-01.xhtml").decode("utf-8")
-        self.assertNotIn('id="page-2"', chapter)
+    def test_epub_is_written_to_the_given_path(self):
+        self._export()
+        self.assertTrue(zipfile.is_zipfile(self.epub_path))
+
+    def test_page_not_given_is_left_out(self):
+        chapter = self._exported_files()["OEBPS/text/chapter-01.xhtml"].decode("utf-8")
+        self.assertNotIn(f'id="page-{LEFT_OUT_PAGE}"', chapter)
 
     def test_present_image_is_packed(self):
-        path, _ = self._export()
-        self.assertEqual(zipfile.ZipFile(path).read("OEBPS/images/page-1/a.png"), b"png")
+        self.assertEqual(self._exported_files()[f"OEBPS/images/page-{ILLUSTRATED_PAGE}/{IMAGE}"], b"png")
 
-    def test_missing_image_is_reported_and_skipped(self):
-        path, warnings = self._export()
-        self.assertIn("yok.png", warnings)
-        self.assertNotIn("OEBPS/images/page-3/yok.png", zipfile.ZipFile(path).namelist())
+    def test_missing_image_is_reported(self):
+        self.assertIn(MISSING_IMAGE, self._export())
+
+    def test_missing_image_is_skipped(self):
+        self.assertNotIn(f"OEBPS/images/page-{PAGE_WITHOUT_IMAGE_FILE}/{MISSING_IMAGE}", self._exported_files())
 
 
 if __name__ == "__main__":

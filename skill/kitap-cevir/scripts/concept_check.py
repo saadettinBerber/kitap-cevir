@@ -1,30 +1,62 @@
 """Kavram kartlarını (concepts) kitabın kart ayarlarına göre denetler.
 
-Sorunlar metin listesi olarak döner; boş liste = kartlar geçerli. Kart türleri
-ve alanları: references/FORMAT.md → Kavram kartları. finalize_page.py ve
-regen_concepts.py kullanır.
+Sorunlar metin listesi olarak döner; boş liste = kartlar geçerli. Kart türleri ve alanları:
+references/FORMAT.md → Kavram kartları. Kart bir veri yapısıdır: türü Card.of'ta bulunur, türe
+özgü kurallar CardRules ziyaretçisindedir. Kart türleri sabit, kart üzerindeki işlemler (denetim,
+çizim) çoğalıyor; bu yüzden ortak kurallar sözlük üzerinde çalışan fonksiyonlardır (Bl.6).
 """
 from concept_cards import Card
 
-MIN_CARDS = 2
-MAX_CARDS = 4
-MIN_OPTIONS = 2
-MAX_OPTIONS = 3
 SIDES = ("bad", "good")
 COMMON_PAIRS = ("title", "summary", "tip")
 OPTION_FIELDS = ("name", "gains", "costs")
 _LANG_ALIASES = {"js": "javascript", "py": "python", "ts": "typescript"}
 
 
-def _missing_pair(unit, label):
-    if not isinstance(unit, dict):
-        return [f"{label} yok"]
-    return [f"{label}.{lang} boş" for lang in ("en", "tr") if not str(unit.get(lang, "")).strip()]
+class CountLimit:
+    """Bir listenin izinli uzunluğu; aralığın dışındaki liste tek bir sorun verir."""
+
+    def __init__(self, noun, bounds):
+        self._noun = noun
+        self._low, self._high = bounds
+
+    def problems(self, items):
+        if self._low <= len(items) <= self._high:
+            return []
+        return [f"{self._noun} sayısı {len(items)} ({self._low}-{self._high} olmalı)"]
 
 
-def _normal_lang(lang):
-    key = str(lang or "").lower()
-    return _LANG_ALIASES.get(key, key)
+CARD_LIMIT = CountLimit("kart", (2, 4))
+OPTION_LIMIT = CountLimit("options", (2, 3))
+
+
+class CardChecker:
+    """Bir sayfanın kartlarını kitabın kart ayarlarına göre denetler;
+    spec = BookSettings.concepts()."""
+
+    def __init__(self, spec):
+        self._allowed_kinds = spec["kinds"]
+        self._rules = CardRules(spec["code_langs"])
+
+    def problems(self, cards):
+        return CARD_LIMIT.problems(cards) + self._named_card_problems(cards) + _duplicate_ids(cards)
+
+    def _named_card_problems(self, cards):
+        """Her sorun kartın kimliğiyle başlar; kimliği olmayan kart sırasıyla anılır."""
+        names = [card.get("id") or f"#{index}" for index, card in enumerate(cards, 1)]
+        return [f"{name}: {problem}" for name, card in zip(names, cards) for problem in self._card_problems(card)]
+
+    def _card_problems(self, card):
+        typed = Card.of(card)
+        if typed.kind() not in self._allowed_kinds:
+            return [f"tür {typed.kind()!r} bu kitapta izinli değil ({', '.join(self._allowed_kinds)})"]
+        return _common_problems(card) + typed.accept(self._rules)
+
+
+def _duplicate_ids(cards):
+    """Yalnız kimliği olan kartlar sayılır; kimliksiz kart zaten "id yok" diye raporlanır."""
+    ids = [card["id"] for card in cards if card.get("id")]
+    return [f"{card_id}: id tekrar ediyor" for index, card_id in enumerate(ids) if card_id in ids[:index]]
 
 
 def _common_problems(card):
@@ -33,15 +65,6 @@ def _common_problems(card):
     for field in COMMON_PAIRS:
         problems += _missing_pair(card.get(field), field)
     return problems
-
-
-def _duplicate_ids(cards):
-    seen, duplicates = set(), []
-    for card in cards:
-        if card.get("id") in seen:
-            duplicates.append(f"{card['id']}: id tekrar ediyor")
-        seen.add(card.get("id"))
-    return duplicates
 
 
 class CardRules:
@@ -63,9 +86,7 @@ class CardRules:
     def visit_tradeoff(self, card):
         """2-3 seçenek; her seçeneğin adı, kazancı ve bedeli vardır."""
         options = card.get("options") or []
-        count = [] if MIN_OPTIONS <= len(options) <= MAX_OPTIONS else [
-            f"options sayısı {len(options)} ({MIN_OPTIONS}-{MAX_OPTIONS} olmalı)"]
-        return count + [problem for index, option in enumerate(options, 1) for problem in _option_problems(option, index)]
+        return OPTION_LIMIT.problems(options) + _problems_per_option(options)
 
     def visit_contrast(self, card):
         return self._sided(card, _text_body_problems)
@@ -88,8 +109,13 @@ class CardRules:
         return []
 
 
-def _option_problems(option, index):
-    return [problem for field in OPTION_FIELDS for problem in _missing_pair(option.get(field), f"options[{index}].{field}")]
+def _problems_per_option(options):
+    return [problem for index, option in enumerate(options, 1) for problem in _missing_option_fields(option, index)]
+
+
+def _missing_option_fields(option, index):
+    return [problem for field in OPTION_FIELDS
+            for problem in _missing_pair(option.get(field), f"options[{index}].{field}")]
 
 
 def _samples(card):
@@ -104,25 +130,12 @@ def _text_body_problems(sample, side):
     return _missing_pair(sample.get("text"), f"{side}.text")
 
 
-class CardChecker:
-    """Bir sayfanın kartlarını kitabın kart ayarlarına göre denetler;
-    spec = BookSettings.concepts()."""
+def _missing_pair(unit, label):
+    if not isinstance(unit, dict):
+        return [f"{label} yok"]
+    return [f"{label}.{lang} boş" for lang in ("en", "tr") if not str(unit.get(lang, "")).strip()]
 
-    def __init__(self, spec):
-        self._allowed_kinds = spec["kinds"]
-        self._rules = CardRules(spec["code_langs"])
 
-    def problems(self, cards):
-        problems = []
-        if not MIN_CARDS <= len(cards) <= MAX_CARDS:
-            problems.append(f"kart sayısı {len(cards)} ({MIN_CARDS}-{MAX_CARDS} olmalı)")
-        for index, card in enumerate(cards, 1):
-            label = card.get("id") or f"#{index}"
-            problems += [f"{label}: {problem}" for problem in self._card_problems(card)]
-        return problems + _duplicate_ids(cards)
-
-    def _card_problems(self, card):
-        typed = Card.of(card)
-        if typed.kind() not in self._allowed_kinds:
-            return [f"tür {typed.kind()!r} bu kitapta izinli değil ({', '.join(self._allowed_kinds)})"]
-        return _common_problems(card) + typed.accept(self._rules)
+def _normal_lang(lang):
+    key = str(lang or "").lower()
+    return _LANG_ALIASES.get(key, key)

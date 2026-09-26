@@ -3,8 +3,8 @@ import unittest
 from xml.etree import ElementTree
 
 import _paths  # noqa: F401
-from epub.chapter import Chapter, ChapterFlow, page_mark
-from epub.fragments import Fragment, ParaPassage
+from epub.chapter import Chapter, ChapterFlow, PageFragments, page_mark
+from epub.fragments import BodyParagraph, Fragment, Passage
 from page_document import PageDocument
 
 CHAPTER = {"num": 2, "en": "Evaluation", "tr": "Değerlendirme"}
@@ -12,15 +12,16 @@ PAGE = 5
 RETURN_LINK = re.compile(r'class="card-page"><a href="#([^"]+)"')
 NEXT_PAGE = 6
 PAGE_END = "<p>ek</p>"
-CLOSED_PAGE = [ParaPassage("para", "Bitti.", "Done.")]
-OPEN_PAGE = [ParaPassage("para", "Bir", "of a")]
-NEXT_PAGE_PARAS = [ParaPassage("para", "Sonraki.", "Next.")]
-CONTINUATION = [ParaPassage("para", "model.", "model."), ParaPassage("para", "Sonraki.", "Next.")]
+CARD_LINE = (Fragment(PAGE_END),)
+CLOSED_PAGE = [BodyParagraph("para", Passage("Bitti.", "Done."))]
+OPEN_PAGE = [BodyParagraph("para", Passage("Bir", "of a"))]
+NEXT_PAGE_PARAS = [BodyParagraph("para", Passage("Sonraki.", "Next."))]
+CONTINUATION = [BodyParagraph("para", Passage("model.", "model.")), *NEXT_PAGE_PARAS]
 CARD = {"kind": "explain", "title": {"en": "A", "tr": "B"}, "summary": {"en": "S", "tr": "Ö"}}
 
 
 def _para(en, tr):
-    return ParaPassage("para", tr, en)
+    return BodyParagraph("para", Passage(tr, en))
 
 
 def _page(number, blocks):
@@ -31,17 +32,19 @@ def _page_with_cards(number, cards):
     return PageDocument({"page": number, "chapter": CHAPTER, "blocks": [_para_block("A.", "B.")], "concepts": cards})
 
 
-def _flow_ending_with_page_end(first_page):
+def _flow(*pages):
     flow = ChapterFlow()
-    flow.add_page(PAGE, first_page)
-    flow.end_page([Fragment(PAGE_END)])
+    for page in pages:
+        flow.add_page(page)
     return flow
+
+
+def _two_pages(first_page, next_page):
+    return _flow(PageFragments(PAGE, first_page), PageFragments(NEXT_PAGE, next_page))
 
 
 def _flow_across_page_end(first_page, next_page):
-    flow = _flow_ending_with_page_end(first_page)
-    flow.add_page(NEXT_PAGE, next_page)
-    return flow
+    return _flow(PageFragments(PAGE, first_page, CARD_LINE), PageFragments(NEXT_PAGE, next_page))
 
 
 def _return_target(xhtml):
@@ -55,36 +58,28 @@ def _para_block(en, tr):
 
 class ChapterFlowTest(unittest.TestCase):
     def test_new_page_starts_with_its_page_mark(self):
-        flow = ChapterFlow()
-        flow.add_page(PAGE, [_para("Done.", "Bitti.")])
+        flow = _flow(PageFragments(PAGE, [_para("Done.", "Bitti.")]))
         self.assertTrue(flow.render().startswith(page_mark(PAGE)))
 
     def test_open_paragraph_absorbs_next_page_continuation(self):
-        flow = ChapterFlow()
-        flow.add_page(PAGE, [_para("of a masked", "Maskeli bir")])
-        flow.add_page(NEXT_PAGE, [_para("model.", "modeli."), _para("Next.", "Sonraki.")])
+        flow = _two_pages([_para("of a masked", "Maskeli bir")],
+                          [_para("model.", "modeli."), _para("Next.", "Sonraki.")])
         self.assertEqual(flow.english(), ["of a masked model.", "Next."])
 
     def test_page_mark_sits_inside_the_joined_paragraph(self):
-        flow = ChapterFlow()
-        flow.add_page(PAGE, [_para("of a", "Bir")])
-        flow.add_page(NEXT_PAGE, [_para("model.", "model.")])
+        flow = _two_pages([_para("of a", "Bir")], [_para("model.", "model.")])
         self.assertIn(f"Bir {page_mark(NEXT_PAGE)}model.", flow.render())
 
     def test_closed_paragraph_keeps_next_page_apart(self):
-        flow = ChapterFlow()
-        flow.add_page(PAGE, [_para("Done.", "Bitti.")])
-        flow.add_page(NEXT_PAGE, [_para("Next.", "Sonraki.")])
+        flow = _two_pages([_para("Done.", "Bitti.")], [_para("Next.", "Sonraki.")])
         self.assertIn(f"</p>\n{page_mark(NEXT_PAGE)}\n<p", flow.render())
 
     def test_empty_page_still_leaves_its_mark(self):
-        flow = ChapterFlow()
-        flow.add_page(PAGE, [])
+        flow = _flow(PageFragments(PAGE, []))
         self.assertEqual(flow.render(), page_mark(PAGE))
 
     def test_notes_are_numbered_through_the_chapter(self):
-        flow = ChapterFlow()
-        flow.add_page(PAGE, [_para("One.", "Bir."), Fragment("<hr/>"), _para("Two.", "İki.")])
+        flow = _flow(PageFragments(PAGE, [_para("One.", "Bir."), Fragment("<hr/>"), _para("Two.", "İki.")]))
         self.assertIn('href="#note-2"', flow.render().split("<hr/>")[1])
 
 
@@ -107,7 +102,7 @@ class PageEndTest(unittest.TestCase):
         self.assertEqual(positions, sorted(positions))
 
     def test_last_page_end_closes_the_chapter(self):
-        flow = _flow_ending_with_page_end(CLOSED_PAGE)
+        flow = _flow(PageFragments(PAGE, CLOSED_PAGE, CARD_LINE))
         self.assertTrue(flow.render().endswith(PAGE_END))
 
     def test_page_end_is_used_once(self):
@@ -163,12 +158,16 @@ class ChapterTest(unittest.TestCase):
         self.chapter.add(_page(PAGE, [_para_block("A.", "B.")]))
         self.assertEqual(self.chapter.toc_entries(), [])
 
-    def test_xhtml_is_well_formed_and_holds_heading_text_and_notes(self):
+    def test_xhtml_is_well_formed(self):
+        self.chapter.add(_page(PAGE, [_para_block("A & B.", "A ve B.")]))
+        root = ElementTree.fromstring(self.chapter.xhtml().encode("utf-8"))
+        self.assertTrue(root.tag.endswith("html"))
+
+    def test_xhtml_holds_heading_then_text_then_notes(self):
         self.chapter.add(_page(PAGE, [_para_block("A & B.", "A ve B.")]))
         xhtml = self.chapter.xhtml()
-        ElementTree.fromstring(xhtml.encode("utf-8"))
-        self.assertLess(xhtml.index("Bölüm 2"), xhtml.index("A ve B."))
-        self.assertLess(xhtml.index("A ve B."), xhtml.index('id="note-1"'))
+        positions = [xhtml.index("Bölüm 2"), xhtml.index("A ve B."), xhtml.index('id="note-1"')]
+        self.assertEqual(positions, sorted(positions))
 
     def test_unnumbered_chapter_has_no_number_label(self):
         chapter = Chapter("c.xhtml", {"num": 0, "en": "Preface", "tr": "Önsöz"})

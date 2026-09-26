@@ -70,8 +70,38 @@ class CardProblemsTest(unittest.TestCase):
         card = _card("contrast", id="yarim", bad={}, good={"text": _pair(), "why": _pair()})
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["yarim: bad.text yok", "yarim: bad.why yok"])
 
+    def test_card_without_id_is_named_by_its_position(self):
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, _card("explain")]), ["#2: id yok"])
+
+    def test_three_options_are_allowed(self):
+        card = _card("tradeoff", id="uc", options=[_option("A"), _option("B"), _option("C")])
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), [])
+
+    def test_four_options_are_too_many(self):
+        card = _card("tradeoff", id="dort", options=[_option(name) for name in "ABCD"])
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), ["dort: options sayısı 4 (2-3 olmalı)"])
+
+    def test_five_cards_are_too_many(self):
+        cards = [EXPLAIN, TRADEOFF, CONTRAST, CODE, _card("explain", id="fazla")]
+        self.assertEqual(CardChecker(SPEC).problems(cards), ["kart sayısı 5 (2-4 olmalı)"])
+
+    def test_contrast_side_with_code_needs_no_text(self):
+        card = _card("contrast", id="kodlu", bad=_code(), good={"text": _pair(), "why": _pair()})
+        self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, card]), [])
+
+    def test_cards_without_id_are_not_duplicates(self):
+        self.assertEqual(CardChecker(SPEC).problems([_card("explain"), _card("explain")]), ["#1: id yok", "#2: id yok"])
+
+    def test_cards_with_empty_id_are_not_duplicates(self):
+        cards = [_card("explain", id=""), _card("explain", id="")]
+        self.assertEqual(CardChecker(SPEC).problems(cards), ["#1: id yok", "#2: id yok"])
+
     def test_duplicate_ids_are_reported(self):
         self.assertEqual(CardChecker(SPEC).problems([EXPLAIN, EXPLAIN]), ["tanim: id tekrar ediyor"])
+
+    def test_duplicate_is_reported_at_its_repetition(self):
+        cards = [_card("explain", id="a"), _card("explain", id="b"), _card("explain", id="b"), _card("explain", id="a")]
+        self.assertEqual(CardChecker(SPEC).problems(cards), ["b: id tekrar ediyor", "a: id tekrar ediyor"])
 
 
 class CardRulesTest(unittest.TestCase):
