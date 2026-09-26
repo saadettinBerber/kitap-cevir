@@ -102,7 +102,6 @@ class PageDocument:
     def inline_math(self):
         return self._data.get("math", [])
 
-
     def media_sources(self):
         """Sayfanın görsel klasörüne kopyalanacak PNG adları."""
         sources = [src for block in self.blocks() for src in block.media_sources()]
