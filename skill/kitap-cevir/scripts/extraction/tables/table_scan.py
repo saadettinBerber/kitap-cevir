@@ -20,10 +20,11 @@ CORNER_TOLERANCE = 1         # parçanın sol üst köşesi tablo alanının bu 
 
 
 class TableScanner:
-    """Sayfadaki dolgu tabanlı ve çizgisiz sütun hizalı tabloları bulur."""
+    """Sayfadaki dolgu tabanlı ve çizgisiz sütun hizalı tabloları bulur. Tablo gövdenin alt
+    sınırını aşmaz; alt bilgiyi ayıran o sınırı sayfa bölgeleri (zones) bilir."""
 
-    def __init__(self, settings):
-        self._footer_zone_top = settings["footer_zone_top"]
+    def __init__(self, settings, zones):
+        self._zones = zones
         self._row_gap_ratio = settings["table_row_gap_ratio"]
 
     def scan(self, page):
@@ -33,7 +34,7 @@ class TableScanner:
     def _tables_on(self, page):
         """Dolgulu hücre varsa tabloyu onlar belirler; hizalı tarama yalnız dolgusuz
         sayfada çalışır ki aynı tablo iki kez yakalanmasın."""
-        body_bottom = page.height - self._footer_zone_top
+        body_bottom = self._zones.body_bottom(page.height)
         fills = PageFills(page.drawings(), body_bottom)
         spans = self._page_spans(page)
         if fills.is_empty():

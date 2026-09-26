@@ -4,6 +4,7 @@ import dataclasses
 import unittest
 
 from pdf_fakes import PAGE_HEIGHT, SIZE, FakePdfPage, fill, in_font, sized, span
+from extraction.page_zones import PageZones
 from extraction.pdf.geometry import Box
 from extraction.settings import DEFAULT_EXTRACTION, with_defaults
 from extraction.tables.aligned_tables import COLUMN_GUTTER, AlignedTableFinder, SpanRow, TableColumns
@@ -221,7 +222,8 @@ def _table_lines(body_rows):
 
 
 def _scan(lines, shapes=()):
-    return TableScanner(with_defaults({})).scan(FakePdfPage(lines=lines, shapes=shapes))
+    settings = with_defaults({})
+    return TableScanner(settings, PageZones(settings)).scan(FakePdfPage(lines=lines, shapes=shapes))
 
 
 def _mark_ending_at(bottom):

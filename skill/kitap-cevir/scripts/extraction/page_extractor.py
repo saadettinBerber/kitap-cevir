@@ -32,7 +32,7 @@ class PageExtractor:
         self._settings = settings
         self._layout_reader = layout_reader
         self._zones = PageZones(self._settings)
-        self._tables = TableScanner(self._settings)
+        self._tables = TableScanner(self._settings, self._zones)
         self._math = MathScanner(self._settings)
         self._text_layer = LayoutScanner(self._settings)
 

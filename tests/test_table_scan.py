@@ -5,6 +5,7 @@ import dataclasses
 import unittest
 
 from pdf_fakes import PAGE_HEIGHT, FakePdfPage, fill, in_font, sized, span, stroke
+from extraction.page_zones import PageZones
 from extraction.pdf.geometry import Box
 from extraction.settings import DEFAULT_EXTRACTION, with_defaults
 from extraction.tables.table_grid import MAX_BAND_GAP_RATIO, MIN_CELL_WIDTH, RULE_MAX_HEIGHT, PageFills
@@ -65,8 +66,13 @@ class ZebraLayout:
         return _cell_row(self.top(index) + TEXT_DROP, texts)
 
 
+def _scanner(overrides):
+    settings = with_defaults(overrides)
+    return TableScanner(settings, PageZones(settings))
+
+
 def _scan(page):
-    return TableScanner(with_defaults({})).scan(page)
+    return _scanner({}).scan(page)
 
 
 def _texts(table):
@@ -373,7 +379,7 @@ def _bold_lines(lines):
 
 
 def _scan_book(page):
-    return TableScanner(with_defaults(BOOK_SETTINGS)).scan(page)
+    return _scanner(BOOK_SETTINGS).scan(page)
 
 
 class TermTableLayout:
@@ -463,7 +469,7 @@ class RowGapBoundaryTest(unittest.TestCase):
         lines = _bold_lines(_cell_lines(TABLE_TOP, TERM_HEADER)) + self._row(self.BODY_TOP, self.FIRST_ROW)
         rules = [stroke(left, self.RULE_Y, right, self.RULE_Y) for left, right in TERM_COLUMNS]
         page = FakePdfPage(lines=lines + second_row, shapes=TermTableLayout(TABLE_TOP, []).header_fills() + rules)
-        [table] = TableScanner(with_defaults({"table_row_gap_ratio": self.RATIO})).scan(page)
+        [table] = _scanner({"table_row_gap_ratio": self.RATIO}).scan(page)
         return len(_texts(table))
 
     def test_line_at_the_ratio_continues_the_row(self):
@@ -573,8 +579,8 @@ class BottomRuleTest(unittest.TestCase):
     def test_table_ends_above_the_footer_zone_the_book_sets(self):
         table = TermTableLayout(TABLE_TOP, [self.ROW])
         footer = _cell_lines(PAGE_HEIGHT - TALL_FOOTER_ZONE, self.FOOTER)
-        settings = with_defaults({**BOOK_SETTINGS, "footer_zone_top": TALL_FOOTER_ZONE})
-        [found] = TableScanner(settings).scan(FakePdfPage(lines=table.lines() + footer, shapes=table.header_fills()))
+        scanner = _scanner({**BOOK_SETTINGS, "footer_zone_top": TALL_FOOTER_ZONE})
+        [found] = scanner.scan(FakePdfPage(lines=table.lines() + footer, shapes=table.header_fills()))
         self.assertEqual(_texts(found), [list(TERM_HEADER), list(self.ROW)])
 
 
