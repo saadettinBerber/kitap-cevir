@@ -218,6 +218,11 @@ class PageMigrationTest(unittest.TestCase):
         _, _, latex_items = _migrated(_new_document())
         self.assertEqual(latex_items, [{"path": "blocks[3]", "src": "eq-2.png"}])
 
+    def test_inline_equation_with_latex_is_not_listed(self):
+        new = {**_new_document(), "math": [{"src": "eq-9.png", "text": "z", "latex": "z"}]}
+        _, _, latex_items = _migrated(new)
+        self.assertEqual([item["path"] for item in latex_items], ["blocks[3]"])
+
     def test_inline_equation_without_latex_is_listed(self):
         new = {**_new_document(), "math": [{"src": "eq-9.png", "text": "z", "latex": ""}]}
         _, _, latex_items = _migrated(new)
