@@ -1,12 +1,16 @@
 """Satırın denklem fontundaki ve düz metindeki parçaları (SpanRun, MathLine).
-Parçalar metin sırasıyla verilir; kutuları bu kurallarda rol oynamaz, hepsi aynı satır kutusundadır."""
+Parçalar metin sırasıyla verilir; kutuları yalnız parça dizisinin kutusunda rol oynar, öteki testlerde
+hepsi aynı satır kutusundadır."""
 import unittest
 
 from pdf_fakes import SIZE, in_font, sized, span
 from extraction.equations.math_line import SIMPLE_MAX_SPANS, MathLine, MathRun, SpanRun
+from extraction.pdf.geometry import Box
 
 MATH_FONT = "Helvetica-Oblique"
 LINE_BOX = (72, 90, 200, 102)
+BASE_BOX = (72, 90, 80, 102)
+RAISED_BOX = (80, 86, 86, 94)
 PRINT_NOISE = 0.04            # bir ondalığa yuvarlanınca kaybolan fark
 SIZE_STEP = 0.1
 
@@ -32,6 +36,11 @@ class SpanRunTest(unittest.TestCase):
     def test_split_groups_consecutive_spans_by_kind(self):
         runs = SpanRun.split((_prose("find "), _math("x"), _math("2"), _prose(" to")), _is_math)
         self.assertEqual([(run.is_math(), run.text) for run in runs], [(False, "find"), (True, "x2"), (False, "to")])
+
+    def test_run_box_encloses_all_its_pieces(self):
+        pieces = (in_font(MATH_FONT, span("x", BASE_BOX)), in_font(MATH_FONT, span("2", RAISED_BOX)))
+        [run] = SpanRun.split(pieces, _is_math)
+        self.assertEqual(run.rect, Box(BASE_BOX[0], RAISED_BOX[1], RAISED_BOX[2], BASE_BOX[3]))
 
 
 class SimpleRunTest(unittest.TestCase):
