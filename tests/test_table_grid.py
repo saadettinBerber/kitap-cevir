@@ -121,6 +121,49 @@ class ColumnOfTest(unittest.TestCase):
         self.assertEqual(grid.column_of(across_the_border), SECOND_COLUMN)
 
 
+def _two_columns():
+    return _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
+
+
+def _span_centred_on(top):
+    return span("x", (FIRST_LEFT, top - SPAN_HALF_WIDTH, FIRST_LEFT + INSIDE, top + SPAN_HALF_WIDTH))
+
+
+def _with_band_fill(left, right):
+    """İki sütunlu ızgara; BAND_TOP-BAND_BOTTOM arasında kenarları left ile right olan bir dolgu daha."""
+    cells = [_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT)]
+    return TableGrid.from_cells(cells, cells + [Box(left, BAND_TOP, right, BAND_BOTTOM)])
+
+
+class InclusiveEdgeTest(unittest.TestCase):
+    """Sütunun, bandın ve dolgu kenarı toleransının sınırları içeridedir."""
+
+    def test_span_centred_on_the_table_left_edge_is_in_the_first_column(self):
+        self.assertEqual(_two_columns().column_of(_span_at(FIRST_LEFT)), FIRST_COLUMN)
+
+    def test_span_centred_on_the_band_top_is_in_the_band(self):
+        self.assertTrue(TableGrid([], [(TOP, BOTTOM)]).is_in_band(_span_centred_on(TOP)))
+
+    def test_span_centred_just_above_the_band_is_outside(self):
+        self.assertFalse(TableGrid([], [(TOP, BOTTOM)]).is_in_band(_span_centred_on(TOP - STEP)))
+
+    def test_fill_starting_the_tolerance_right_of_a_column_is_a_band(self):
+        grid = _with_band_fill(FIRST_LEFT + EDGE_TOLERANCE, SECOND_LEFT)
+        self.assertTrue(grid.is_in_band(_text_between(UPPER_TEXT)))
+
+    def test_fill_starting_further_right_is_no_band(self):
+        grid = _with_band_fill(FIRST_LEFT + EDGE_TOLERANCE + STEP, SECOND_LEFT)
+        self.assertFalse(grid.is_in_band(_text_between(UPPER_TEXT)))
+
+    def test_fill_ending_the_tolerance_right_of_a_column_is_a_band(self):
+        grid = _with_band_fill(FIRST_LEFT, SECOND_LEFT + EDGE_TOLERANCE)
+        self.assertTrue(grid.is_in_band(_text_between(UPPER_TEXT)))
+
+    def test_fill_ending_further_right_is_no_band(self):
+        grid = _with_band_fill(FIRST_LEFT, SECOND_LEFT + EDGE_TOLERANCE + STEP)
+        self.assertFalse(grid.is_in_band(_text_between(UPPER_TEXT)))
+
+
 def _groups(*fills):
     return PageFills(list(fills), TEXT_BOTTOM).table_groups()
 
