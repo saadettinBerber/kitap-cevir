@@ -4,9 +4,9 @@ ayırdığı terim tablosu."""
 import dataclasses
 import unittest
 
-from pdf_fakes import FakePdfPage, fill, in_font, sized, span, stroke
+from pdf_fakes import PAGE_HEIGHT, FakePdfPage, fill, in_font, sized, span, stroke
 from extraction.pdf.geometry import Box
-from extraction.settings import with_defaults
+from extraction.settings import DEFAULT_EXTRACTION, with_defaults
 from extraction.tables.table_grid import MAX_BAND_GAP_RATIO, MIN_CELL_WIDTH, RULE_MAX_HEIGHT, PageFills
 from extraction.tables.table_scan import TableScanner
 
@@ -352,6 +352,7 @@ CELL_INSET, CELL_TEXT_DROP, CELL_TEXT_BOTTOM, CELL_CHAR_WIDTH = 4, 0.4, 12.8, 5
 CELL_SIZE = 9
 RULE_GAP = 4
 RULE_TOP = TABLE_TOP + CELL_HEIGHT * 2 + RULE_GAP   # tek gövde satırlı terim tablosunun alt çizgisi
+BODY_BOTTOM = PAGE_HEIGHT - DEFAULT_EXTRACTION["footer_zone_top"]
 
 
 def _cell_lines(top, texts):
@@ -533,6 +534,7 @@ class BottomRuleTest(unittest.TestCase):
 
     ROW = ("Availability", "How long the system is available")
     EXTRA = ("Extra", "Row after the table")
+    FOOTER = ("Chapter 4", "57")
 
     def _rows_under(self, rule):
         """Tablo, altında bir çizgi ve çizginin altında sütunlara oturan bir satır."""
@@ -559,6 +561,13 @@ class BottomRuleTest(unittest.TestCase):
         right = TERM_COLUMNS[-1][1]
         beside = stroke(right + MIN_CELL_WIDTH, RULE_TOP, right + 3 * MIN_CELL_WIDTH, RULE_TOP)
         self.assertIn(list(self.EXTRA), self._rows_under(beside))
+
+    def test_table_without_a_rule_ends_above_the_footer_zone(self):
+        """Çizgi yoksa tablo alt bilgi bölgesinin üstünde biter: sütunlara oturan alt bilgi tabloya girmez."""
+        table = TermTableLayout(TABLE_TOP, [self.ROW])
+        footer = _cell_lines(BODY_BOTTOM, self.FOOTER)
+        [found] = _scan_book(FakePdfPage(lines=table.lines() + footer, shapes=table.header_fills()))
+        self.assertEqual(_texts(found), [list(TERM_HEADER), list(self.ROW)])
 
 
 class TableEndTest(unittest.TestCase):
