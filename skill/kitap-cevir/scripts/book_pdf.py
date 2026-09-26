@@ -23,8 +23,12 @@ class BookPdf:
 
     @classmethod
     def for_project(cls, project):
-        return cls(functools.partial(PyMuPdfDocument.open, project.pdf_path()),
-                   PageExtractor.for_settings(project.load_settings().extraction()))
+        """Kurulum: ayarlar projeden bir kez yüklenip okuyucuyu kuran fabrikaya verilir."""
+        return cls._for_settings(project.pdf_path(), project.load_settings())
+
+    @classmethod
+    def _for_settings(cls, pdf_path, settings):
+        return cls(functools.partial(PyMuPdfDocument.open, pdf_path), PageExtractor.for_settings(settings.extraction()))
 
     def extract(self, pdf_page, image_dir):
         """{blocks, running_header, math, context}; görseller image_dir'e yazılır."""
