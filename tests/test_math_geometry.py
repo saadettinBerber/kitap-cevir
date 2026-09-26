@@ -39,7 +39,7 @@ def _fraction_page(*shapes):
 
 def _display(page, settings=GEOMETRY_ON):
     with tempfile.TemporaryDirectory() as images:
-        return MathScanner(with_defaults(settings), page, images).scan()["display"]
+        return MathScanner(with_defaults(settings)).scan(page, images)["display"]
 
 
 class GeometryMathTest(unittest.TestCase):

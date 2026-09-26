@@ -25,23 +25,22 @@ PLACEHOLDER = "⟦{id}⟧"
 
 
 class MathScanner:
-    """Bir sayfanın denklemlerini bulur; kırpıp numaralamak EquationCropper'ın işidir."""
+    """Kitabın denklem kurallarıyla (font öneki, kesir geometrisi, başlık kalıbı) bir sayfanın
+    denklemlerini bulur; kırpıp numaralamak EquationCropper'ın işidir."""
 
-    def __init__(self, settings, page, image_dir):
+    def __init__(self, settings):
         self._prefix = settings["math_font_prefix"]
         self._uses_geometry = settings["math_geometry"]
         self._caption = re.compile(settings["equation_caption_pattern"])
-        self._page = page
-        self._cropper = EquationCropper(page, image_dir)
 
-    def scan(self):
-        """{"display": [{y0, y1, block}], "inline": [{kind, bbox, before, after, ...}]}.
+    def scan(self, page, image_dir):
+        """{"display": [{y0, y1, block}], "inline": [{kind, bbox, before, after, ...}]}; PNG'ler image_dir'e yazılır.
         Ayrı satır denkleminin bandına düşen parça onun bir parçasıdır, satır içi sayılmaz."""
-        lines = [MathLine(spans, self._is_math) for spans in self._page.text_lines()]
-        rects = self._display_rects(lines) + self._geometry_rects(lines)
+        lines = [MathLine(spans, self._is_math) for spans in page.text_lines()]
+        rects = self._display_rects(lines) + self._geometry_rects(lines, page)
         inline_runs = [inline_run for line in lines for inline_run in line.inline_runs()
                        if not _in_band(inline_run.run.rect, rects)]
-        return self._cropper.cropped(inline_runs, rects)
+        return EquationCropper(page, image_dir).cropped(inline_runs, rects)
 
     def _is_math(self, span):
         """Boş önek "bu kitapta denklem fontu yok" demektir; startswith("") her fontla eşleşirdi."""
@@ -55,11 +54,11 @@ class MathScanner:
     def _display_rects(self, lines):
         return self._merge_adjacent([line.rect for line in lines if line.is_display()])
 
-    def _geometry_rects(self, lines):
+    def _geometry_rects(self, lines, page):
         if not self._uses_geometry:
             return []
         line_rects = [line.rect for line in lines if not self._is_caption(line)]
-        return FractionEquationFinder(line_rects).regions(self._page.drawings())
+        return FractionEquationFinder(line_rects).regions(page.drawings())
 
     @staticmethod
     def _merge_adjacent(rects):

@@ -33,6 +33,7 @@ class PageExtractor:
         self._layout_reader = layout_reader
         self._zones = PageZones(self._settings)
         self._tables = TableScanner(self._settings)
+        self._math = MathScanner(self._settings)
         self._text_layer = LayoutScanner(self._settings)
 
     @classmethod
@@ -44,7 +45,7 @@ class PageExtractor:
         """page: PdfPage → {blocks, running_header, math}; görseller image_dir'e yazılır."""
         header, body = self._zones.split(self._layout_reader.read(page, image_dir))
         layout = self._text_layer.scan(page)
-        math = MathScanner(self._settings, page, image_dir).scan()
+        math = self._math.scan(page, image_dir)
         regions = PageRegions.of(self._tables.scan(page) + math["display"], self._code_regions(layout))
         body = LayoutFixer(math["inline"], layout["code_image_links"]).fixed(body)
         builder = BlockBuilder(self._settings, TextFixer(layout))

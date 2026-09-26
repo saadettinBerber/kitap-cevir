@@ -93,7 +93,7 @@ class ScanCase(unittest.TestCase):
         self.images = os.path.join(images.name, "images")
 
     def _scan(self, page, settings=SETTINGS):
-        return MathScanner(settings, page, self.images).scan()
+        return MathScanner(settings).scan(page, self.images)
 
     def _png(self, name):
         with open(os.path.join(self.images, name), "rb") as png:
