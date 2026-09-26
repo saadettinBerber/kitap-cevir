@@ -14,6 +14,8 @@ BOLD = "Helvetica-Bold"
 STEP = 0.1
 FRACTION = 0.2
 SHIFT = 3
+OUTDENT = 10
+OVERHANG_WIDTH = 60
 
 COLUMNS = [(70, 170), (170, 270), (270, 370)]
 HEADER = ["Name", "Count", "Share"]
@@ -107,6 +109,16 @@ class ZebraTableTest(unittest.TestCase):
         page = FakePdfPage(lines=[header + (raised,)] + body[:-1] + [body[-1] + (lowered,)], shapes=layout.shading(0))
         [table] = _scan(page)
         self.assertEqual((table["y0"], table["y1"]), (header_top - SHIFT, last_top + TEXT_HEIGHT + SHIFT))
+
+    def test_piece_starting_left_of_the_table_stays_out_though_its_middle_is_inside(self):
+        """Parça tabloya sol üst köşesiyle girer, ortasıyla değil."""
+        layout = ZebraLayout(ROWS)
+        header, first, second, third = layout.lines()
+        left, top = COLUMNS[0][0] - OUTDENT, layout.top(2) + TEXT_DROP
+        overhang = sized(BODY_SIZE, span("x", (left, top, left + OVERHANG_WIDTH, top + TEXT_HEIGHT)))
+        page = FakePdfPage(lines=[header, first, second + (overhang,), third],
+                           shapes=layout.shading(0) + layout.shading(2))
+        self.assertEqual(_texts(_scan(page)[0])[2], ROWS[1])
 
     def test_caption_and_body_stay_outside_table_extent(self):
         self.assertGreater(self.tables[0]["y0"], CAPTION.box.y1)
