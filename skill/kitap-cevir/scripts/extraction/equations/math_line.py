@@ -1,5 +1,6 @@
 """Denklem fontunun satırdaki yeri: satır, denklem fontundaki ve düz metindeki
 ardışık parçalarına bölünür; satır içi denklem cümleye komşu kelimeleriyle yerleşir."""
+import itertools
 from dataclasses import dataclass
 
 from extraction.pdf.geometry import Box
@@ -8,75 +9,85 @@ from extraction.text_utils import normalize_spaces
 SIMPLE_MAX_SPANS = 3          # bu kadar parça ve tek punto = düz metne çevrilebilir sembol
 
 
-class SpanRun:
-    """Bir satırdaki aynı türden (denklem fontu ya da düz metin) ardışık parçalar."""
-
-    def __init__(self, spans, is_math):
-        self.spans = spans
-        self.is_math = is_math
-
-    @classmethod
-    def split(cls, spans, is_math_span):
-        runs = []
-        for span in spans:
-            is_math = is_math_span(span)
-            if runs and runs[-1].is_math == is_math:
-                runs[-1].spans.append(span)
-            else:
-                runs.append(cls([span], is_math))
-        return runs
-
-    @staticmethod
-    def union(spans):
-        return Box.enclosing(span.box for span in spans)
-
-    @property
-    def rect(self):
-        return self.union(self.spans)
-
-    @property
-    def text(self):
-        return normalize_spaces("".join(span.text for span in self.spans))
-
-    def is_simple(self):
-        sizes = {round(span.size, 1) for span in self.spans}
-        return len(self.spans) <= SIMPLE_MAX_SPANS and len(sizes) == 1
-
-    def words(self):
-        return " ".join(span.text for span in self.spans).split()
-
-
 class MathLine:
-    """Bir metin satırı; denklem fontundaki ve düz metindeki ardışık parçalarına bölünmüş."""
+    """Bir metin satırı; denklem fontundaki ve düz metindeki ardışık parçalarına bölünür."""
 
     def __init__(self, spans, is_math_span):
-        self.spans = spans
-        self.runs = SpanRun.split(spans, is_math_span)
+        self._spans = spans
+        self._is_math_span = is_math_span
 
     @property
     def rect(self):
-        return SpanRun.union(self.spans)
+        return _enclosing(self._spans)
 
     @property
     def text(self):
-        return "".join(span.text for span in self.spans).strip()
+        return "".join(span.text for span in self._spans).strip()
 
     def is_display(self):
         """Satırın tamamı denklem fontunda: ayrı satır denklemi."""
-        return len(self.runs) == 1 and self.runs[0].is_math
+        runs = self._runs()
+        return len(runs) == 1 and runs[0].is_math()
 
     def inline_runs(self):
         """Cümle içindeki denklem parçaları, komşu kelimeleriyle; ayrı satır denkleminde yoktur."""
         if self.is_display():
             return []
-        return [InlineRun(run, self._word_before(index), self._word_after(index))
-                for index, run in enumerate(self.runs) if run.is_math]
+        runs = self._runs()
+        befores = ["", *(run.last_word() for run in runs[:-1])]
+        afters = [*(run.first_word() for run in runs[1:]), ""]
+        return [InlineRun(run, before, after) for run, before, after in zip(runs, befores, afters) if run.is_math()]
 
-    def _word_before(self, index):
-        return "".join(self.runs[index - 1].words()[-1:]) if index > 0 else ""
+    def _runs(self):
+        return SpanRun.split(self._spans, self._is_math_span)
 
-    def _word_after(self, index):
-        return "".join(self.runs[index + 1].words()[:1]) if index + 1 < len(self.runs) else ""
+
+def _enclosing(spans):
+    return Box.enclosing(span.box for span in spans)
+
+
+class SpanRun:
+    """Bir satırdaki aynı türden (denklem fontu ya da düz metin) ardışık parçalar.
+    Tür iki alt sınıftır; türe göre dallanma yalnız `split` fabrikasındadır (G23)."""
+
+    def __init__(self, spans):
+        self._spans = spans
+
+    @staticmethod
+    def split(spans, is_math_span):
+        return [(MathRun if is_math else ProseRun)(list(run))
+                for is_math, run in itertools.groupby(spans, key=is_math_span)]
+
+    @property
+    def rect(self):
+        return _enclosing(self._spans)
+
+    @property
+    def text(self):
+        return normalize_spaces("".join(span.text for span in self._spans))
+
+    def is_simple(self):
+        sizes = {round(span.size, 1) for span in self._spans}
+        return len(self._spans) <= SIMPLE_MAX_SPANS and len(sizes) == 1
+
+    def first_word(self):
+        return "".join(self._words()[:1])
+
+    def last_word(self):
+        return "".join(self._words()[-1:])
+
+    def _words(self):
+        return " ".join(span.text for span in self._spans).split()
+
+
+class MathRun(SpanRun):
+    def is_math(self):
+        return True
+
+
+class ProseRun(SpanRun):
+    def is_math(self):
+        return False
 
 
 @dataclass(frozen=True)

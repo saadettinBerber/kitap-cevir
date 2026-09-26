@@ -26,6 +26,24 @@ _EMPHASIS = re.compile(r"(?<!\\)(\*{1,3})(?=\S)(.+?)(?<=[^\s\\])\1")
 _ESCAPED = re.compile(r"\\([\\*_])")
 
 
+def layout_reader():
+    return LiteParseLayoutReader(LiteParseRunner())
+
+
+class LiteParseLayoutReader:
+    """LiteParse sonucunu düzen öğelerine çevirir; motoru yapıcıdan alır."""
+
+    def __init__(self, runner):
+        self._runner = runner
+
+    def read(self, page, image_dir):
+        result = self._runner.parse(page, image_dir)
+        if not result.pages:
+            raise LiteParsePageError(f"LiteParse PDF sayfası {page.number}'i okuyamadı: {result.page_errors}")
+        blocks = LiteParseBlocks(Typography(page), FigureFiles(result.images, FigureCrops(page, image_dir)))
+        return PageLayout(page.height, blocks.elements(result.pages[0].blocks))
+
+
 class LiteParsePageError(RuntimeError):
     """LiteParse sayfayı okuyamadı; nedeni page_errors'tadır."""
 
@@ -41,30 +59,12 @@ class LiteParseRunner:
         return parser.parse(page.pdf_path)
 
 
-class LiteParseLayoutReader:
-    """LiteParse sonucunu düzen öğelerine çevirir; motoru yapıcıdan alır."""
-
-    def __init__(self, runner):
-        self.runner = runner
-
-    def read(self, page, image_dir):
-        result = self.runner.parse(page, image_dir)
-        if not result.pages:
-            raise LiteParsePageError(f"LiteParse PDF sayfası {page.number}'i okuyamadı: {result.page_errors}")
-        blocks = LiteParseBlocks(Typography(page), FigureFiles(result.images, page, image_dir))
-        return PageLayout(page.height, blocks.elements(result.pages[0].blocks))
-
-
-def layout_reader():
-    return LiteParseLayoutReader(LiteParseRunner())
-
-
 class LiteParseBlocks:
     """Bir sayfanın LiteParse blokları; ardışık liste maddeleri ODL'deki gibi tek liste olur."""
 
     def __init__(self, typography, figures):
-        self.typography = typography
-        self.figures = figures
+        self._typography = typography
+        self._figures = figures
 
     def elements(self, blocks):
         placed = [block for block in blocks if block.bbox is not None]
@@ -83,7 +83,7 @@ class LiteParseBlocks:
 
     def _text_element(self, block):
         box = _box(block.bbox)
-        font, size = self.typography.of(box)
+        font, size = self._typography.of(box)
         text = plain_text(block.text) if block.text else " ".join(block.lines or [])
         return LayoutElement(TEXT_KINDS[block.kind], box, text, font=font, font_size=size)
 
@@ -100,19 +100,19 @@ class LiteParseBlocks:
 
     def _figure(self, block):
         box = _box(block.bbox)
-        return LayoutElement("image", box, image_file=self.figures.file_for(block.id, box))
+        return LayoutElement("image", box, image_file=self._figures.file_for(block.id, box))
 
 
 class Typography:
     """Kutuya düşen metin parçalarının baskın fontu ve puntosu (karakter sayısıyla tartılır)."""
 
     def __init__(self, page):
-        self.spans = [span for line in page.text_lines() for span in line]
+        self._spans = [span for line in page.text_lines() for span in line]
 
     def of(self, box):
         """(font, punto); kutuda parça yoksa ("", 0.0)."""
         weights = collections.Counter()
-        for span in self.spans:
+        for span in self._spans:
             if box.contains_point(span.box.center_x, span.box.center_y):
                 weights[(span.font, span.size)] += len(span.text.strip())
         return weights.most_common(1)[0][0] if weights else ("", 0.0)
@@ -122,18 +122,25 @@ class FigureFiles:
     """Figürlerin image_dir'deki dosyaları. LiteParse gömülü görseli yazamadıysa
     (tekrar eden görsel vb.) figür bölgesi sayfadan kırpılır."""
 
-    def __init__(self, images, page, image_dir):
-        self.names = {image.id: image.name for image in images if image.path}
-        self.page = page
-        self.image_dir = image_dir
+    def __init__(self, images, crops):
+        self._names = {image.id: image.name for image in images if image.path}
+        self._crops = crops
 
     def file_for(self, figure_id, box):
-        return self.names.get(figure_id) or self._cropped(figure_id, box)
+        return self._names.get(figure_id) or self._crops.file_for(figure_id, box)
 
-    def _cropped(self, figure_id, box):
+
+class FigureCrops:
+    """Figür bölgelerini sayfadan kırpıp image_dir'e yazar; LiteParse'ın adlandırmasını izler."""
+
+    def __init__(self, page, image_dir):
+        self._page = page
+        self._image_dir = image_dir
+
+    def file_for(self, figure_id, box):
         name = f"img_{figure_id}.png"
-        with open(os.path.join(self.image_dir, name), "wb") as png:
-            png.write(self.page.png(box, FIGURE_DPI))
+        with open(os.path.join(self._image_dir, name), "wb") as png:
+            png.write(self._page.png(box, FIGURE_DPI))
         return name
 
 

@@ -41,77 +41,89 @@ TABLE_ROW_GAP = 14
 TABLE_HEADER_BASELINE = 120
 
 
-class _Writer:
-    """Test sayfasını satır satır yazar; satır içinde font değişebilir."""
+LEFT = 72
+
+
+class PageWriter:
+    """Test sayfasını satır satır yazar; satır içinde font değişebilir. Alt sınıfın
+    write'ı sayfanın içeriğidir."""
 
     def __init__(self, page):
-        self.page = page
+        self._page = page
 
-    def line(self, y, *parts, x=72):
+    def _line(self, origin, *parts):
+        """origin: ilk parçanın (x, taban çizgisi); parçalar (metin, font) çiftleridir."""
+        x, y = origin
         for text, font in parts:
-            self.page.insert_text((x, y), text, fontsize=BODY_SIZE, fontname=font)
+            self._page.insert_text((x, y), text, fontsize=BODY_SIZE, fontname=font)
             x += fitz.get_text_length(text, font, BODY_SIZE)
 
 
-def _write_pdf(path, write_page):
+class LearningPage(PageWriter):
+    def write(self):
+        self._page.insert_text((LEFT, 80), "Learning Boundaries", fontsize=20, fontname="helvetica-bold")
+        self._line((LEFT, 120), ("A paragraph with a ", "helv"), ("bold", "helvetica-bold"),
+                   (" word inside it.", "helv"))
+        for index, step in enumerate(LIST_STEPS):
+            self._line((LEFT, 170 + 16 * index), (f"{index + 1}. {step}", "helv"))
+        pixmap = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 40, 20), 0)
+        self._page.insert_image(fitz.Rect(LEFT, 250, 272, 350), pixmap=pixmap)
+        self._line((LEFT, 400), ("Short italic lead", "helvetica-oblique"))
+        self._line((LEFT, 414), ("and plain continuation text.", "helv"))
+        self._line((LEFT, 450), ("Multiply a * b, name snake_case in C:\\temp.", "helv"))
+        self._line((LEFT, 520), ("Quote `pair` of backticks.", "helv"))
+        self._page.insert_text((300, 800), FOOTER, fontsize=9, fontname="helv")
+
+
+class ListPage(PageWriter):
+    """Asılı girintili iki madde; hemen altında bir paragraf, açık bir boşluktan sonra bir paragraf daha."""
+
+    def write(self):
+        self._line((LEFT, 80), ("Cross entropy depends on two qualities:", "helv"))
+        self._line((86, 110), ("1. The predictability of the training data,", "helv"))
+        self._line((100, 124), ("measured by its entropy", "helv"))
+        self._line((86, 142), ("2. How far the learned distribution", "helv"))
+        self._line((100, LAST_ITEM_BASELINE), ("diverges from the true one", "helv"))
+        self._line((100, LAST_ITEM_BASELINE + LINE_STEP + 4), (FOLDED_PARAGRAPH, "helv"))
+        self._line((LEFT, LAST_ITEM_BASELINE + 5 * LINE_STEP), (SEPARATE_PARAGRAPH, "helv"))
+
+
+class TablePage(PageWriter):
+    """Başlık satırı kalın üç sütun; meslek ve değer hücreleri üçer satırdır
+    (iki satırlıkta tablo çıkmaz)."""
+
+    def write(self):
+        self._line((LEFT, 80), ("Table 1-2. Occupations with the highest exposure to AI.", "helv"))
+        for x, header in ((78, "Group"), (180, "Occupations"), (420, "% Exposure")):
+            self._line((x, TABLE_HEADER_BASELINE), (header, "helvetica-bold"))
+        y = TABLE_HEADER_BASELINE + 2 * LINE_STEP
+        for group, occupations, values in TABLE_ROWS:
+            self._line((78, y), (group, "helv"))
+            for occupation, value in zip(occupations, values):
+                self._line((180, y), (occupation, "helv"))
+                self._line((420, y), (value, "helv"))
+                y += LINE_STEP
+            y += TABLE_ROW_GAP
+
+
+def _write_pdf(path, page_writer):
     document = fitz.open()
-    write_page(document.new_page())
+    writer = page_writer(document.new_page())
+    writer.write()
     document.save(path)
     document.close()
 
 
-def _write_learning_page(page):
-    write = _Writer(page)
-    page.insert_text((72, 80), "Learning Boundaries", fontsize=20, fontname="helvetica-bold")
-    write.line(120, ("A paragraph with a ", "helv"), ("bold", "helvetica-bold"), (" word inside it.", "helv"))
-    for index, step in enumerate(LIST_STEPS):
-        write.line(170 + 16 * index, (f"{index + 1}. {step}", "helv"))
-    pixmap = fitz.Pixmap(fitz.csRGB, fitz.IRect(0, 0, 40, 20), 0)
-    page.insert_image(fitz.Rect(72, 250, 272, 350), pixmap=pixmap)
-    write.line(400, ("Short italic lead", "helvetica-oblique"))
-    write.line(414, ("and plain continuation text.", "helv"))
-    write.line(450, ("Multiply a * b, name snake_case in C:\\temp.", "helv"))
-    write.line(520, ("Quote `pair` of backticks.", "helv"))
-    page.insert_text((300, 800), FOOTER, fontsize=9, fontname="helv")
-
-
-def _write_list_page(page):
-    """Asılı girintili iki madde; hemen altında bir paragraf, açık bir boşluktan sonra bir paragraf daha."""
-    write = _Writer(page)
-    write.line(80, ("Cross entropy depends on two qualities:", "helv"))
-    write.line(110, ("1. The predictability of the training data,", "helv"), x=86)
-    write.line(124, ("measured by its entropy", "helv"), x=100)
-    write.line(142, ("2. How far the learned distribution", "helv"), x=86)
-    write.line(LAST_ITEM_BASELINE, ("diverges from the true one", "helv"), x=100)
-    write.line(LAST_ITEM_BASELINE + LINE_STEP + 4, (FOLDED_PARAGRAPH, "helv"), x=100)
-    write.line(LAST_ITEM_BASELINE + 5 * LINE_STEP, (SEPARATE_PARAGRAPH, "helv"))
-
-
-def _write_table_page(page):
-    """Başlık satırı kalın üç sütun; meslek ve değer hücreleri üçer satırdır (iki satırlıkta tablo çıkmaz)."""
-    write = _Writer(page)
-    write.line(80, ("Table 1-2. Occupations with the highest exposure to AI.", "helv"))
-    for x, header in ((78, "Group"), (180, "Occupations"), (420, "% Exposure")):
-        write.line(TABLE_HEADER_BASELINE, (header, "helvetica-bold"), x=x)
-    y = TABLE_HEADER_BASELINE + 2 * LINE_STEP
-    for group, occupations, values in TABLE_ROWS:
-        write.line(y, (group, "helv"), x=78)
-        for occupation, value in zip(occupations, values):
-            write.line(y, (occupation, "helv"), x=180)
-            write.line(y, (value, "helv"), x=420)
-            y += LINE_STEP
-        y += TABLE_ROW_GAP
-
-
 class _ParsedPage:
-    """TEMPLATE METHOD: alt sınıfın write_page'i sayfayı yazar, LiteParse onu üretimdeki ayarlarla bir kez okur."""
+    """TEMPLATE METHOD: alt sınıfın page_writer'ı sayfayı yazar, LiteParse onu
+    üretimdeki ayarlarla bir kez okur."""
 
     @classmethod
     def setUpClass(cls):
         cls.tmp = tempfile.TemporaryDirectory()
         cls.images = os.path.join(cls.tmp.name, "images")
         pdf = os.path.join(cls.tmp.name, "learning.pdf")
-        _write_pdf(pdf, cls.write_page)
+        _write_pdf(pdf, cls.page_writer)
         with real_page(pdf) as page:
             cls.page_height, cls.text_lines = page.height, page.text_lines()
             cls.result = LiteParseRunner().parse(page, cls.images)
@@ -127,7 +139,7 @@ class _ParsedPage:
 
 @unittest.skipUnless(HAS_LITEPARSE, "liteparse kurulu değil")
 class LiteParseLearningTest(_ParsedPage, unittest.TestCase):
-    write_page = staticmethod(_write_learning_page)
+    page_writer = LearningPage
 
     def _text_of(self, prefix):
         return next(block.text for block in self.parsed.blocks if (block.text or "").lstrip("*").startswith(prefix))
@@ -176,7 +188,7 @@ class LiteParseLearningTest(_ParsedPage, unittest.TestCase):
 
 @unittest.skipUnless(HAS_LITEPARSE, "liteparse kurulu değil")
 class ListContinuationTest(_ParsedPage, unittest.TestCase):
-    write_page = staticmethod(_write_list_page)
+    page_writer = ListPage
 
     def test_paragraph_right_under_a_list_item_is_folded_into_it(self):
         self.assertTrue(self._blocks("list_item")[-1].text.endswith(FOLDED_PARAGRAPH))
@@ -187,7 +199,7 @@ class ListContinuationTest(_ParsedPage, unittest.TestCase):
 
 @unittest.skipUnless(HAS_LITEPARSE, "liteparse kurulu değil")
 class AlignedColumnsTest(_ParsedPage, unittest.TestCase):
-    write_page = staticmethod(_write_table_page)
+    page_writer = TablePage
 
     def test_aligned_columns_come_back_as_one_table(self):
         self.assertEqual(len(self._blocks("table")), 1)

@@ -4,6 +4,7 @@ import importlib.util
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 from pdf_fakes import FAKE_PNG, FakePdfPage, span
 
@@ -12,9 +13,10 @@ if HAS_LITEPARSE:
     from liteparse.types import (AnnotationRect, ExtractedImage, ImageRect, LayoutBlock, LayoutCell,
                                  ParsedPage, ParseResult)
     from extraction.pdf.geometry import Box
-    from extraction.pdf.liteparse_adapter import LiteParseLayoutReader, LiteParsePageError, plain_text
+    from extraction.pdf.liteparse_adapter import FIGURE_DPI, LiteParseLayoutReader, LiteParsePageError, plain_text
 
 TEXT_BOX = (72, 100, 400, 114)
+HEADING_WORDS = (80, 100, 200, 114)
 
 
 def _rect(box):
@@ -22,12 +24,14 @@ def _rect(box):
     return AnnotationRect(x=x0, y=y0, width=x1 - x0, height=y1 - y0)
 
 
-def _block(kind, box=TEXT_BOX, **fields):
-    return LayoutBlock(kind=kind, bbox=_rect(box) if box else None, **fields)
+def _block(kind, **fields):
+    """Kutusu verilmeyen blok metin kutusundadır; kutusuz blok için bbox=None verilir."""
+    return LayoutBlock(kind=kind, **{"bbox": _rect(TEXT_BOX), **fields})
 
 
-def _item(text, top, ordered=True):
-    return _block("list_item", (90, top, 300, top + 12), text=text, ordered=ordered)
+def _item(text, top):
+    """Numaralı liste maddesi."""
+    return _block("list_item", bbox=_rect((90, top, 300, top + 12)), text=text, ordered=True)
 
 
 def _image(figure_id, path):
@@ -39,12 +43,19 @@ def _image(figure_id, path):
 class FakeRunner:
     """LiteParse motorunun yerine, önceden verilen blokları döndürür."""
 
-    def __init__(self, blocks=(), images=(), is_readable=True):
+    def __init__(self, blocks=(), images=()):
         page = ParsedPage(page_num=1, width=595, height=800, text="", blocks=list(blocks))
-        self.result = ParseResult(pages=[page] if is_readable else [], text="", images=list(images))
+        self._result = ParseResult(pages=[page], text="", images=list(images))
 
     def parse(self, page, image_dir):
-        return self.result
+        return self._result
+
+
+class UnreadablePageRunner:
+    """LiteParse'ın sayfayı okuyamadığı durum: sonuçta sayfa yoktur."""
+
+    def parse(self, page, image_dir):
+        return ParseResult(pages=[], text="", images=[])
 
 
 class _ReaderTestCase(unittest.TestCase):
@@ -71,6 +82,11 @@ class BlockConversionTest(_ReaderTestCase):
         self.assertEqual([(entry.kind, entry.text) for entry in bullets.list_items],
                          [("list item", "first"), ("list item", "second")])
 
+    def test_unordered_items_become_an_unordered_list(self):
+        bullet = _block("list_item", text="dot", ordered=False)
+        [bullets] = self._elements(bullet)
+        self.assertFalse(bullets.is_ordered)
+
     def test_list_box_encloses_its_items(self):
         [bullets] = self._elements(_item("first", 100), _item("second", 114))
         self.assertEqual(bullets.box, Box(90, 100, 300, 126))
@@ -84,7 +100,8 @@ class BlockConversionTest(_ReaderTestCase):
         self.assertEqual((paragraph.kind, paragraph.text), ("paragraph", "System.runFinalization. They may increase"))
 
     def test_rules_and_blocks_without_a_box_are_dropped(self):
-        elements = self._elements(_block("rule"), _block("paragraph", box=None, text="lost"), _block("paragraph", text="kept"))
+        elements = self._elements(_block("rule"), _block("paragraph", bbox=None, text="lost"),
+                                  _block("paragraph", text="kept"))
         self.assertEqual([element.text for element in elements], ["kept"])
 
     def test_heading_text_is_plain(self):
@@ -92,7 +109,8 @@ class BlockConversionTest(_ReaderTestCase):
         self.assertEqual((heading.kind, heading.text), ("heading", "Italic Title"))
 
     def test_table_header_becomes_the_first_row(self):
-        header, row = [LayoutCell(text="Name"), LayoutCell(text="Kind")], [LayoutCell(text="snake\\_case"), LayoutCell(text="")]
+        header = [LayoutCell(text="Name"), LayoutCell(text="Kind")]
+        row = [LayoutCell(text="snake\\_case"), LayoutCell(text="")]
         [table] = self._elements(_block("table", header=header, rows=[row]))
         self.assertEqual(table.table_rows, (("Name", "Kind"), ("snake_case", "")))
 
@@ -101,21 +119,44 @@ class BlockConversionTest(_ReaderTestCase):
         self.assertEqual(table.table_rows, (("a",),))
 
 
+FIGURE_BOX = (72, 250, 272, 350)
+
+
+def _unwritten_figure():
+    """LiteParse'ın dosyasını yazamadığı (path'i olmayan) figür."""
+    return FakeRunner([_block("figure", bbox=_rect(FIGURE_BOX), id="p1_2", format="png")], [_image("p1_2", None)])
+
+
 @unittest.skipUnless(HAS_LITEPARSE, "liteparse kurulu değil")
 class FigureTest(_ReaderTestCase):
-    FIGURE_BOX = (72, 250, 272, 350)
-
     def test_written_image_keeps_its_liteparse_name(self):
-        runner = FakeRunner([_block("figure", self.FIGURE_BOX, id="p1_1", format="png")],
+        runner = FakeRunner([_block("figure", bbox=_rect(FIGURE_BOX), id="p1_1", format="png")],
                             [_image("p1_1", os.path.join(self.tmp.name, "img_p1_1.png"))])
         [image] = self._read(runner)
         self.assertEqual((image.kind, image.image_file), ("image", "img_p1_1.png"))
 
+    def test_figure_with_a_written_image_is_not_cropped(self):
+        page = FakePdfPage()
+        runner = FakeRunner([_block("figure", bbox=_rect(FIGURE_BOX), id="p1_1", format="png")],
+                            [_image("p1_1", os.path.join(self.tmp.name, "img_p1_1.png"))])
+        with mock.patch.object(page, "png", wraps=page.png) as png:
+            self._read(runner, page)
+        self.assertEqual(png.call_args_list, [])
+
     def test_figure_without_a_written_image_is_cropped_from_the_page(self):
-        [image] = self._read(FakeRunner([_block("figure", self.FIGURE_BOX, id="p1_2", format="png")],
-                                        [_image("p1_2", None)]))
+        [image] = self._read(_unwritten_figure())
         with open(os.path.join(self.tmp.name, image.image_file), "rb") as png:
             self.assertEqual(png.read(), FAKE_PNG)
+
+    def test_cropped_figure_is_named_after_its_id(self):
+        [image] = self._read(_unwritten_figure())
+        self.assertEqual(image.image_file, "img_p1_2.png")
+
+    def test_figure_is_cropped_at_the_figure_resolution(self):
+        page = FakePdfPage()
+        with mock.patch.object(page, "png", wraps=page.png) as png:
+            self._read(_unwritten_figure(), page)
+        self.assertEqual(png.call_args_list, [mock.call(Box(*FIGURE_BOX), FIGURE_DPI)])
 
 
 @unittest.skipUnless(HAS_LITEPARSE, "liteparse kurulu değil")
@@ -130,8 +171,14 @@ class TypographyTest(_ReaderTestCase):
         self.assertEqual(self._heading_on(span("Title", (72, 100, 150, 114), "Serif-Bold", 14.4)), ("Serif-Bold", 14.4))
 
     def test_the_font_with_most_characters_wins(self):
-        mark, words = span("a", (72, 100, 78, 114), "Serif", 6.0), span("Long heading", (80, 100, 200, 114), "Serif-Bold", 14.4)
+        mark = span("a", (72, 100, 78, 114), "Serif", 6.0)
+        words = span("Long heading", HEADING_WORDS, "Serif-Bold", 14.4)
         self.assertEqual(self._heading_on(mark, words), ("Serif-Bold", 14.4))
+
+    def test_blanks_do_not_weigh(self):
+        padded = span("  a      ", (72, 100, 78, 114), "Serif", 6.0)
+        words = span("bc", HEADING_WORDS, "Serif-Bold", 14.4)
+        self.assertEqual(self._heading_on(padded, words), ("Serif-Bold", 14.4))
 
     def test_span_centred_on_the_box_edge_is_outside(self):
         self.assertEqual(self._heading_on(span("x", (390, 100, 410, 114), "Serif", 9.0)), ("", 0.0))
@@ -144,7 +191,7 @@ class TypographyTest(_ReaderTestCase):
 class UnreadablePageTest(_ReaderTestCase):
     def test_page_liteparse_cannot_read_raises(self):
         with self.assertRaises(LiteParsePageError):
-            self._read(FakeRunner(is_readable=False))
+            self._read(UnreadablePageRunner())
 
 
 @unittest.skipUnless(HAS_LITEPARSE, "liteparse kurulu değil")

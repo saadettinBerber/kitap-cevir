@@ -9,14 +9,17 @@ from dataclasses import dataclass, field
 import _paths  # noqa: F401
 from extraction.pdf.geometry import Box
 from extraction.pdf.model import Drawing, LayoutElement, PageLayout, Span
+from extraction.pdf.ports import FIRST_PAGE_NUMBER
 from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
 
 FAKE_PNG = b"\x89PNG fake"
 PAGE_WIDTH = 600.0
 PAGE_HEIGHT = 800.0
+FONT = "Helvetica"
+SIZE = 10.0
 
 
-def span(text, box, font="Helvetica", size=10.0):
+def span(text, box, font=FONT, size=SIZE):
     """Satırı kendi üst kenarı, taban çizgisi kendi alt kenarı olan parça."""
     return Span(text, font, size, Box(*box), box[1], box[3])
 
@@ -77,16 +80,20 @@ class FakePdfDocument:
         return len(self.pages)
 
     def page(self, number):
-        return self.pages[number - 1]
+        return self.pages[number - FIRST_PAGE_NUMBER]
+
+    def page_text(self, number):
+        return self.pages[number - FIRST_PAGE_NUMBER].text()
 
 
-@dataclass
 class FakeLayoutReader:
     """Önceden verilen öğeleri sayfanın düzeni olarak döndürür."""
-    elements: tuple = ()
+
+    def __init__(self, elements=()):
+        self._elements = tuple(elements)
 
     def read(self, page, image_dir):
-        return PageLayout(page.height, tuple(self.elements))
+        return PageLayout(page.height, self._elements)
 
 
 @contextlib.contextmanager
