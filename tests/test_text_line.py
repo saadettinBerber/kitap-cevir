@@ -37,12 +37,7 @@ class TextLineTest(unittest.TestCase):
 
     def test_box_covers_the_spans(self):
         line = TextLine.of_spans(_code(("int x", LEFT), (" = 1;", _end("int x"))))
-        self.assertEqual((line.left, line.top, line.right), (LEFT, BASELINE - SIZE, _end("int x = 1;")))
-
-    def test_absorb_merges_fragments_on_one_baseline(self):
-        line = TextLine.of_spans(_code(("a = ", LEFT)))
-        line.absorb(TextLine.of_spans(_code(("b", _end("a = ")))))
-        self.assertEqual((line.raw_text, line.right), ("a = b", _end("a = b")))
+        self.assertEqual((line.box.x0, line.box.y0, line.box.x1), (LEFT, BASELINE - SIZE, _end("int x = 1;")))
 
 
 class ScriptMarkTest(unittest.TestCase):

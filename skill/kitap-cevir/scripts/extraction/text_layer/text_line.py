@@ -1,6 +1,10 @@
 """PDF'teki tek bir taban çizgisinin parçaları (sınırdan gelen Span'lar): kod mu
 düz metin mi, kendisine bağlanmış alt/üst simgeler ve çıkarımda kullanılacak
 metni. Koordinatlar üst orijinlidir.
+
+Satır bir veri yapısıdır (Bl.6 · Data/Object Anti-Symmetry): satır türleri sabit,
+satırlar üzerindeki işlemler çoğalıyor; işlemler onları kullanan sınıflardadır
+(code_lines, script_marks, layout_scan). Satır değişmez; her adım yeni satır kurar.
 """
 from dataclasses import dataclass, fields
 from typing import NamedTuple
@@ -35,82 +39,39 @@ def _covering(boxes):
                max(box.x1 for box in boxes), max(box.y1 for box in boxes))
 
 
+@dataclass(frozen=True)
 class TextLine:
-    """Bir satırın span'ları; `scripts` ev sahibi satıra bağlanmış simgelerdir."""
+    """Bir satırın span'ları ve onlardan türeyen kutu, taban çizgisi, punto ve ham metin; `scripts` ev
+    sahibi satıra bağlanmış simgeler, `text` çıkarımda kullanılacak dizilmiş metindir. Span'ları
+    değişen satır `of` ile yeniden kurulur ki türeyen alanlar span'larla tutarlı kalsın."""
+    spans: tuple
+    is_code: bool
+    box: Box
+    baseline: float
+    size: float
+    raw_text: str
+    scripts: tuple = ()
+    text: str = ""
 
-    def __init__(self, spans, is_code):
-        self.spans = spans
-        self.is_code = is_code
-        self.scripts = []
-        self.baseline = spans[0].baseline
-        self.box = _covering([span.box for span in spans])
-        self.text = ""
+    @classmethod
+    def of(cls, spans, is_code):
+        """Baştaki boşluklar ham metinde korunur: PDF'te kod girintisi metnin içindedir."""
+        raw_text = "".join(span.text for span in spans).rstrip()
+        first = spans[0]
+        return cls(tuple(spans), is_code, _covering([span.box for span in spans]), first.baseline, first.size, raw_text)
 
     @classmethod
     def of_spans(cls, spans):
-        return cls(spans, all(span.is_code for span in spans))
-
-    @staticmethod
-    def join(spans):
-        """Baştaki boşluklar korunur: PDF'te kod girintisi metnin içindedir."""
-        return "".join(span.text for span in spans).rstrip()
-
-    @property
-    def left(self):
-        return self.box.x0
-
-    @property
-    def top(self):
-        return self.box.y0
-
-    @property
-    def right(self):
-        return self.box.x1
-
-    @property
-    def bottom(self):
-        return self.box.y1
-
-    @property
-    def height(self):
-        return self.bottom - self.top
-
-    @property
-    def size(self):
-        return self.spans[0].size
-
-    @property
-    def char_width(self):
-        return self.size * MONO_CHAR_WIDTH_RATIO
-
-    @property
-    def raw_text(self):
-        return self.join(self.spans)
-
-    def absorb(self, other):
-        self.spans = sorted(self.spans + other.spans, key=lambda span: span.box.x0)
-        self.scripts += other.scripts
-        self.box = _covering([self.box, other.box])
-
-    def render(self):
-        self.text = self._spaced_text() if uses_script_layout(self) else self.raw_text
-
-    def _spaced_text(self):
-        """Parçaları x konumuna göre boşlukla dizer; alt/üst simgeleri araya koyar."""
-        pieces = [Piece(span.box.x0, span.box.x1, span.text) for span in self.spans]
-        pieces += [mark.piece() for mark in self.scripts]
-        text, cursor, after_script = "", None, False
-        for x0, x1, piece, is_script in sorted(pieces):
-            threshold = self.char_width if after_script else self.char_width / 2
-            if cursor is not None and x0 - cursor > threshold:
-                text += " " * max(1, round((x0 - cursor) / self.char_width))
-            text += piece
-            cursor = x1 if cursor is None else max(cursor, x1)
-            after_script = is_script
-        return text.rstrip()
+        """Bütün span'ları kod fontuyla dizilmiş satır kod satırıdır."""
+        return TextLine.of(spans, all(span.is_code for span in spans))
 
 
 def uses_script_layout(line):
     """Kod satırı ve kod formülü içeren satır boşlukla dizilir; gövde metninin
     simgesi satır metnine değil yalnız sözcük düzeltmesine gider."""
     return line.is_code or bool(line.scripts and any(span.is_code for span in line.spans))
+
+
+def char_width(line):
+    """Satırın puntosunda tek aralıklı bir karakterin genişliği; kod girintisi ve boşluklar bununla sayılır."""
+    return line.size * MONO_CHAR_WIDTH_RATIO

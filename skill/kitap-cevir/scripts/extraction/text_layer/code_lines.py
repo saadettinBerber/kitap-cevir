@@ -7,8 +7,10 @@ Prosedürel (Bl.6): TextLine bir veri yapısıdır; satır türleri (kod, düz m
 satırlar üzerindeki işlemler ise çoğalıyor. Satır işlemleri bu yüzden onu kullanan
 sınıfın yanında fonksiyon olarak durur, satırın kendisine eklenmez.
 """
+from dataclasses import replace
+
 from extraction.text_layer.script_marks import ScriptAttacher
-from extraction.text_layer.text_line import LineSpan, TextLine
+from extraction.text_layer.text_line import LineSpan, Piece, TextLine, char_width, uses_script_layout
 
 SAME_BASELINE_TOLERANCE = 2.0     # bu kadar yakın taban çizgisi = aynı satır
 MIN_STANDALONE_CODE_CHARS = 12    # düz metinle aynı satırdaki kod parçası bundan kısaysa satır içi koddur
@@ -26,7 +28,7 @@ class CodeFont:
 
 
 class PageLineReader:
-    """Bir sayfanın satırlarını, metinleri hazır TextLine listesi olarak okur."""
+    """Bir sayfanın satırlarını, metinleri dizilmiş TextLine listesi olarak okur."""
 
     def __init__(self, code_font):
         self._code_font = code_font
@@ -35,10 +37,7 @@ class PageLineReader:
         """page: PdfPage."""
         split = sorted((part for line in self._raw_lines(page) for part in _split_leading_code(line)),
                        key=_reading_order)
-        lines = _demote_inline_code(_merge_code_fragments(ScriptAttacher(split).attach()))
-        for line in lines:
-            line.render()
-        return lines
+        return [_typeset(line) for line in _demote_inline_code(_merge_code_fragments(ScriptAttacher(split).attach()))]
 
     def _raw_lines(self, page):
         lines = [TextLine.of_spans(spans)
@@ -64,7 +63,7 @@ class PageLineReader:
 
 
 def _reading_order(line):
-    return round(line.top), line.left
+    return round(line.box.y0), line.box.x0
 
 
 def _split_leading_code(line):
@@ -74,9 +73,10 @@ def _split_leading_code(line):
     if line.is_code or not line.spans[0].is_code:
         return [line]
     split = next(index for index, span in enumerate(line.spans) if not span.is_code)
-    if len(TextLine.join(line.spans[:split]).strip()) < MIN_STANDALONE_CODE_CHARS:
+    code = TextLine.of(line.spans[:split], True)
+    if len(code.raw_text.strip()) < MIN_STANDALONE_CODE_CHARS:
         return [line]
-    return [TextLine(line.spans[:split], True), TextLine(line.spans[split:], False)]
+    return [code, TextLine.of(line.spans[split:], False)]
 
 
 def _merge_code_fragments(lines):
@@ -84,7 +84,7 @@ def _merge_code_fragments(lines):
     merged = []
     for line in lines:
         if merged and _continues_code(merged[-1], line):
-            merged[-1].absorb(line)
+            merged[-1] = _joined(merged[-1], line)
         else:
             merged.append(line)
     return merged
@@ -94,22 +94,59 @@ def _continues_code(line, other):
     return line.is_code and other.is_code and _is_level_with(line, other)
 
 
+def _joined(line, other):
+    """İki parçanın tek satırı; okuma sırasında önce gelen parçanın taban çizgisi kalır."""
+    spans = sorted(line.spans + other.spans, key=_left_edge)
+    return replace(TextLine.of(spans, line.is_code), baseline=line.baseline, scripts=line.scripts + other.scripts)
+
+
+def _left_edge(span):
+    return span.box.x0
+
+
 def _is_level_with(line, other):
     return abs(line.baseline - other.baseline) <= SAME_BASELINE_TOLERANCE
 
 
 def _demote_inline_code(lines):
-    """Düz metinle aynı taban çizgisindeki kod parçası satır içi koddur; yalnız
-    satırın en solundaki uzun parça (formül kutusu + ' , or') kod satırı kalır."""
-    for line in lines:
-        beside = [other for other in lines if other is not line and _is_level_with(other, line)]
-        if not line.is_code or all(other.is_code for other in beside):
-            continue
-        leftmost = all(line.left <= other.left for other in beside)
-        if not (leftmost and _is_standalone_code(line)):
-            line.is_code = False
-    return lines
+    """Düz metinle aynı taban çizgisindeki kod parçası satır içi koddur. Sırayla karar verilir:
+    önceki satırların indirilmiş hâli sonrakilerin komşusudur."""
+    decided = list(lines)
+    for index, line in enumerate(lines):
+        beside = [other for position, other in enumerate(decided) if position != index and _is_level_with(other, line)]
+        if _is_inline_code(line, beside):
+            decided[index] = replace(line, is_code=False)
+    return decided
+
+
+def _is_inline_code(line, beside):
+    """Yalnız satırın en solundaki uzun parça (formül kutusu + ' , or') kod satırı kalır."""
+    if not line.is_code or all(other.is_code for other in beside):
+        return False
+    leftmost = all(line.box.x0 <= other.box.x0 for other in beside)
+    return not (leftmost and _is_standalone_code(line))
 
 
 def _is_standalone_code(line):
     return len(line.raw_text.strip()) >= MIN_STANDALONE_CODE_CHARS
+
+
+def _typeset(line):
+    """Satırın çıkarımda kullanılacak metni: boşlukla dizilmiş ya da ham metin."""
+    return replace(line, text=_spaced_text(line) if uses_script_layout(line) else line.raw_text)
+
+
+def _spaced_text(line):
+    """Parçaları x konumuna göre boşlukla dizer; alt/üst simgeleri araya koyar."""
+    pieces = [Piece(span.box.x0, span.box.x1, span.text) for span in line.spans]
+    pieces += [mark.piece() for mark in line.scripts]
+    width = char_width(line)
+    text, cursor, after_script = "", None, False
+    for x0, x1, piece, is_script in sorted(pieces):
+        threshold = width if after_script else width / 2
+        if cursor is not None and x0 - cursor > threshold:
+            text += " " * max(1, round((x0 - cursor) / width))
+        text += piece
+        cursor = x1 if cursor is None else max(cursor, x1)
+        after_script = is_script
+    return text.rstrip()

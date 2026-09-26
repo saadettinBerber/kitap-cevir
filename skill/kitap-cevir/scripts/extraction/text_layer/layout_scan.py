@@ -12,7 +12,7 @@ import re
 from extraction.settings import optional_pattern
 from extraction.text_layer.code_lines import CodeFont, PageLineReader
 from extraction.text_layer.script_marks import ScriptFixes
-from extraction.text_layer.text_line import uses_script_layout
+from extraction.text_layer.text_line import char_width, uses_script_layout
 
 BLANK_LINE_GAP_RATIO = 1.6        # bu oranın üstündeki dikey boşluk = boş satır
 MIN_INLINE_TOKEN_LENGTH = 2
@@ -41,19 +41,19 @@ class CodeListing:
 
     def region(self):
         """{y0, y1, code}: sayfadaki yeri ve girintisi korunmuş kodu."""
-        left_edge = min(line.left for line in self._lines)
+        left_edge = min(line.box.x0 for line in self._lines)
         rendered, previous = [], None
         for line in self._lines:
             rendered.extend([""] * self._blank_lines_before(line, previous))
-            rendered.append(" " * max(0, round((line.left - left_edge) / line.char_width)) + line.text)
+            rendered.append(" " * max(0, round((line.box.x0 - left_edge) / char_width(line))) + line.text)
             previous = line
-        return {"y0": self._lines[0].top, "y1": self._lines[-1].bottom, "code": "\n".join(rendered)}
+        return {"y0": self._lines[0].box.y0, "y1": self._lines[-1].box.y1, "code": "\n".join(rendered)}
 
     @staticmethod
     def _blank_lines_before(line, previous):
         if previous is None:
             return 0
-        return 1 if line.top - previous.top > line.height * BLANK_LINE_GAP_RATIO else 0
+        return 1 if line.box.y0 - previous.box.y0 > line.box.height * BLANK_LINE_GAP_RATIO else 0
 
 
 class ProseRepairs:
@@ -115,8 +115,9 @@ class CodeImageLinkLines:
         return bool(self._pattern.fullmatch(line.text.strip()))
 
     def _slot(self, link):
-        slot_top = max((line.bottom for line in self._lines if line.bottom <= link.top), default=link.top)
-        slot_bottom = min((line.top for line in self._lines if line.top >= link.bottom), default=link.bottom)
+        top, bottom = link.box.y0, link.box.y1
+        slot_top = max((line.box.y1 for line in self._lines if line.box.y1 <= top), default=top)
+        slot_bottom = min((line.box.y0 for line in self._lines if line.box.y0 >= bottom), default=bottom)
         return {"text": link.text.strip(), "y0": slot_top, "y1": slot_bottom}
 
 
