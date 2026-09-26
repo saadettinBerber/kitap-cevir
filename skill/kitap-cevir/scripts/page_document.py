@@ -30,6 +30,13 @@ class PageDocument:
     def concepts(self):
         return self.data.get("concepts", [])
 
+    def toc_entry(self):
+        """progress.json'daki içindekiler kaydı: PDF sayfası, bölüm numarası, başlık, kesit."""
+        title, section = self.data.get("title", {}), self.data.get("section", {})
+        return {"pdf_page": self.data["pdf_page"], "chapter": self.data.get("chapter", {}).get("num"),
+                "title_en": title.get("en", ""), "title_tr": title.get("tr", ""),
+                "section_en": section.get("en", ""), "section_tr": section.get("tr", "")}
+
     def with_concepts(self, cards):
         """Kartları verilen kartlar olan aynı sayfa; bu belge değişmez."""
         return PageDocument({**self.data, "concepts": cards})

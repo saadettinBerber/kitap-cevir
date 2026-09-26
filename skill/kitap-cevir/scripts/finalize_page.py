@@ -57,7 +57,7 @@ class PageFinalizer:
     def _register(self, page):
         """Sayfayı progress.json'a kaydeder, last_translated_page'i ilerletir."""
         progress = self._project.load_progress()
-        progress.record_translation(page.data)
+        progress.record_translation(page)
         self._project.save_progress(progress)
         return progress
 
