@@ -58,8 +58,6 @@ class TableBuilder:
     def tables_in(self, cells, page_spans):
         """Kümedeki tablo [{y0, y1, block}] olarak; tablo değilse boş liste."""
         columns = GridColumns.of_cells(cells)
-        if not columns.is_tabular():
-            return []
         table = self._table(columns, _spans_within(self._fills.extent(cells), page_spans))
         return [table.region()] if table.is_table() else []
 
