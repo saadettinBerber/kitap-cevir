@@ -114,7 +114,7 @@ class ZebraTableTest(unittest.TestCase):
 
     def test_lines_read_bottom_up_still_give_rows_top_down(self):
         page = _zebra_page()
-        self.assertEqual(_texts(_scan(FakePdfPage(lines=page.lines[::-1], shapes=page.shapes))[0]), [HEADER] + ROWS)
+        self.assertEqual(_texts(_scan(FakePdfPage(lines=page.text_lines()[::-1], shapes=page.drawings()))[0]), [HEADER] + ROWS)
 
     def test_cell_text_is_stripped(self):
         layout = ZebraLayout([[" Alpha ", "1", "10%"]])

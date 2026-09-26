@@ -27,6 +27,18 @@ def _book():
     return FakePdfDocument(preface + body)
 
 
+class _DocumentWithMetadata(FakePdfDocument):
+    """Tek sayfalık, metadata'sı verilen belge."""
+
+    def __init__(self, metadata):
+        super().__init__([_text_page(("x", TOP))])
+        self._metadata = metadata
+
+    @property
+    def metadata(self):
+        return self._metadata
+
+
 def _output(command):
     buffer = io.StringIO()
     with contextlib.redirect_stdout(buffer):
@@ -69,7 +81,7 @@ class PdfInspectorTest(unittest.TestCase):
                          [(OFFSET, "Preface"), (OFFSET + 1, f"{BODY}\n1")])
 
     def test_empty_metadata_fields_are_left_out(self):
-        document = FakePdfDocument([_text_page(("x", TOP))], metadata={"title": "Book", "author": ""})
+        document = _DocumentWithMetadata({"title": "Book", "author": ""})
         self.assertEqual(PdfInspector(document).metadata(), {"title": "Book"})
 
 
@@ -83,7 +95,7 @@ class InspectionReportTest(unittest.TestCase):
         self.assertTrue(best.endswith(f"PDF {OFFSET + 1} = kitap 1"), best)
 
     def test_info_prints_page_count_size_and_filled_metadata(self):
-        document = FakePdfDocument([_text_page(("x", TOP))], metadata={"title": "Book", "author": ""})
+        document = _DocumentWithMetadata({"title": "Book", "author": ""})
         self.assertEqual(self._report(lambda report: report.info(), document),
                          f"PDF sayfa sayısı: 1\nSayfa boyutu (pt): {PAGE_WIDTH:.1f} x {PAGE_HEIGHT:.1f}\n"
                          "  title: Book\n")

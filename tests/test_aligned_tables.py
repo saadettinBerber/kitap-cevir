@@ -3,7 +3,7 @@ sayfa sonuna düşen parça ve sayfayı açan başlıksız devam."""
 import dataclasses
 import unittest
 
-from pdf_fakes import SIZE, FakePdfPage, fill, span
+from pdf_fakes import PAGE_HEIGHT, SIZE, FakePdfPage, fill, span
 from extraction.pdf.geometry import Box
 from extraction.settings import DEFAULT_EXTRACTION, with_defaults
 from extraction.tables.aligned_tables import COLUMN_GUTTER, AlignedTableFinder, SpanRow, TableColumns
@@ -15,7 +15,6 @@ ROW_GAP = 14
 FIRST_ROW_Y = 100
 CHAR_WIDTH, LINE_HEIGHT = 6, 10
 SHIFT = 3
-A4_HEIGHT = 842
 HEADER = [{"en": "Method"}, {"en": "Purpose"}]
 MARK_X = 240                 # ikinci sütundaki "does 0"ın hemen sağı
 NEARLY_FULL = 0.9
@@ -214,9 +213,9 @@ class ContinuedTableTest(unittest.TestCase):
         self.assertEqual(_tables(_continued_rows(1) + after), [])
 
 
-PAGE_NUMBER = _span("21", (300, A4_HEIGHT - 27))
+PAGE_NUMBER = _span("21", (300, PAGE_HEIGHT - 27))
 FILL = fill(300, 600, 400, 620)
-BODY_BOTTOM = A4_HEIGHT - DEFAULT_EXTRACTION["footer_zone_top"]
+BODY_BOTTOM = PAGE_HEIGHT - DEFAULT_EXTRACTION["footer_zone_top"]
 
 
 def _table_lines(body_rows):
@@ -226,7 +225,7 @@ def _table_lines(body_rows):
 
 
 def _scan(lines, shapes=()):
-    return TableScanner(with_defaults({})).scan(FakePdfPage(lines=lines, shapes=list(shapes), height=A4_HEIGHT))
+    return TableScanner(with_defaults({})).scan(FakePdfPage(lines=lines, shapes=shapes))
 
 
 def _mark_ending_at(bottom):
