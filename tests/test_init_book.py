@@ -63,7 +63,7 @@ class RecordingPdfOpener:
 
     def __call__(self, path):
         self.opened.append(path)
-        return FakePdfDocument(pages=[FakePdfPage() for _ in range(PAGE_COUNT)], pdf_path=path)
+        return FakePdfDocument(pages=[FakePdfPage() for _ in range(PAGE_COUNT)])
 
 
 class _BookSetupTestCase(unittest.TestCase):

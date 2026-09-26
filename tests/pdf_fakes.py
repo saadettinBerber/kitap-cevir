@@ -103,10 +103,9 @@ class FakePdfPage:
 
 
 class FakePdfDocument:
-    """Sayfaları elle verilen, metadata'sı boş belge; `with` ile açılıp kapanır gibi davranır.
-    Gerçek belge gibi yolunu tutmaz: pdf_path yalnız açıcının verdiği yoldur, saklanmaz."""
+    """Sayfaları elle verilen, metadata'sı boş belge; `with` ile açılıp kapanır gibi davranır."""
 
-    def __init__(self, pages=(), pdf_path=FAKE_PDF):
+    def __init__(self, pages=()):
         self._pages = list(pages)
 
     def __enter__(self):
