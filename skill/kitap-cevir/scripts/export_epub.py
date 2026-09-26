@@ -82,10 +82,9 @@ def _read_text(path):
 def main():
     project = Project.discover()
     book = project.load_settings().book()
-    epub_path = project.epub_file(book["slug"])
-    export = BookExport(TranslatedPages(project), epub_path)
+    export = BookExport(TranslatedPages(project), project.epub_file())
     export.write(_package(book), project.load_progress().translated_pages())
-    print("yazıldı:", project.relative_to_root(epub_path))
+    print("yazıldı:", project.relative_to_root(project.epub_file()))
 
 
 def _package(book):

@@ -79,8 +79,9 @@ class Project:
     def glossary_js(self):
         return self._path(DATA_DIR, "glossary.js")
 
-    def epub_file(self, slug):
-        return self._path(DIST_DIR, f"{slug}.epub")
+    def epub_file(self):
+        """EPUB kitabın kısa adıyla (book.slug) adlanır."""
+        return self._path(DIST_DIR, f"{self.load_settings().book()['slug']}.epub")
 
     def page_js(self, page):
         return self._path(PAGES_DIR, _page_name(page, ".js"))

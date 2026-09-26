@@ -4,6 +4,7 @@ import unittest
 from unittest import mock
 
 import _paths  # noqa: F401
+from book_settings import DEFAULT_BOOK
 from progress import Progress
 from project import Project, ProjectNotFound, find_root
 
@@ -92,8 +93,22 @@ class LayoutTest(unittest.TestCase):
         self.assertEqual(self._relative(self.project.work_migration_file("pending", self.PAGE)),
                          "_work/migrate/pending-7.json")
 
-    def test_epub_file(self):
-        self.assertEqual(self._relative(self.project.epub_file("demo")), "dist/demo.epub")
+
+class EpubFileTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.project = Project(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_epub_is_named_by_the_book_slug(self):
+        self.project.save_progress(Progress({"book": {"slug": "demo"}}))
+        self.assertEqual(self.project.relative_to_root(self.project.epub_file()), "dist/demo.epub")
+
+    def test_book_without_a_slug_gets_the_default_name(self):
+        self.project.save_progress(Progress({}))
+        self.assertEqual(self.project.relative_to_root(self.project.epub_file()), f"dist/{DEFAULT_BOOK['slug']}.epub")
 
 
 class ProgressFileTest(unittest.TestCase):
