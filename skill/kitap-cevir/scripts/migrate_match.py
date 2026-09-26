@@ -9,7 +9,6 @@ Eşleşmeyen birimler `pending` listesine düşer (küçük bir çeviri geçişi
 import re
 
 from extraction.text_utils import clean_ligatures, normalize_spaces
-from page_document import PageDocument
 
 MAX_JOIN = 4
 NUMERIC_CELL = re.compile(r"^(?:[\d.,%~+\-–\s]|<br>)*$")
@@ -26,10 +25,10 @@ class Translations:
 
     @classmethod
     def of_page(cls, old_page, fixes):
-        """Eski sayfanın çevrilmiş birimleri, sayfa sırasıyla. Yeni çıkarımın metin
+        """old_page: PageDocument; çevrilmiş birimleri, sayfa sırasıyla. Yeni çıkarımın metin
         onarımları ('3.14 × 10' → '3.14 × 10^23') eski birimlere de uygulanır ki
         iki taraf aynı biçimde eşleşsin."""
-        return cls([_with_fixes(unit, fixes) for unit in PageDocument(old_page).text_units() if unit.get("en")])
+        return cls([_with_fixes(unit, fixes) for unit in old_page.text_units() if unit.get("en")])
 
     @staticmethod
     def key(text):

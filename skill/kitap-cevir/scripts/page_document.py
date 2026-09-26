@@ -7,6 +7,8 @@ from collections import Counter
 from page_blocks import Block
 from progress import UNKNOWN_CHAPTER
 
+TRANSLATED_FIELDS = ("title", "section", "concepts", "chapter")
+
 
 class PageDocument:
     """Bir sayfanın belgesi; `data` sözlüğü FORMAT.md şemasıdır."""
@@ -36,6 +38,10 @@ class PageDocument:
         return {"pdf_page": self.data["pdf_page"], "chapter": self.data.get("chapter", {}).get("num"),
                 "title_en": title.get("en", ""), "title_tr": title.get("tr", ""),
                 "section_en": section.get("en", ""), "section_tr": section.get("tr", "")}
+
+    def translated_fields(self):
+        """Yeniden çıkarımın üretmediği, çevirmenin ve kart ajanının yazdığı alanlardan sayfada olanlar."""
+        return {field: self.data[field] for field in TRANSLATED_FIELDS if field in self.data}
 
     def with_concepts(self, cards):
         """Kartları verilen kartlar olan aynı sayfa; bu belge değişmez."""

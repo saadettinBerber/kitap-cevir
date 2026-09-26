@@ -32,6 +32,10 @@ OLD_PAGE = {
 }
 
 
+def _old_translations():
+    return Translations.of_page(PageDocument(OLD_PAGE), {})
+
+
 COMPLETE_DOCUMENT = {"id": "page-9", "page": PAGE, "pdf_page": PAGE, "chapter": {"num": 1, "en": "One", "tr": "Bir"},
                      "blocks": [{"type": "heading", "level": 1, "en": "Coupling"}]}
 
@@ -46,7 +50,7 @@ class TranslationKeyTest(unittest.TestCase):
 
 class TranslationsTest(unittest.TestCase):
     def test_old_units_are_found_one_by_one(self):
-        translations = Translations.of_page(OLD_PAGE, {})
+        translations = _old_translations()
         self.assertEqual([translations.lookup_single(en) for en in ("Coupling", "First part", "second part.")],
                          ["Bağlılık", "İlk kısım", "ikinci kısım."])
 
@@ -60,11 +64,11 @@ class TranslationsTest(unittest.TestCase):
 
     def test_fixes_apply_to_both_sides(self):
         old = {"blocks": [{"type": "caption", "en": "10 x", "tr": "10 x"}]}
-        translations = Translations.of_page(old, {"10 x": "10^23 x"})
+        translations = Translations.of_page(PageDocument(old), {"10 x": "10^23 x"})
         self.assertEqual(translations.lookup("10^23 x"), "10^23 x")
 
     def test_joined_old_units_match_one_new_sentence(self):
-        translations = Translations.of_page(OLD_PAGE, {})
+        translations = _old_translations()
         self.assertEqual(translations.lookup("First part second part."), "İlk kısım ikinci kısım.")
 
     def test_up_to_four_old_units_join(self):
@@ -85,7 +89,7 @@ class TranslationsTest(unittest.TestCase):
 
 class TranslationFillerTest(unittest.TestCase):
     def test_found_translation_is_given(self):
-        self.assertEqual(TranslationFiller(Translations.of_page(OLD_PAGE, {})).translation("Coupling"), "Bağlılık")
+        self.assertEqual(TranslationFiller(_old_translations()).translation("Coupling"), "Bağlılık")
 
     def test_blank_unit_has_an_empty_translation(self):
         self.assertEqual(TranslationFiller(Translations([])).translation("  "), "")
@@ -122,7 +126,7 @@ class PendingTest(unittest.TestCase):
 
 class SentenceMergeTest(unittest.TestCase):
     def test_new_split_sentences_are_merged_back(self):
-        filler = TranslationFiller(Translations.of_page(OLD_PAGE, {}))
+        filler = TranslationFiller(_old_translations())
         merged = filler.merged_sentences([{"en": "Whole sentence"}, {"en": "split later."}])
         self.assertEqual(merged, [{"en": "Whole sentence split later."}])
 
@@ -150,7 +154,7 @@ def _new_document():
 
 def _migrated(document, old=OLD_PAGE):
     """(taşınmış belge, bekleyen birimler, LaTeX'i olmayan denklemler)."""
-    pending = PageMigration(document, copy.deepcopy(old)).run({})
+    pending = PageMigration(document, PageDocument(copy.deepcopy(old))).run({})
     return document, pending["units"], pending["latex"]
 
 
@@ -224,7 +228,7 @@ def _carried(new_blocks, *old_units):
     """(taşınmış bloklar, bekleyen birimler); eski sayfanın birimleri altyazı olarak verilir."""
     document = {"chapter": {"num": 1, "en": "One", "tr": "Bir"}, "blocks": list(new_blocks)}
     old = {"blocks": [{"type": "caption", "en": en, "tr": tr} for en, tr in old_units]}
-    return document["blocks"], PageMigration(document, old).run({})["units"]
+    return document["blocks"], PageMigration(document, PageDocument(old)).run({})["units"]
 
 
 def _caption(en):

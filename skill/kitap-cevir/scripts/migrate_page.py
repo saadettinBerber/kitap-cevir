@@ -30,6 +30,7 @@ class PageMigration:
     kartlarını ve denklem LaTeX'ini taşır."""
 
     def __init__(self, document, old):
+        """document: yeni çıkarılmış girdi (FORMAT.md sözlüğü), yerinde doldurulur; old: eski PageDocument."""
         self._document = document
         self._old = old
 
@@ -45,17 +46,18 @@ class PageMigration:
     def _carry_fields(self):
         """Başlık, kesit ve kartlar eski sayfadan gelir; bölümün Türkçesi yoksa bölüm de. Eski sayfanın
         terimleri sözlükte olduğundan yeni terim listesi boşalır."""
+        carried = self._old.translated_fields()
         for field in _COPY_FIELDS:
-            self._document[field] = self._old.get(field, self._document.get(field))
+            self._document[field] = carried.get(field, self._document.get(field))
         if not self._document.get("chapter", {}).get("tr"):
-            self._document["chapter"] = self._old.get("chapter", self._document["chapter"])
+            self._document["chapter"] = carried.get("chapter", self._document["chapter"])
         self._document["glossary_new"] = []
 
     def _carry_latex(self):
         """Eski sayfada aynı PNG için LaTeX yazılmışsa yeni yapıya taşınır; ayrı
         satır denkleminin LaTeX'i satır içindekinden önceliklidir."""
-        old, new = PageDocument(self._old), PageDocument(self._document)
-        known = {item["src"]: item.get("latex", "") for item in old.inline_math() + old.display_math()}
+        new = PageDocument(self._document)
+        known = {item["src"]: item.get("latex", "") for item in self._old.inline_math() + self._old.display_math()}
         for item in new.display_math() + new.inline_math():
             item["latex"] = item.get("latex") or known.get(item["src"], "")
 
@@ -81,7 +83,7 @@ class Migrator:
 
     def run(self, page):
         """Sayfayı yeniden çıkarıp eski çevirileri taşır; sonlandırmaz."""
-        old = self._pages.get(page).data
+        old = self._pages.get(page)
         document = self._builder.build(page, self._project.work_images(page))
         pending = PageMigration(document, old).run(self._builder.hyphen_fixes(document["pdf_page"]))
         write_json(self._project.work_output(page), document)
