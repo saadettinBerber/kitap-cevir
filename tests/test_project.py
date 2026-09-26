@@ -96,11 +96,9 @@ class LayoutTest(unittest.TestCase):
 
 class EpubFileTest(unittest.TestCase):
     def setUp(self):
-        self.tmp = tempfile.TemporaryDirectory()
-        self.project = Project(self.tmp.name)
-
-    def tearDown(self):
-        self.tmp.cleanup()
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.project = Project(tmp.name)
 
     def test_epub_is_named_by_the_book_slug(self):
         self.project.save_progress(Progress({"book": {"slug": "demo"}}))
