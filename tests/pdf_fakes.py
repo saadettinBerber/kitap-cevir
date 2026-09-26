@@ -7,7 +7,7 @@ import contextlib
 import dataclasses
 
 import _paths  # noqa: F401
-from extraction.pdf.geometry import Box
+from extraction.pdf import geometry
 from extraction.pdf.model import Drawing, LayoutElement, PageLayout, Span
 from extraction.pdf.ports import FIRST_PAGE_NUMBER
 from extraction.pdf.pymupdf_adapter import PyMuPdfDocument
@@ -23,7 +23,7 @@ SIZE = 10.0
 def span(text, box):
     """FONT'ta SIZE puntoluk parça; satırı kendi üst kenarı, taban çizgisi kendi alt kenarıdır.
     Fontu in_font, puntosu sized değiştirir."""
-    return Span(text, FONT, SIZE, Box(*box), box[1], box[3])
+    return Span(text, FONT, SIZE, geometry.Box(*box), box[1], box[3])
 
 
 def in_font(font, piece):
@@ -37,16 +37,16 @@ def sized(size, piece):
 
 
 def fill(*box):
-    return Drawing(Box(*box), is_filled=True)
+    return Drawing(geometry.Box(*box), is_filled=True)
 
 
 def stroke(*box):
-    return Drawing(Box(*box), is_filled=False)
+    return Drawing(geometry.Box(*box), is_filled=False)
 
 
 def element(text, box):
     """Düzen okuyucusunun paragraf öğesi; türünü of_kind, öteki alanlarını dataclasses.replace değiştirir."""
-    return LayoutElement("paragraph", Box(*box), text)
+    return LayoutElement("paragraph", geometry.Box(*box), text)
 
 
 def of_kind(kind, item):
@@ -89,7 +89,7 @@ class FakePdfPage:
         return list(self._shapes)
 
     def text_in(self, box):
-        return " ".join(s.text for line in self._lines for s in line if box.intersects(s.box))
+        return " ".join(s.text for line in self._lines for s in line if geometry.intersects(box, s.box))
 
     def png(self, box, dpi):
         return FAKE_PNG
