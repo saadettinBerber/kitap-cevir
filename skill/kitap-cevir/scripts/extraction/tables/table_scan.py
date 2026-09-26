@@ -60,7 +60,7 @@ class TableBuilder:
         if not grid.has_columns():
             return []
         spans = _spans_within(self._fills.extent(cells), page_spans)
-        table = FilledTable.trimmed(RowSplitter(grid, self._row_gap_ratio).rows(spans), grid)
+        table = FilledTable.trimmed(RowSplitter(grid, self._row_gap_ratio).rows(spans))
         return [table.region()] if table.is_table() else []
 
 
@@ -99,12 +99,11 @@ class FilledTable:
         self._rows = rows
 
     @classmethod
-    def trimmed(cls, rows, grid):
-        """Bantlar varsa ilk bant öncesi (caption) atılır; tablo ilk tablo dışı satırda (gövde
-        metni, dipnot) biter. Baştaki/sondaki tek sütunlu satırlar tablo dışı metindir (kaynak notu vb.)."""
-        if grid.has_bands():
-            rows = list(itertools.dropwhile(lambda row: not row.is_in_band(), rows))
-        return cls(_without_single_column_edges(list(itertools.takewhile(TableRow.fits, rows))))
+    def trimmed(cls, rows):
+        """İlk bant öncesi (caption) atılır; tablo ilk tablo dışı satırda (gövde metni, dipnot) biter.
+        Baştaki/sondaki tek sütunlu satırlar tablo dışı metindir (kaynak notu vb.)."""
+        in_bands = itertools.dropwhile(lambda row: not row.is_in_band(), rows)
+        return cls(_without_single_column_edges(list(itertools.takewhile(TableRow.fits, in_bands))))
 
     def is_table(self):
         return len(self._rows) >= MIN_ROWS

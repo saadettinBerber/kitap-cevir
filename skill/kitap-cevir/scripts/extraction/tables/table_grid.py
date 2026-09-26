@@ -146,9 +146,6 @@ class TableGrid:
     def has_columns(self):
         return len(self.columns) >= MIN_COLUMNS
 
-    def has_bands(self):
-        return bool(self._bands)
-
     def column_of(self, span):
         """Parçanın ortasının düştüğü sütun; iki sütunun ortak kenarındaki orta soldakindedir."""
         holding = self._columns_holding(span)
