@@ -26,19 +26,8 @@ _EMPHASIS = re.compile(r"(?<!\\)(\*{1,3})(?=\S)(.+?)(?<=[^\s\\])\1")
 _ESCAPED = re.compile(r"\\([\\*_])")
 
 
-class LiteParsePageError(RuntimeError):
-    """LiteParse sayfayı okuyamadı; nedeni page_errors'tadır."""
-
-
-class LiteParseRunner:
-    """LiteParse motoruna dokunan tek yer: bir sayfayı blokları ve görselleriyle okur."""
-
-    def parse(self, page, image_dir):
-        """Koşu başlığı ve alt bilgi korunur: onları page_zones ayırır."""
-        os.makedirs(image_dir, exist_ok=True)
-        parser = LiteParse(ocr_enabled=False, target_pages=str(page.number), extract_blocks=True,
-                           extract_images=True, image_output_dir=image_dir, keep_headers_footers=True, quiet=True)
-        return parser.parse(page.pdf_path)
+def layout_reader():
+    return LiteParseLayoutReader(LiteParseRunner())
 
 
 class LiteParseLayoutReader:
@@ -55,8 +44,19 @@ class LiteParseLayoutReader:
         return PageLayout(page.height, blocks.elements(result.pages[0].blocks))
 
 
-def layout_reader():
-    return LiteParseLayoutReader(LiteParseRunner())
+class LiteParsePageError(RuntimeError):
+    """LiteParse sayfayı okuyamadı; nedeni page_errors'tadır."""
+
+
+class LiteParseRunner:
+    """LiteParse motoruna dokunan tek yer: bir sayfayı blokları ve görselleriyle okur."""
+
+    def parse(self, page, image_dir):
+        """Koşu başlığı ve alt bilgi korunur: onları page_zones ayırır."""
+        os.makedirs(image_dir, exist_ok=True)
+        parser = LiteParse(ocr_enabled=False, target_pages=str(page.number), extract_blocks=True,
+                           extract_images=True, image_output_dir=image_dir, keep_headers_footers=True, quiet=True)
+        return parser.parse(page.pdf_path)
 
 
 class LiteParseBlocks:

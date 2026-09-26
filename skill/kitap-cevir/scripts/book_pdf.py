@@ -13,19 +13,6 @@ from extraction.text_utils import normalize_spaces
 CONTEXT_CHARS = 700
 
 
-def _page_text(document, pdf_page):
-    """İlk sayfanın öncesi ve son sayfanın sonrası boş metindir."""
-    if not FIRST_PAGE_NUMBER <= pdf_page <= document.page_count:
-        return ""
-    return normalize_spaces(document.page_text(pdf_page))
-
-
-def context_snippets(document, pdf_page):
-    """document: PdfDocument; komşu sayfaların bitişik uçları."""
-    return {"prev_tail": _page_text(document, pdf_page - 1)[-CONTEXT_CHARS:],
-            "next_head": _page_text(document, pdf_page + 1)[:CONTEXT_CHARS]}
-
-
 class BookPdf:
     """Kitabın PDF'inden sayfa okur; her çağrı belgeyi bir kez açar."""
 
@@ -48,3 +35,16 @@ class BookPdf:
     def hyphen_fixes(self, pdf_page):
         with self._open_pdf() as document:
             return self._extractor.hyphen_fixes(document.page(pdf_page))
+
+
+def context_snippets(document, pdf_page):
+    """document: PdfDocument; komşu sayfaların bitişik uçları."""
+    return {"prev_tail": _page_text(document, pdf_page - 1)[-CONTEXT_CHARS:],
+            "next_head": _page_text(document, pdf_page + 1)[:CONTEXT_CHARS]}
+
+
+def _page_text(document, pdf_page):
+    """İlk sayfanın öncesi ve son sayfanın sonrası boş metindir."""
+    if not FIRST_PAGE_NUMBER <= pdf_page <= document.page_count:
+        return ""
+    return normalize_spaces(document.page_text(pdf_page))

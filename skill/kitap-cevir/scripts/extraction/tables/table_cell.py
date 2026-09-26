@@ -7,17 +7,6 @@ SUPERSCRIPT_RATIO = 0.8      # satırın ana puntosunun altındaki parça = üst
 WRAP_FILL_RATIO = 0.8        # satırlar sütunu bu oranda dolduruyorsa sarılmış düz metindir
 
 
-@dataclass(frozen=True)
-class CellLine:
-    """Hücrenin bir satırı: parçaları boşlukla birleşmiş metni ve en sağdaki parçanın sağ kenarı."""
-    text: str
-    right: float
-
-    @classmethod
-    def of(cls, spans):
-        return cls(" ".join(span.text for span in spans), max(span.box.x1 for span in spans))
-
-
 class TableCell:
     """Bir hücreye düşen metin parçaları: satırları ve üst simge işaretleri."""
 
@@ -62,3 +51,14 @@ class TableCell:
 
     def _is_mark(self, span):
         return span.size < self._main_size * SUPERSCRIPT_RATIO
+
+
+@dataclass(frozen=True)
+class CellLine:
+    """Hücrenin bir satırı: parçaları boşlukla birleşmiş metni ve en sağdaki parçanın sağ kenarı."""
+    text: str
+    right: float
+
+    @classmethod
+    def of(cls, spans):
+        return cls(" ".join(span.text for span in spans), max(span.box.x1 for span in spans))
