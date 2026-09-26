@@ -41,9 +41,8 @@ class PageFinalizer:
         """Sayfayı projeye işler; dönen özet, CLI'ın basacağı uyarıları taşır."""
         page = _read_page(translated_path)
         self._pages.save(page)
-        written = {"page_js": self._project.page_js(page.number()), "images": self._copy_images(page)}
-        terms = self._rebuild_reader_data(page, self._register(page))
-        return {**written, "terms": terms, **self._notes(page)}
+        written = {"images": self._copy_images(page), "terms": self._rebuild_reader_data(page, self._register(page))}
+        return {**written, **self._notes(page)}
 
     def _copy_images(self, page):
         """Sayfanın andığı görsellerden çevirmen girdisinde bulunanlar kopyalanır; kopyalanan sayısı."""
@@ -74,8 +73,8 @@ class PageFinalizer:
 
     def _notes(self, page):
         cards = page.concepts()
-        return {"untranslated": page.missing_translations(), "page": page.number(),
-                "cards_pending": not cards, "card_problems": self._card_problems(cards)}
+        return {"page_js": self._project.page_js(page.number()), "untranslated": page.missing_translations(),
+                "page": page.number(), "cards_pending": not cards, "card_problems": self._card_problems(cards)}
 
     def _card_problems(self, cards):
         """Kartlar çeviriden sonra ayrı üretilir; kartsız sayfa sorun değil, bekleyen iştir."""
