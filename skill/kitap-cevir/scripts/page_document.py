@@ -120,7 +120,13 @@ class PageDocument:
                     len(self._data["blocks"]))
 
     def insert_image(self, index, src):
-        self._data["blocks"].insert(index, {"type": "image", "src": src})
+        """Görsel, o yerde duran görsellerin altına girer: aynı yere düşen görseller PDF sırasını korur."""
+        self._data["blocks"].insert(self._after_images(index), {"type": "image", "src": src})
+
+    def _after_images(self, index):
+        blocks = self.blocks()
+        return next((position for position in range(index, len(blocks)) if not blocks[position].image_sources()),
+                    len(blocks))
 
     def display_math(self):
         return [equation for block in self.blocks() for equation in block.equations()]

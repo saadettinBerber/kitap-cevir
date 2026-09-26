@@ -124,9 +124,23 @@ class ImagePlacementTest(unittest.TestCase):
     def test_repeated_image_keeps_its_first_anchor(self):
         self.assertEqual(self.placement.missing([("fig.png", ANCHOR), ("fig.png", "")]), [("fig.png", ANCHOR)])
 
-    def test_unanchored_images_each_go_right_below_the_headings(self):
+    def test_unanchored_images_keep_their_pdf_order(self):
         self.placement.add_all([("fig.png", ""), ("fig-2.png", "")])
-        self.assertEqual(self.page, _page(HEADING, _image("fig-2.png"), _image("fig.png"), LAYERS, SMALL))
+        self.assertEqual(self.page, _page(HEADING, _image("fig.png"), _image("fig-2.png"), LAYERS, SMALL))
+
+    def test_images_with_the_same_anchor_keep_their_pdf_order(self):
+        self.placement.add_all([("fig.png", ANCHOR), ("fig-2.png", ANCHOR)])
+        self.assertEqual(self.page, _page(HEADING, LAYERS, _image("fig.png"), _image("fig-2.png"), SMALL))
+
+    def test_image_under_the_last_block_goes_below_its_image(self):
+        page = _page(HEADING, LAYERS, _image("old.png"))
+        ImagePlacement(page).add("fig.png", ANCHOR)
+        self.assertEqual(page, _page(HEADING, LAYERS, _image("old.png"), _image("fig.png")))
+
+    def test_image_goes_below_the_image_already_under_its_block(self):
+        page = _page(HEADING, LAYERS, _image("old.png"), SMALL)
+        ImagePlacement(page).add("fig.png", ANCHOR)
+        self.assertEqual(page, _page(HEADING, LAYERS, _image("old.png"), _image("fig.png"), SMALL))
 
 
 class AnchorMatchTest(unittest.TestCase):
