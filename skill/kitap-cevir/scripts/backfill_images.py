@@ -63,14 +63,14 @@ class PageImages:
 
 
 class ImagePlacement:
-    """Çevrilmiş sayfanın blokları; görsel, PDF'te önünde gelen metnin karşılığının altına girer."""
+    """Çevrilmiş sayfaya görsel yerleştirir: görsel, PDF'te önündeki metnin karşılığının altına girer."""
 
-    def __init__(self, blocks):
-        self._blocks = blocks
+    def __init__(self, document):
+        self._document = document
 
     def missing(self, anchored):
         """(görsel src, çapa) çiftlerinden sayfada olmayanlar; PDF'te tekrar eden görsel bir kez."""
-        present = {src for block in self._views() for src in block.image_sources()}
+        present = set(self._document.image_sources())
         first_anchors = {}
         for src, anchor in anchored:
             first_anchors.setdefault(src, anchor)
@@ -81,10 +81,7 @@ class ImagePlacement:
             self.add(src, anchor)
 
     def add(self, src, anchor):
-        self._blocks.insert(self._index_after(anchor), {"type": "image", "src": src})
-
-    def _views(self):
-        return [Block.of(block) for block in self._blocks]
+        self._document.insert_image(self._index_after(anchor), src)
 
     def _index_after(self, anchor):
         """Çapaya en çok benzeyen bloğun hemen sonrası; eşleşme yoksa sayfa başı
@@ -92,14 +89,14 @@ class ImagePlacement:
         score, index = self._best_match(anchor)
         if score >= MATCH_THRESHOLD:
             return index + 1
-        return next((i for i, block in enumerate(self._views()) if not block.leads_page()), len(self._blocks))
+        return self._document.leading_block_count()
 
     def _best_match(self, anchor):
         """(benzerlik, blok sırası); çapa boşsa hiçbir blok eşleşmez."""
         if not anchor:
             return 0, -1
-        scored = [(_similarity(anchor, _plain(block.anchor_text())), index)
-                  for index, block in enumerate(self._views())]
+        scored = [(_similarity(anchor, _plain(text)), index)
+                  for index, text in enumerate(self._document.anchor_texts())]
         return max(scored, default=(0, -1))
 
 
@@ -131,7 +128,7 @@ class ImageBackfiller:
         """Eklenen görsel sayısı; sayfa yalnız görsel eklendiyse yeniden yazılır."""
         images = self._extracted.of(page)
         document = self._pages.get(page)
-        placement = ImagePlacement(document.data["blocks"])
+        placement = ImagePlacement(document)
         missing = placement.missing(images.anchored())
         placement.add_all(missing)
         images.copy([src for src, _ in missing], self._pages.images_dir(page))

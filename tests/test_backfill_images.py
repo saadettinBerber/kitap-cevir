@@ -88,11 +88,16 @@ class PageImagesCopyTest(unittest.TestCase):
             self.assertFalse(os.path.exists(target))
 
 
+def _placement(blocks):
+    """Blokları verilen sayfanın yerleştiricisi; görseller bu listeye girer."""
+    return ImagePlacement(PageDocument({"blocks": blocks}))
+
+
 class ImagePlacementTest(unittest.TestCase):
     def setUp(self):
         self.blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"},
                        _para("Layers separate concerns."), _para("Microservices are small.")]
-        self.placement = ImagePlacement(self.blocks)
+        self.placement = _placement(self.blocks)
 
     def test_image_goes_below_the_matching_block(self):
         self.placement.add("fig.png", "layers separate concerns")
@@ -106,7 +111,7 @@ class ImagePlacementTest(unittest.TestCase):
         self.assertEqual(self.placement.missing([("fig.png", ANCHOR)]), [("fig.png", ANCHOR)])
 
     def test_image_on_the_page_is_not_missing(self):
-        self.assertEqual(ImagePlacement(self.blocks + [_image("fig.png")]).missing([("fig.png", ANCHOR)]), [])
+        self.assertEqual(_placement(self.blocks + [_image("fig.png")]).missing([("fig.png", ANCHOR)]), [])
 
     def test_repeated_image_keeps_its_first_anchor(self):
         self.assertEqual(self.placement.missing([("fig.png", ANCHOR), ("fig.png", "")]), [("fig.png", ANCHOR)])
@@ -123,7 +128,7 @@ class AnchorMatchTest(unittest.TestCase):
     @staticmethod
     def _placed_at(anchor, *texts):
         blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"}] + [_para(text) for text in texts]
-        ImagePlacement(blocks).add("fig.png", anchor)
+        _placement(blocks).add("fig.png", anchor)
         return blocks.index(_image("fig.png"))
 
     def test_markup_is_ignored(self):
@@ -153,7 +158,7 @@ class AnchorMatchTest(unittest.TestCase):
 
     def test_unmatched_image_on_a_page_of_headings_goes_last(self):
         blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"}]
-        ImagePlacement(blocks).add("fig.png", "")
+        _placement(blocks).add("fig.png", "")
         self.assertEqual(blocks[-1], _image("fig.png"))
 
 

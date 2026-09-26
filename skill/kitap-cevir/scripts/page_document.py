@@ -74,6 +74,21 @@ class PageDocument:
         """Yalnız görsel içeren sayfa (bölüm sonu boşluğu) çevrilecek bir şey taşımaz."""
         return all(block.image_sources() for block in self.blocks())
 
+    def image_sources(self):
+        return [src for block in self.blocks() for src in block.image_sources()]
+
+    def anchor_texts(self):
+        """Blokları görsel yerleştirirken tanıtan İngilizce metinler, blok sırasıyla."""
+        return [block.anchor_text() for block in self.blocks()]
+
+    def leading_block_count(self):
+        """Sayfanın açıldığı başlık bloklarının sayısı; çapasız görsel bunların altına iner."""
+        return next((index for index, block in enumerate(self.blocks()) if not block.leads_page()),
+                    len(self.data["blocks"]))
+
+    def insert_image(self, index, src):
+        self.data["blocks"].insert(index, {"type": "image", "src": src})
+
     def display_math(self):
         return [equation for block in self.blocks() for equation in block.equations()]
 
