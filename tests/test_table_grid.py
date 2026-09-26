@@ -215,6 +215,31 @@ class FillSizeTest(unittest.TestCase):
         self.assertEqual(_groups(fill(0, 0, MIN_CELL_WIDTH, MIN_CELL_HEIGHT - STEP)), [])
 
 
+BACKGROUND_BOTTOM = BOTTOM * 2
+LOWER_BACKGROUND_BOTTOM = BACKGROUND_BOTTOM * 2
+OVERLAP = MIN_CELL_HEIGHT
+
+
+def _background_table():
+    """Arka plan ve onun içindeki, ilk satırı dolduran iki hücre."""
+    return [fill(FIRST_LEFT, TOP, SECOND_RIGHT, BACKGROUND_BOTTOM),
+            fill(FIRST_LEFT, TOP, SECOND_LEFT, BOTTOM), fill(SECOND_LEFT, TOP, SECOND_RIGHT, BOTTOM)]
+
+
+def _cell_across(edge):
+    """İlk sütunda, yatay edge kenarının üstünden altına taşan hücre."""
+    return fill(FIRST_LEFT, edge - OVERLAP / 2, SECOND_LEFT, edge + BOTTOM - TOP - OVERLAP / 2)
+
+
+def _cells_across(edge):
+    first = _cell_across(edge)
+    return [first, fill(SECOND_LEFT, first.box.y0, SECOND_RIGHT, first.box.y1)]
+
+
+def _boxes(drawings):
+    return [drawing.box for drawing in drawings]
+
+
 class BackgroundTest(unittest.TestCase):
     def test_fill_holding_a_single_fill_is_not_a_background(self):
         """Arka plan en az iki dolguyu içine alır; kendisi sayılmaz. Kenar paylaşmayan iki hücre iki kümedir."""
@@ -231,6 +256,29 @@ class BackgroundTest(unittest.TestCase):
                  fill(SECOND_LEFT, LOOSE_TOP, SECOND_RIGHT, LOOSE_BOTTOM)]
         fills = PageFills([background, *inside, *loose], TEXT_BOTTOM)
         self.assertEqual(fills.extent([cell.box for cell in loose]).y1, TEXT_BOTTOM)
+
+    def test_fill_only_overlapping_other_fills_is_not_a_background(self):
+        """Arka plan dolguları içine alır; alt kenarından taşan dolgular onu arka plan yapmaz, o da hücredir."""
+        overlapped = fill(FIRST_LEFT, TOP, SECOND_RIGHT, BACKGROUND_BOTTOM)
+        groups = _groups(overlapped, *_cells_across(BACKGROUND_BOTTOM))
+        self.assertIn(overlapped.box, [cell for group in groups for cell in group])
+
+    def test_cell_reaching_out_of_the_background_is_a_table_of_its_own(self):
+        table, across = _background_table(), _cell_across(BACKGROUND_BOTTOM)
+        self.assertEqual(_groups(*table, across), [_boxes(table[1:]), [across.box]])
+
+    def test_cells_reaching_out_of_the_background_reach_down_to_the_text_bottom(self):
+        across = _cell_across(BACKGROUND_BOTTOM)
+        fills = PageFills([*_background_table(), across], TEXT_BOTTOM)
+        self.assertEqual(fills.extent([across.box]).y1, TEXT_BOTTOM)
+
+    def test_cell_belongs_to_the_background_holding_it_not_to_one_it_overlaps(self):
+        """Alttaki arka plan üsttekinin alt kenarına biner; ilk hücre sırası iki arka planın ortak şeridindedir."""
+        upper = _background_table()
+        lower_top = BACKGROUND_BOTTOM - OVERLAP
+        lower = [fill(FIRST_LEFT, lower_top, SECOND_RIGHT, LOWER_BACKGROUND_BOTTOM),
+                 *_cells_across(BACKGROUND_BOTTOM)]
+        self.assertEqual(_groups(*upper, *lower), [_boxes(upper[1:]), _boxes(lower[1:])])
 
 
 if __name__ == "__main__":
