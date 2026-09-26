@@ -31,6 +31,9 @@ class PyMuPdfDocument:
     def metadata(self):
         return self._document.metadata or {}
 
+    def has_page(self, number):
+        return FIRST_PAGE_NUMBER <= number <= self.page_count
+
     def page(self, number):
         return PyMuPdfPage(self._document[number - FIRST_PAGE_NUMBER])
 

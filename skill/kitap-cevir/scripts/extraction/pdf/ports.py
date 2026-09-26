@@ -34,6 +34,9 @@ class PdfDocument(Protocol):
     page_count: int
     metadata: dict              # başlık, yazar…; boş değerler olabilir
 
+    def has_page(self, number: int) -> bool:
+        """Numara FIRST_PAGE_NUMBER ile son sayfa arasında mı?"""
+
     def page(self, number: int) -> PdfPage:
         """FIRST_PAGE_NUMBER'dan başlayan numarasıyla sayfa."""
 

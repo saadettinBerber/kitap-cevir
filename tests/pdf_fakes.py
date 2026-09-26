@@ -79,6 +79,9 @@ class FakePdfDocument:
     def page_count(self):
         return len(self.pages)
 
+    def has_page(self, number):
+        return FIRST_PAGE_NUMBER <= number <= self.page_count
+
     def page(self, number):
         return self.pages[number - FIRST_PAGE_NUMBER]
 

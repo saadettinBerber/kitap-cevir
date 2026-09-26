@@ -88,6 +88,18 @@ class PyMuPdfAdapterTest(unittest.TestCase):
         with PyMuPdfDocument.open(self.pdf) as document:
             self.assertEqual(document.page_count, 1)
 
+    def test_document_has_its_first_page(self):
+        with PyMuPdfDocument.open(self.pdf) as document:
+            self.assertTrue(document.has_page(1))
+
+    def test_document_has_no_page_before_the_first(self):
+        with PyMuPdfDocument.open(self.pdf) as document:
+            self.assertFalse(document.has_page(0))
+
+    def test_document_has_no_page_after_the_last(self):
+        with PyMuPdfDocument.open(self.pdf) as document:
+            self.assertFalse(document.has_page(2))
+
     def test_document_reads_the_plain_text_of_a_page(self):
         with PyMuPdfDocument.open(self.pdf) as document:
             self.assertEqual(document.page_text(1).split(), ["Top", "line", "Bottom", "line"])
