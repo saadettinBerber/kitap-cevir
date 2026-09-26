@@ -40,7 +40,8 @@ class PageFinalizer:
     def finalize(self, translated_path):
         """Sayfayı projeye işler; dönen özet, CLI'ın basacağı uyarıları taşır."""
         page = _read_page(translated_path)
-        written = {"page_js": self._pages.save(page), "images": self._copy_images(page)}
+        self._pages.save(page)
+        written = {"page_js": self._project.page_js(page.number()), "images": self._copy_images(page)}
         terms = self._rebuild_reader_data(page, self._register(page))
         return {**written, "terms": terms, **self._notes(page)}
 

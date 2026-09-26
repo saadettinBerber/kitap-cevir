@@ -24,7 +24,8 @@ class TranslatedPagesTest(unittest.TestCase):
         self.assertEqual(self.pages.get(PAGE_NUMBER), PageDocument(PAGE))
 
     def test_page_number_comes_from_the_document(self):
-        self.assertEqual(self.pages.save(PageDocument(PAGE)), self.project.page_js(PAGE_NUMBER))
+        self.pages.save(PageDocument(PAGE))
+        self.assertTrue(os.path.isfile(self.project.page_js(PAGE_NUMBER)))
 
     def test_missing_page_is_an_error(self):
         with self.assertRaises(FileNotFoundError):
@@ -35,7 +36,8 @@ class TranslatedPagesTest(unittest.TestCase):
         self.assertEqual(self.pages.get(PAGE_NUMBER), PageDocument(PAGE))
 
     def test_page_file_is_a_reader_callback(self):
-        with open(self.pages.save(PageDocument(PAGE)), encoding="utf-8") as page_js:
+        self.pages.save(PageDocument(PAGE))
+        with open(self.project.page_js(PAGE_NUMBER), encoding="utf-8") as page_js:
             self.assertTrue(page_js.read().startswith("window.PAGE({"))
 
     def test_replacing_cards_changes_only_the_cards(self):
