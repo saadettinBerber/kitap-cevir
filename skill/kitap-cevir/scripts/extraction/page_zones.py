@@ -77,7 +77,11 @@ class PageZones:
 
     def split(self, layout):
         """(koşu başlığı ya da None, alt bilgisi atılmış gövde öğeleri)."""
-        footer_line = layout.height - self._footer_zone_top
+        footer_line = self.body_bottom(layout.height)
         footer = [element for element in layout.elements if element.box.y0 > footer_line]
         body = tuple(element for element in layout.elements if element.box.y0 <= footer_line)
         return self._running_header.split(PageLayout(layout.height, body), footer)
+
+    def body_bottom(self, page_height):
+        """Gövdenin alt sınırı, alt bilgi bölgesinin üst çizgisi: çizgide başlayan öğe gövdededir."""
+        return page_height - self._footer_zone_top
