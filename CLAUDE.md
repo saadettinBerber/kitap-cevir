@@ -33,6 +33,7 @@ Bu depodaki karşılıkları:
 - **VISITOR:** `Card.of` (`concept_cards.py`) + `concept_check.CardRules` ve `epub/cards.EpubCardVisitor`. Kart türüne göre dallanma yalnız fabrikadadır; denetim ve EPUB çizimi karta eklenen işlemlerdir. Önceki sözlükle dağıtım (`kind_rules`, `_MIDDLE_PARTS`) aynı switch'in iki kopyasıydı.
 - **POJO:** `epub/` diski bilmez. Stil, görsel ve çıktı akışı dışarıdan verilir; disk sınırı `export_epub.BookExport`'tur.
 - **Veri yapısı:** sayfa JSON'u (`references/FORMAT.md`) bir veri taşıyıcıdır. Davranışı `PageDocument` ve `Block` sarmalayıcıları taşır.
+- **Veri yapısı:** `progress.json` bir veri taşıyıcıdır. `Progress` onu sarar; kayıt yalnız kendi metotlarıyla değişir, `as_json()` yazılacak kopyayı verir (Bl.6 · Data/Object Anti-Symmetry).
 
 ## Ölçüler: eşik alarmdır, ölçüt değildir
 
