@@ -4,7 +4,8 @@ import unittest
 
 from pdf_fakes import fill, span
 from extraction.pdf.geometry import Box
-from extraction.tables.table_grid import EDGE_TOLERANCE, MIN_CELL_HEIGHT, MIN_CELL_WIDTH, PageFills, TableGrid
+from extraction.tables.table_grid import (EDGE_TOLERANCE, MIN_CELL_HEIGHT, MIN_CELL_WIDTH, WIDE_SPAN_RATIO, PageFills,
+                                          TableGrid)
 
 TOP, BOTTOM = 100, 120
 FIRST_LEFT, SECOND_LEFT, SECOND_RIGHT = 70, 170, 270
@@ -162,6 +163,22 @@ class InclusiveEdgeTest(unittest.TestCase):
     def test_fill_ending_further_right_is_no_band(self):
         grid = _with_band_fill(FIRST_LEFT, SECOND_LEFT + EDGE_TOLERANCE + STEP)
         self.assertFalse(grid.is_in_band(_text_between(UPPER_TEXT)))
+
+
+def _span_of_width(width):
+    centre = (FIRST_LEFT + SECOND_LEFT) / 2
+    return span("x", (centre - width / 2, TOP, centre + width / 2, BOTTOM))
+
+
+class WideSpanTest(unittest.TestCase):
+    """Satırın parçası en geniş sütunun WIDE_SPAN_RATIO katı genişliğe kadar tabloya sığar."""
+    LIMIT = (SECOND_LEFT - FIRST_LEFT) * WIDE_SPAN_RATIO
+
+    def test_span_as_wide_as_the_limit_fits(self):
+        self.assertTrue(_two_columns().is_table_row([_span_of_width(self.LIMIT)]))
+
+    def test_wider_span_does_not_fit(self):
+        self.assertFalse(_two_columns().is_table_row([_span_of_width(self.LIMIT + STEP)]))
 
 
 def _groups(*fills):
