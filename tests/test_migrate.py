@@ -154,11 +154,18 @@ def _new_document():
 
 def _migrated(document, old=OLD_PAGE):
     """(taşınmış belge, bekleyen birimler, LaTeX'i olmayan denklemler)."""
-    pending = PageMigration(document, PageDocument(copy.deepcopy(old))).run({})
-    return document, pending["units"], pending["latex"]
+    migration = PageMigration(PageDocument(copy.deepcopy(old)), {})
+    migrated = migration.migrated(PageDocument(document))
+    pending = migration.pending(migrated)
+    return migrated.as_json(), pending["units"], pending["latex"]
 
 
 class PageMigrationTest(unittest.TestCase):
+    def test_extracted_page_is_left_unchanged(self):
+        extracted = PageDocument(_new_document())
+        PageMigration(PageDocument(OLD_PAGE), {}).migrated(extracted)
+        self.assertEqual(extracted, PageDocument(_new_document()))
+
     def test_heading_translation_is_carried(self):
         document, _, _ = _migrated(_new_document())
         self.assertEqual(document["blocks"][0]["tr"], "Bağlılık")
@@ -233,7 +240,9 @@ def _carried(new_blocks, *old_units):
     """(taşınmış bloklar, bekleyen birimler); eski sayfanın birimleri altyazı olarak verilir."""
     document = {"chapter": {"num": 1, "en": "One", "tr": "Bir"}, "blocks": list(new_blocks)}
     old = {"blocks": [{"type": "caption", "en": en, "tr": tr} for en, tr in old_units]}
-    return document["blocks"], PageMigration(document, PageDocument(old)).run({})["units"]
+    migration = PageMigration(PageDocument(old), {})
+    migrated = migration.migrated(PageDocument(document))
+    return migrated.as_json()["blocks"], migration.pending(migrated)["units"]
 
 
 def _caption(en):

@@ -7,7 +7,7 @@ from collections import Counter
 from page_blocks import Block
 from progress import UNKNOWN_CHAPTER
 
-TRANSLATED_FIELDS = ("title", "section", "concepts", "chapter")
+CARRIED_FIELDS = ("title", "section", "concepts")
 
 
 class PageDocument:
@@ -40,10 +40,6 @@ class PageDocument:
                 "title_en": title.get("en", ""), "title_tr": title.get("tr", ""),
                 "section_en": section.get("en", ""), "section_tr": section.get("tr", "")}
 
-    def translated_fields(self):
-        """Yeniden çıkarımın üretmediği, çevirmenin ve kart ajanının yazdığı alanlardan sayfada olanlar."""
-        return {field: self._data[field] for field in TRANSLATED_FIELDS if field in self._data}
-
     def with_concepts(self, cards):
         """Kartları verilen kartlar olan aynı sayfa; bu belge değişmez."""
         return PageDocument({**self._data, "concepts": cards})
@@ -69,10 +65,40 @@ class PageDocument:
         return [(f"blocks[{index}]{suffix}", unit)
                 for index, block in enumerate(self.blocks()) for suffix, unit in block.unit_paths()]
 
-    def fill_translations(self, source):
-        """Her blok birimlerine eski çevirileri yazar (taşıma)."""
+    def take_translation_of(self, old, source):
+        """Taşıma: yeniden çıkarılmış bu sayfa, eski sayfanın (old) çevirmen ve kart ajanınca yazılmış
+        kısımlarını alır. Birimlerin eski çevirisini kaynak (TranslationSource) söyler."""
         for block in self.blocks():
             block.fill(source)
+        self._take_fields_of(old)
+        self._take_chapter_of(old)
+        self._take_latex_of(old)
+
+    def _take_fields_of(self, old):
+        """Başlık, kesit ve kartlar eski sayfadan gelir. Eski sayfanın terimleri sözlükte olduğundan
+        yeni terim listesi boşalır."""
+        for field in CARRIED_FIELDS:
+            self._data[field] = old._data.get(field, self._data.get(field))
+        self._data["glossary_new"] = []
+
+    def _take_chapter_of(self, old):
+        """Bölüm yalnız Türkçesi yoksa eski sayfadan gelir."""
+        if not self._data.get("chapter", {}).get("tr"):
+            self._data["chapter"] = old._data.get("chapter", self._data["chapter"])
+
+    def _take_latex_of(self, old):
+        """Eski sayfada aynı PNG için yazılmış LaTeX gelir; ayrı satır denkleminin LaTeX'i satır
+        içindekinden önceliklidir."""
+        known = {item["src"]: item.get("latex", "") for item in old.inline_math() + old.display_math()}
+        for item in self.display_math() + self.inline_math():
+            item["latex"] = item.get("latex") or known.get(item["src"], "")
+
+    def missing_latex(self):
+        """LaTeX'i olmayan denklemler: {path, src}; önce ayrı satır denklemleri, sonra satır içindekiler."""
+        display = [{"path": f"blocks[{index}]", "src": equation["src"]} for index, block in enumerate(self.blocks())
+                   for equation in block.equations() if not equation["latex"]]
+        return display + [{"path": f"math[{index}]", "src": item["src"]}
+                          for index, item in enumerate(self.inline_math()) if not item["latex"]]
 
     def missing_translations(self):
         return sum(1 for unit in self.text_units() if unit.get("en") and not unit.get("tr"))
