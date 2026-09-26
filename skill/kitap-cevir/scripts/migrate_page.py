@@ -49,9 +49,12 @@ class PageMigration:
         carried = self._old.translated_fields()
         for field in _COPY_FIELDS:
             self._document[field] = carried.get(field, self._document.get(field))
+        self._carry_chapter(carried)
+        self._document["glossary_new"] = []
+
+    def _carry_chapter(self, carried):
         if not self._document.get("chapter", {}).get("tr"):
             self._document["chapter"] = carried.get("chapter", self._document["chapter"])
-        self._document["glossary_new"] = []
 
     def _carry_latex(self):
         """Eski sayfada aynı PNG için LaTeX yazılmışsa yeni yapıya taşınır; ayrı
