@@ -28,6 +28,10 @@ class TranslatedPages:
             handle.write(_page_js(document.as_json()))
         return path
 
+    def replace_concepts(self, page, cards):
+        """Sayfanın kartları değişir; metnine dokunulmaz."""
+        self.save(self.get(page).with_concepts(cards))
+
     def images_dir(self, page):
         return self._project.page_images(page)
 

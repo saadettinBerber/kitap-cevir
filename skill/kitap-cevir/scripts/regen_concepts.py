@@ -13,7 +13,6 @@ import sys
 
 from concept_check import CardChecker
 from json_file import read_json, write_json
-from page_document import PageDocument
 from project import Project
 from translated_pages import TranslatedPages
 
@@ -91,7 +90,7 @@ class CardOutputs:
         return problems
 
     def _replace_cards(self, page, cards):
-        self._pages.save(PageDocument({**self._pages.get(page).data, "concepts": cards}))
+        self._pages.replace_concepts(page, cards)
 
 
 def _run_prepare(project, pages):

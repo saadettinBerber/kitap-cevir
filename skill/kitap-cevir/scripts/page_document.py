@@ -30,6 +30,10 @@ class PageDocument:
     def concepts(self):
         return self.data.get("concepts", [])
 
+    def with_concepts(self, cards):
+        """Kartları verilen kartlar olan aynı sayfa; bu belge değişmez."""
+        return PageDocument({**self.data, "concepts": cards})
+
     def card_source(self):
         """Kartların yazılacağı sayfa: başlık alanları ile metin bloklarının kart birimleri (content)."""
         content = [unit for unit in (block.card_unit() for block in self.blocks()) if unit]

@@ -113,6 +113,11 @@ class PageQueriesTest(unittest.TestCase):
         document.as_json()["blocks"].clear()
         self.assertEqual(document.as_json(), self.PAGE)
 
+    def test_page_with_new_concepts_leaves_the_old_page(self):
+        document = PageDocument(self.PAGE)
+        document.with_concepts([{"id": "yeni"}])
+        self.assertEqual(document.concepts(), [])
+
     def test_unit_paths_start_at_the_page(self):
         [(first_path, _), *_] = PageDocument({"blocks": [CODE, TABLE]}).unit_paths()
         self.assertEqual(first_path, "blocks[1].rows[0][0]")

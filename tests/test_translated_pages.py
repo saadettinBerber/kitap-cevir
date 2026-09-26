@@ -38,6 +38,11 @@ class TranslatedPagesTest(unittest.TestCase):
         with open(self.pages.save(PageDocument(PAGE)), encoding="utf-8") as page_js:
             self.assertTrue(page_js.read().startswith("window.PAGE({"))
 
+    def test_replacing_cards_changes_only_the_cards(self):
+        self.pages.save(PageDocument(PAGE))
+        self.pages.replace_concepts(PAGE_NUMBER, [{"id": "yeni"}])
+        self.assertEqual(self.pages.get(PAGE_NUMBER), PageDocument({**PAGE, "concepts": [{"id": "yeni"}]}))
+
     def test_images_sit_next_to_the_page_file(self):
         self.assertEqual(os.path.dirname(self.pages.images_dir(PAGE_NUMBER)),
                          os.path.dirname(self.project.page_js(PAGE_NUMBER)))
