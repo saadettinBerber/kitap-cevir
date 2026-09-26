@@ -7,7 +7,6 @@ from unittest import mock
 
 from pdf_fakes import FAKE_PNG, FakePdfPage, in_font, sized, span, stroke
 from extraction.equations.math_scan import CROP_DPI, CROP_PADDING, LINE_MERGE_RATIO, MathScanner, placeholder
-from extraction.pdf import geometry
 from extraction.pdf.geometry import Box
 from extraction.settings import with_defaults
 
@@ -142,7 +141,9 @@ class DisplayBlockTest(ScanCase):
         page = _display_page()
         with mock.patch.object(page, "png", wraps=page.png) as png:
             self._scan(page)
-        self.assertEqual(png.call_args_list, [mock.call(geometry.expanded(Box(*DISPLAY_BOX), CROP_PADDING), CROP_DPI)])
+        left, top, right, bottom = DISPLAY_BOX
+        padded = Box(left - CROP_PADDING, top - CROP_PADDING, right + CROP_PADDING, bottom + CROP_PADDING)
+        self.assertEqual(png.call_args_list, [mock.call(padded, CROP_DPI)])
 
 
 class AdjacentLinesTest(ScanCase):
