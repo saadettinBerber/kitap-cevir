@@ -15,6 +15,7 @@ STEP = 0.1
 SPAN_HALF_WIDTH = 5
 GAP_HALF_WIDTH = 10
 INSIDE = 20                 # kenarın bu kadar içindeki parça ortası
+FIRST_COLUMN, SECOND_COLUMN = 0, 1
 
 
 def _cell(left, right):
@@ -111,7 +112,13 @@ class ColumnCountTest(unittest.TestCase):
 class ColumnOfTest(unittest.TestCase):
     def test_span_centred_on_a_column_border_belongs_to_the_left_column(self):
         grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
-        self.assertEqual(grid.column_of(_span_at(SECOND_LEFT)), 0)
+        self.assertEqual(grid.column_of(_span_at(SECOND_LEFT)), FIRST_COLUMN)
+
+    def test_span_belongs_to_the_column_of_its_centre(self):
+        """Sol kenarı birinci sütunda olsa da ortası ikinci sütuna düşen parça ikinci sütundadır."""
+        grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
+        across_the_border = span("x", (SECOND_LEFT - SPAN_HALF_WIDTH, TOP, SECOND_LEFT + INSIDE, BOTTOM))
+        self.assertEqual(grid.column_of(across_the_border), SECOND_COLUMN)
 
 
 def _groups(*fills):
