@@ -118,9 +118,6 @@ class GridColumns:
     def of_cells(cls, cells):
         return cls(ColumnTiling(cells).columns())
 
-    def is_tabular(self):
-        return len(self._columns) >= MIN_COLUMNS
-
     def band_fills(self, rects):
         """Sütun kenarlarına oturan ama tüm tabloyu kaplamayan dolgular, yukarıdan aşağı."""
         full_width = [(self._columns[0][0], self._columns[-1][1])]
