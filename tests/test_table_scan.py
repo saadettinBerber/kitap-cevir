@@ -162,6 +162,17 @@ class FullWidthFillTest(unittest.TestCase):
         [table] = _scan(FakePdfPage(lines=layout.lines() + [(BODY,)], shapes=layout.shading(0) + [full_width]))
         self.assertEqual(_texts(table), [HEADER] + ROWS)
 
+    def test_text_on_a_full_width_bar_above_the_first_band_is_left_out(self):
+        """Başlığın üstündeki boydan boya şerit hücre kümesine katılır ama bant değildir; ilk banttan
+        önceki satır tablo dışıdır."""
+        layout = ZebraLayout(ROWS)
+        bar_top = layout.top(0) - ROW_HEIGHT
+        bar = fill(COLUMNS[0][0], bar_top, COLUMNS[-1][1], layout.top(0))
+        title = span("Table 1-1. The title bar", (COLUMNS[0][0] + PADDING, bar_top + TEXT_DROP,
+                                                  COLUMNS[-1][1] - PADDING, bar_top + TEXT_DROP + TEXT_HEIGHT))
+        [table] = _scan(FakePdfPage(lines=[(title,)] + layout.lines(), shapes=[bar] + layout.shading(0)))
+        self.assertEqual(_texts(table), [HEADER] + ROWS)
+
 
 SUBLINE_DROPS = (2, 16)      # bir bandın içindeki iki alt satırın üst kenarı, satırın tepesinden
 
