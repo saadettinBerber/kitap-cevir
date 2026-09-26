@@ -216,7 +216,7 @@ class LayoutReaderChoiceTest(unittest.TestCase):
             layout_reader_for({"layout_reader": "pdfminer"})
 
     def test_odl_is_the_default(self):
-        self.assertIsInstance(PageExtractor.for_settings(with_defaults({})).layout_reader, OdlLayoutReader)
+        self.assertIsInstance(layout_reader_for(with_defaults({})), OdlLayoutReader)
 
     def test_extractor_takes_its_reader_from_the_settings(self):
         with self.assertRaises(InvalidLayoutReader):
