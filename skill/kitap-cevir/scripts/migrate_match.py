@@ -72,7 +72,7 @@ def _windows(units, start):
     return [units[start:start + count] for count in range(2, MAX_JOIN + 1) if start + count <= len(units)]
 
 
-class TranslationFiller:
+class TranslationSource:
     """Yeni birimin eski çevirisini söyler; birime yazmak bloğun işidir (Block.fill). Çevirisi boş kalan
     birimler doldurmadan sonra pending'den okunur."""
 

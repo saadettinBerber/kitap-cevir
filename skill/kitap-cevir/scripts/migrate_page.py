@@ -14,7 +14,7 @@ import sys
 
 from finalize_page import PageFinalizer
 from json_file import read_json, write_json
-from migrate_match import TranslationFiller, Translations
+from migrate_match import TranslationSource, Translations
 from page_document import PageDocument
 from page_input import PageInputBuilder
 from project import Project
@@ -36,12 +36,12 @@ class PageMigration:
 
     def run(self, fixes):
         """Bekleyenler: çevirisi bulunamayan birimler (units) ve LaTeX'i olmayan denklemler (latex)."""
-        filler = TranslationFiller(Translations.of_page(self._old, fixes))
+        source = TranslationSource(Translations.of_page(self._old, fixes))
         page = PageDocument(self._document)
-        page.fill_translations(filler)
+        page.fill_translations(source)
         self._carry_fields()
         self._carry_latex()
-        return {"units": filler.pending(page.unit_paths()), "latex": self._missing_latex()}
+        return {"units": source.pending(page.unit_paths()), "latex": self._missing_latex()}
 
     def _carry_fields(self):
         """Başlık, kesit ve kartlar eski sayfadan gelir; bölümün Türkçesi yoksa bölüm de. Eski sayfanın

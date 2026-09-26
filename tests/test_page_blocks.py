@@ -14,8 +14,8 @@ TABLE = {"type": "table", "rows": [[_unit("a"), _unit("b")], [_unit("c"), _unit(
 CODE = {"type": "code", "lang": "python", "code": "x = 1"}
 
 
-class _UpperFiller:
-    """TranslationFiller gibi; çeviri İngilizcenin büyük harflisidir, cümleleri ilkine indirir."""
+class _UpperSource:
+    """TranslationSource gibi; çeviri İngilizcenin büyük harflisidir, cümleleri ilkine indirir."""
 
     def translation(self, en):
         return en.upper()
@@ -57,17 +57,17 @@ class BlockTest(unittest.TestCase):
 
     def test_fill_writes_the_translation_of_every_unit(self):
         items = {"type": "list", "items": [_unit("x"), _unit("y")]}
-        Block.of(items).fill(_UpperFiller())
+        Block.of(items).fill(_UpperSource())
         self.assertEqual(items["items"], [_unit("x", "X"), _unit("y", "Y")])
 
     def test_para_fill_replaces_sentences_with_merged_ones(self):
         para = {"type": "para", "sentences": [_unit("a"), _unit("b")]}
-        Block.of(para).fill(_UpperFiller())
+        Block.of(para).fill(_UpperSource())
         self.assertEqual([sentence["en"] for sentence in para["sentences"]], ["a"])
 
     def test_para_fill_translates_the_merged_sentences(self):
         para = {"type": "para", "sentences": [_unit("a"), _unit("b")]}
-        Block.of(para).fill(_UpperFiller())
+        Block.of(para).fill(_UpperSource())
         self.assertEqual(para["sentences"][0]["tr"], "A")
 
     def test_card_unit_joins_text(self):

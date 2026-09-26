@@ -69,10 +69,10 @@ class PageDocument:
         return [(f"blocks[{index}]{suffix}", unit)
                 for index, block in enumerate(self.blocks()) for suffix, unit in block.unit_paths()]
 
-    def fill_translations(self, filler):
+    def fill_translations(self, source):
         """Her blok birimlerine eski çevirileri yazar (taşıma)."""
         for block in self.blocks():
-            block.fill(filler)
+            block.fill(source)
 
     def missing_translations(self):
         return sum(1 for unit in self.text_units() if unit.get("en") and not unit.get("tr"))

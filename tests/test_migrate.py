@@ -6,7 +6,7 @@ import unittest
 
 import _paths  # noqa: F401
 from json_file import write_json
-from migrate_match import TranslationFiller, Translations
+from migrate_match import TranslationSource, Translations
 from migrate_page import MigrationFinisher, Migrator, PageMigration, node_at
 from page_document import PageDocument
 from project import Project
@@ -87,57 +87,57 @@ class TranslationsTest(unittest.TestCase):
         self.assertEqual(Translations([_unit(" .", "nokta")]).lookup("."), "")
 
 
-class TranslationFillerTest(unittest.TestCase):
+class TranslationSourceTest(unittest.TestCase):
     def test_found_translation_is_given(self):
-        self.assertEqual(TranslationFiller(_old_translations()).translation("Coupling"), "Bağlılık")
+        self.assertEqual(TranslationSource(_old_translations()).translation("Coupling"), "Bağlılık")
 
     def test_blank_unit_has_an_empty_translation(self):
-        self.assertEqual(TranslationFiller(Translations([])).translation("  "), "")
+        self.assertEqual(TranslationSource(Translations([])).translation("  "), "")
 
     def test_numeric_cell_copies_english(self):
-        self.assertEqual(TranslationFiller(Translations([])).translation("42 %"), "42 %")
+        self.assertEqual(TranslationSource(Translations([])).translation("42 %"), "42 %")
 
     def test_numeric_cell_keeps_its_old_translation(self):
-        self.assertEqual(TranslationFiller(Translations([_unit("42 %", "%42")])).translation("42 %"), "%42")
+        self.assertEqual(TranslationSource(Translations([_unit("42 %", "%42")])).translation("42 %"), "%42")
 
     def test_unmatched_unit_has_an_empty_translation(self):
-        self.assertEqual(TranslationFiller(Translations([])).translation("Brand new."), "")
+        self.assertEqual(TranslationSource(Translations([])).translation("Brand new."), "")
 
     def test_translation_missing_the_placeholder_is_not_given(self):
-        filler = TranslationFiller(Translations([_unit("Loss is ⟦eq-1⟧.", "Kayıp budur.")]))
-        self.assertEqual(filler.translation("Loss is ⟦eq-1⟧."), "")
+        source = TranslationSource(Translations([_unit("Loss is ⟦eq-1⟧.", "Kayıp budur.")]))
+        self.assertEqual(source.translation("Loss is ⟦eq-1⟧."), "")
 
 
 class PendingTest(unittest.TestCase):
     def test_untranslated_unit_is_pending(self):
-        pending = TranslationFiller(Translations([])).pending([("blocks[3]", _unit("Brand new.", ""))])
+        pending = TranslationSource(Translations([])).pending([("blocks[3]", _unit("Brand new.", ""))])
         self.assertEqual(pending, [{"path": "blocks[3]", "en": "Brand new.", "tr_hint": ""}])
 
     def test_translated_unit_is_not_pending(self):
-        self.assertEqual(TranslationFiller(Translations([])).pending([("p", _unit("A.", "Bir."))]), [])
+        self.assertEqual(TranslationSource(Translations([])).pending([("p", _unit("A.", "Bir."))]), [])
 
     def test_blank_unit_is_not_pending(self):
-        self.assertEqual(TranslationFiller(Translations([])).pending([("p", _unit("  ", ""))]), [])
+        self.assertEqual(TranslationSource(Translations([])).pending([("p", _unit("  ", ""))]), [])
 
     def test_old_translation_missing_the_placeholder_is_the_hint(self):
-        filler = TranslationFiller(Translations([_unit("Loss is ⟦eq-1⟧.", "Kayıp budur.")]))
-        self.assertEqual(filler.pending([("p", _unit("Loss is ⟦eq-1⟧.", ""))])[0]["tr_hint"], "Kayıp budur.")
+        source = TranslationSource(Translations([_unit("Loss is ⟦eq-1⟧.", "Kayıp budur.")]))
+        self.assertEqual(source.pending([("p", _unit("Loss is ⟦eq-1⟧.", ""))])[0]["tr_hint"], "Kayıp budur.")
 
 
 class SentenceMergeTest(unittest.TestCase):
     def test_new_split_sentences_are_merged_back(self):
-        filler = TranslationFiller(_old_translations())
-        merged = filler.merged_sentences([{"en": "Whole sentence"}, {"en": "split later."}])
+        source = TranslationSource(_old_translations())
+        merged = source.merged_sentences([{"en": "Whole sentence"}, {"en": "split later."}])
         self.assertEqual(merged, [{"en": "Whole sentence split later."}])
 
     def test_sentence_found_alone_is_not_merged(self):
-        filler = TranslationFiller(Translations([_unit("A.", "bir"), _unit("A. B.", "bir iki")]))
-        merged = filler.merged_sentences([{"en": "A."}, {"en": "B."}])
+        source = TranslationSource(Translations([_unit("A.", "bir"), _unit("A. B.", "bir iki")]))
+        merged = source.merged_sentences([{"en": "A."}, {"en": "B."}])
         self.assertEqual([sentence["en"] for sentence in merged], ["A.", "B."])
 
     def test_longest_join_is_tried_first(self):
-        filler = TranslationFiller(Translations([_unit("A B", "ab"), _unit("A B C", "abc")]))
-        merged = filler.merged_sentences([{"en": "A"}, {"en": "B"}, {"en": "C"}])
+        source = TranslationSource(Translations([_unit("A B", "ab"), _unit("A B C", "abc")]))
+        merged = source.merged_sentences([{"en": "A"}, {"en": "B"}, {"en": "C"}])
         self.assertEqual(merged, [{"en": "A B C"}])
 
 
