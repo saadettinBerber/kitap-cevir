@@ -32,7 +32,7 @@ class _NamingVisitor:
     """Her visit_* çağrısı kendi adını döner; accept'in hangi metoda gittiği görünür."""
 
     def __getattr__(self, name):
-        return lambda block: name
+        return lambda data: name
 
 
 class AcceptTest(unittest.TestCase):
