@@ -264,7 +264,8 @@ class PageExtractorTableTest(unittest.TestCase):
 
     def test_footer_under_a_table_stays_out_of_it(self):
         header = tuple(in_font("Helvetica-Bold", piece) for piece in _table_row(TABLE_TOP, self.HEADER))
-        lines = [header, _table_row(TABLE_TOP + TABLE_ROW_HEIGHT, self.ROW), _table_row(FOOTER_LINE + STEP, self.FOOTER)]
+        body = _table_row(TABLE_TOP + TABLE_ROW_HEIGHT, self.ROW)
+        lines = [header, body, _table_row(FOOTER_LINE + STEP, self.FOOTER)]
         fills = [fill(left, TABLE_TOP, right, TABLE_TOP + TABLE_ROW_HEIGHT) for left, right in TABLE_COLUMNS]
         [table] = _extracted_blocks(FakePdfPage(lines=lines, shapes=fills))
         self.assertEqual([[cell["en"] for cell in row] for row in table["rows"]], [list(self.HEADER), list(self.ROW)])
