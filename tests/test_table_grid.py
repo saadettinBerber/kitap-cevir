@@ -100,6 +100,14 @@ class BandMergeTest(unittest.TestCase):
         self.assertTrue(grid.same_band(_text_between(UPPER_TEXT), _text_between(LOWER_TEXT)))
 
 
+class ColumnCountTest(unittest.TestCase):
+    def test_two_columns_make_a_table_grid(self):
+        self.assertTrue(_grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT)).has_columns())
+
+    def test_a_single_column_is_no_table_grid(self):
+        self.assertFalse(_grid(_cell(FIRST_LEFT, SECOND_LEFT)).has_columns())
+
+
 class ColumnOfTest(unittest.TestCase):
     def test_span_centred_on_a_column_border_belongs_to_the_left_column(self):
         grid = _grid(_cell(FIRST_LEFT, SECOND_LEFT), _cell(SECOND_LEFT, SECOND_RIGHT))
