@@ -8,6 +8,7 @@ metin parçaları satırlara ve hücrelere dağıtılır. Koordinatlar üst orij
 import dataclasses
 import itertools
 
+from extraction.pdf import geometry
 from extraction.tables.aligned_tables import AlignedTableFinder
 from extraction.tables.table_cell import SUPERSCRIPT_RATIO
 from extraction.tables.table_grid import MIN_COLUMNS, GridColumns, PageFills
@@ -69,7 +70,12 @@ class TableBuilder:
 
 
 def _spans_within(area, spans):
-    return [s for s in spans if area.contains_point(s.box.x0 + CORNER_TOLERANCE, s.box.y0 + CORNER_TOLERANCE)]
+    return [s for s in spans if geometry.contains_point(area, _near_corner(s.box))]
+
+
+def _near_corner(box):
+    """Sol üst köşenin CORNER_TOLERANCE içerisi: köşesi alanın kenarına biraz taşan parça yine içeridedir."""
+    return box.x0 + CORNER_TOLERANCE, box.y0 + CORNER_TOLERANCE
 
 
 class RowSplitter:
@@ -94,7 +100,7 @@ class RowSplitter:
         0.93 / 1.26 ölçüldü."""
         if self._bands.is_in_band(span) or self._bands.is_in_band(previous):
             return not self._bands.same_band(span, previous)
-        return span.box.y0 - previous.box.y0 > previous.box.height * self._row_gap_ratio
+        return span.box.y0 - previous.box.y0 > geometry.height(previous.box) * self._row_gap_ratio
 
 
 class FilledTable:

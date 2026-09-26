@@ -9,6 +9,7 @@ sayfa ortasındaki başlıksız tablolar elle kurulur.
 import collections
 import itertools
 
+from extraction.pdf import geometry
 from extraction.tables.table_cell import CellText, TableCell
 
 MIN_HEADER_COLUMNS = 2
@@ -114,7 +115,7 @@ class TableColumns:
 
     @staticmethod
     def _holds(column, span):
-        center = span.box.center_x
+        center = geometry.center_x(span.box)
         return column[0] - CENTER_TOLERANCE <= center <= column[1] + CENTER_TOLERANCE
 
     def table(self, rows, header_rows):

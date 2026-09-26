@@ -3,7 +3,7 @@ sütunlar, satır bantları ve tablo kapsamı. Koordinatlar üst orijinlidir.
 """
 import collections
 
-from extraction.pdf.geometry import Box
+from extraction.pdf import geometry
 from extraction.tables.table_cell import CellText, TableCell
 
 MIN_CELL_WIDTH = 15
@@ -27,13 +27,13 @@ class PageFills:
     @staticmethod
     def _filled_rects(drawings):
         rects = [drawing.box for drawing in drawings if drawing.is_filled]
-        return [r for r in rects if r.width >= MIN_CELL_WIDTH and r.height >= MIN_CELL_HEIGHT]
+        return [r for r in rects if geometry.width(r) >= MIN_CELL_WIDTH and geometry.height(r) >= MIN_CELL_HEIGHT]
 
     @staticmethod
     def _horizontal_rules(drawings):
         """Dolgusuz yatay çizgiler: tablonun alt kenarı, alt bilgi kuralı."""
         rects = [drawing.box for drawing in drawings if not drawing.is_filled]
-        return [r for r in rects if r.height <= RULE_MAX_HEIGHT and r.width >= MIN_CELL_WIDTH]
+        return [r for r in rects if geometry.height(r) <= RULE_MAX_HEIGHT and geometry.width(r) >= MIN_CELL_WIDTH]
 
     def is_empty(self):
         return not self._rects
@@ -57,7 +57,7 @@ class PageFills:
         return [rect for rect in self._rects if self._is_background(rect)]
 
     def _is_background(self, rect):
-        return len([r for r in self._rects if r != rect and rect.contains(r)]) >= MIN_BACKGROUND_CELLS
+        return len([r for r in self._rects if r != rect and geometry.contains(rect, r)]) >= MIN_BACKGROUND_CELLS
 
     @classmethod
     def _connected_groups(cls, cells):
@@ -76,15 +76,16 @@ class PageFills:
         uzun bir tablo yine tek grup kalır."""
         shares_column = any(abs(a - b) <= EDGE_TOLERANCE
                             for a in (first.x0, first.x1) for b in (second.x0, second.x1))
-        return shares_column and first.vertical_gap(second) <= max(first.height, second.height) * MAX_BAND_GAP_RATIO
+        tallest = max(geometry.height(first), geometry.height(second))
+        return shares_column and geometry.vertical_gap(first, second) <= tallest * MAX_BAND_GAP_RATIO
 
     def extent(self, cells):
         """Arka plan varsa tablo odur. Yoksa hücrelerin üst kenarından altındaki ilk yatay çizgiye uzanır."""
-        union = Box.enclosing(cells)
+        union = geometry.enclosing(cells)
         for background in self._backgrounds():
-            if background.contains(union):
+            if geometry.contains(background, union):
                 return background
-        return Box(union.x0, union.y0, union.x1, self._bottom_below(union))
+        return geometry.Box(union.x0, union.y0, union.x1, self._bottom_below(union))
 
     def _bottom_below(self, union):
         """Tablo, altındaki ilk yatay çizgide biter; çizgi yoksa metin alanının
@@ -96,14 +97,14 @@ class PageFills:
 
 
 def _is_on_any(rect, backgrounds):
-    return any(background.contains(rect) for background in backgrounds)
+    return any(geometry.contains(background, rect) for background in backgrounds)
 
 
 def _grouped_by_background(cells, backgrounds):
     """Her hücre onu içine alan ilk arka planın kümesindedir; kümeler ilk hücrelerinin sırasıyla gelir."""
     groups = collections.defaultdict(list)
     for rect in cells:
-        groups[next(background for background in backgrounds if background.contains(rect))].append(rect)
+        groups[next(background for background in backgrounds if geometry.contains(background, rect))].append(rect)
     return list(groups.values())
 
 
@@ -135,10 +136,10 @@ class GridColumns:
 
     def is_table_row(self, row):
         widest = max(right - left for left, right in self._columns) * WIDE_SPAN_RATIO
-        return all(s.box.width <= widest and self._columns_holding(s) for s in row)
+        return all(geometry.width(s.box) <= widest and self._columns_holding(s) for s in row)
 
     def _columns_holding(self, span):
-        center = span.box.center_x
+        center = geometry.center_x(span.box)
         return [index for index, (left, right) in enumerate(self._columns) if left <= center <= right]
 
     def cells_of(self, row, main_size):
@@ -187,7 +188,7 @@ class RowBands:
         return bool(first) and first == self._bands_holding(other)[:1]
 
     def _bands_holding(self, span):
-        center = span.box.center_y
+        center = geometry.center_y(span.box)
         return [index for index, (top, bottom) in enumerate(self._bands) if top <= center <= bottom]
 
 
