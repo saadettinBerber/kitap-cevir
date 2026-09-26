@@ -1,6 +1,7 @@
 import unittest
 
 import _paths  # noqa: F401
+from page_document import PageDocument
 from progress import Progress
 
 PDF_OFFSET = 19
@@ -69,16 +70,22 @@ class PageRecordTest(unittest.TestCase):
 
     def test_retranslating_an_earlier_page_keeps_the_last_page(self):
         earlier = self.LAST_TRANSLATED - 1
-        self.progress.record_translation({"page": earlier, "pdf_page": earlier + self.OFFSET})
+        self.progress.record_translation(PageDocument({"page": earlier, "pdf_page": earlier + self.OFFSET}))
         self.assertEqual(self.progress.next_pages(1), [self.NEXT])
 
     def test_translation_record_carries_toc_fields(self):
-        self.progress.record_translation({"page": self.NEXT, "pdf_page": self.NEXT + self.OFFSET,
-                                          "chapter": {"num": 2}, "title": {"en": "T", "tr": "B"},
-                                          "section": {"en": "S", "tr": "K"}})
+        self.progress.record_translation(PageDocument({"page": self.NEXT, "pdf_page": self.NEXT + self.OFFSET,
+                                                       "chapter": {"num": 2}, "title": {"en": "T", "tr": "B"},
+                                                       "section": {"en": "S", "tr": "K"}}))
         self.assertEqual(self._recorded(self.NEXT), {"pdf_page": self.NEXT + self.OFFSET, "chapter": 2,
                                                      "title_en": "T", "title_tr": "B",
                                                      "section_en": "S", "section_tr": "K"})
+
+    def test_bare_page_is_recorded_without_toc_fields(self):
+        self.progress.record_translation(PageDocument({"page": self.NEXT, "pdf_page": self.NEXT + self.OFFSET}))
+        self.assertEqual(self._recorded(self.NEXT), {"pdf_page": self.NEXT + self.OFFSET, "chapter": None,
+                                                     "title_en": "", "title_tr": "",
+                                                     "section_en": "", "section_tr": ""})
 
     def test_pages_per_run_defaults_to_one(self):
         self.assertEqual(self.progress.pages_per_run(), 1)

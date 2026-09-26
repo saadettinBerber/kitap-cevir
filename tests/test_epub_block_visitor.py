@@ -45,6 +45,9 @@ class TextBlockTest(unittest.TestCase):
     def test_caption_class_is_its_block_type(self):
         self.assertTrue(_html({"type": "caption", "en": "Figure", "tr": "Şekil"}).startswith('<p class="caption">'))
 
+    def test_footnote_class_is_its_block_type(self):
+        self.assertTrue(_html({"type": "footnote", "en": "Note", "tr": "Not"}).startswith('<p class="footnote">'))
+
     def test_caption_carries_its_english_note(self):
         caption = _only({"type": "caption", "en": "Figure", "tr": "Şekil"})
         self.assertEqual(caption.english(), ["Figure"])
@@ -58,6 +61,10 @@ class TextBlockTest(unittest.TestCase):
     def test_list_items_carry_their_english_notes(self):
         fragment = _only({"type": "list", "items": [{"en": "a", "tr": "b"}]})
         self.assertEqual(fragment.english(), ["a"])
+
+    def test_every_list_item_is_written(self):
+        fragment = _only({"type": "list", "items": [{"en": "a", "tr": "b"}, {"en": "c", "tr": "d"}]})
+        self.assertEqual(fragment.english(), ["a", "c"])
 
 
 class HeadingTest(unittest.TestCase):
@@ -120,6 +127,9 @@ class TableAndCodeTest(unittest.TestCase):
     def test_table_without_header_has_no_thead(self):
         table = {"type": "table", "rows": [[{"en": "1", "tr": "1"}]]}
         self.assertNotIn("<thead>", _html(table))
+
+    def test_code_is_written_in_its_block(self):
+        self.assertIn("x = 1", _html({"type": "code", "code": "x = 1"}))
 
     def test_code_caption_is_turkish_above_the_code(self):
         code = {"type": "code", "code": "x = 1", "caption": {"en": "Listing", "tr": "Liste"}}

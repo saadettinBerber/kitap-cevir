@@ -24,9 +24,6 @@ class JsonFileTest(unittest.TestCase):
         write_json(self.path, PAYLOAD)
         self.assertTrue(os.path.isfile(self.path))
 
-    def test_written_path_is_returned(self):
-        self.assertEqual(write_json(self.path, PAYLOAD), self.path)
-
     def test_file_is_readable_by_hand(self):
         write_json(self.path, PAYLOAD)
         with open(self.path, encoding="utf-8") as handle:

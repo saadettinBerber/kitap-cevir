@@ -13,7 +13,6 @@ import sys
 
 from concept_check import CardChecker
 from json_file import read_json, write_json
-from page_document import PageDocument
 from project import Project
 from translated_pages import TranslatedPages
 
@@ -57,12 +56,7 @@ class CardInputs:
     def card_input(self, document):
         """Kart agent'ının girdisi; kitabın kart ayarı (concepts_spec) da gider, agent kart
         türlerini ona göre seçer."""
-        page_data = document.data
-        content = [unit for unit in (block.card_unit() for block in document.blocks()) if unit]
-        return {"id": page_data["id"], "page": page_data["page"],
-                "chapter": page_data.get("chapter", {}), "section": page_data.get("section", {}),
-                "title": page_data.get("title", {}), "content": content,
-                "concepts_spec": self._spec, "concepts": []}
+        return {**document.card_source(), "concepts_spec": self._spec, "concepts": []}
 
 
 class CardOutputs:
@@ -96,7 +90,7 @@ class CardOutputs:
         return problems
 
     def _replace_cards(self, page, cards):
-        self._pages.save(PageDocument({**self._pages.get(page).data, "concepts": cards}))
+        self._pages.replace_concepts(page, cards)
 
 
 def _run_prepare(project, pages):

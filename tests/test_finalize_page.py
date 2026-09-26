@@ -67,9 +67,10 @@ class PageFileTest(_FinalizeTestCase):
         page_js = self._read_text(self._finalize(DOCUMENT)["page_js"])
         self.assertNotIn("gizli", page_js)
 
-    def test_page_file_reads_back(self):
+    def test_page_file_reads_back_without_the_agent_fields(self):
         self._finalize(DOCUMENT)
-        self.assertEqual(TranslatedPages(self.project).get(PAGE).data["title"], {"en": "T", "tr": "B"})
+        reader_fields = {key: value for key, value in DOCUMENT.items() if key not in ("context", "glossary_new")}
+        self.assertEqual(TranslatedPages(self.project).get(PAGE), PageDocument(reader_fields))
 
     def test_missing_required_field_is_refused(self):
         document = {key: value for key, value in DOCUMENT.items() if key != "blocks"}
@@ -93,9 +94,21 @@ class ReaderDataUpdateTest(_FinalizeTestCase):
     def test_new_glossary_term_is_counted(self):
         self.assertEqual(self._finalize(DOCUMENT)["terms"], 1)
 
+    def test_page_without_new_terms_adds_none(self):
+        without_terms = {key: value for key, value in DOCUMENT.items() if key != "glossary_new"}
+        self.assertEqual(self._finalize(without_terms)["terms"], 0)
+
+    def test_term_already_in_the_glossary_is_not_counted(self):
+        self._finalize(DOCUMENT)
+        self.assertEqual(self._finalize(DOCUMENT)["terms"], 0)
+
     def test_new_glossary_term_is_written(self):
         self._finalize(DOCUMENT)
         self.assertIn("| Heading | Başlık (Heading) |", self._read_text(self.project.glossary_md()))
+
+    def test_reader_glossary_is_rebuilt(self):
+        self._finalize(DOCUMENT)
+        self.assertIn('"en": "Heading"', self._read_text(self.project.glossary_js()))
 
     def test_reader_table_of_contents_is_rebuilt(self):
         self._finalize(DOCUMENT)

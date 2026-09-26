@@ -14,17 +14,13 @@ TABLE = {"type": "table", "rows": [[_unit("a"), _unit("b")], [_unit("c"), _unit(
 CODE = {"type": "code", "lang": "python", "code": "x = 1"}
 
 
-class _RecordingFiller:
-    """Doldurduğu birimlerin yollarını testin verdiği listeye yazar; cümleleri ilkine indirir."""
+class _UpperSource:
+    """TranslationSource gibi; çeviri İngilizcenin büyük harflisidir, cümleleri ilkine indirir."""
 
-    def __init__(self, paths):
-        self._paths = paths
+    def translation(self, en):
+        return en.upper()
 
-    def fill_unit(self, unit, path):
-        self._paths.append(path)
-
-    def fill_sentences(self, sentences, path):
-        self._paths.append(f"{path}:sentences")
+    def merged_sentences(self, sentences):
         return sentences[:1]
 
 
@@ -32,7 +28,7 @@ class _NamingVisitor:
     """Her visit_* çağrısı kendi adını döner; accept'in hangi metoda gittiği görünür."""
 
     def __getattr__(self, name):
-        return lambda block: name
+        return lambda data: name
 
 
 class AcceptTest(unittest.TestCase):
@@ -59,15 +55,20 @@ class BlockTest(unittest.TestCase):
         for data in ({"type": "image", "src": "a.png"}, {"type": "yeni"}):
             self.assertEqual(Block.of(data).units(), [], data["type"])
 
-    def test_list_fill_uses_item_paths(self):
-        paths = []
-        Block.of({"type": "list", "items": [_unit("x"), _unit("y")]}).fill(_RecordingFiller(paths), "blocks[2]")
-        self.assertEqual(paths, ["blocks[2].items[0]", "blocks[2].items[1]"])
+    def test_fill_writes_the_translation_of_every_unit(self):
+        items = {"type": "list", "items": [_unit("x"), _unit("y")]}
+        Block.of(items).fill(_UpperSource())
+        self.assertEqual(items["items"], [_unit("x", "X"), _unit("y", "Y")])
 
     def test_para_fill_replaces_sentences_with_merged_ones(self):
         para = {"type": "para", "sentences": [_unit("a"), _unit("b")]}
-        Block.of(para).fill(_RecordingFiller([]), "blocks[0]")
-        self.assertEqual(para["sentences"], [_unit("a")])
+        Block.of(para).fill(_UpperSource())
+        self.assertEqual([sentence["en"] for sentence in para["sentences"]], ["a"])
+
+    def test_para_fill_translates_the_merged_sentences(self):
+        para = {"type": "para", "sentences": [_unit("a"), _unit("b")]}
+        Block.of(para).fill(_UpperSource())
+        self.assertEqual(para["sentences"][0]["tr"], "A")
 
     def test_card_unit_joins_text(self):
         self.assertEqual(Block.of(PARA).card_unit(), {"type": "para", "en": "One. Two.", "tr": "Bir. İki."})
@@ -96,18 +97,43 @@ class BlockTest(unittest.TestCase):
 
 
 class PageQueriesTest(unittest.TestCase):
-    PAGE = {"blocks": [PARA, {"type": "image", "src": "a.png"},
+    NUMBER, PDF_PAGE = 3, 5
+    PAGE = {"page": NUMBER, "pdf_page": PDF_PAGE, "blocks": [PARA, {"type": "image", "src": "a.png"},
                        {"type": "math", "src": "eq-1.png", "latex": ""}, PARA],
             "math": [{"id": "eq-2", "src": "eq-2.png", "latex": ""}]}
 
+    def test_pages_with_the_same_json_are_equal(self):
+        self.assertEqual(PageDocument(dict(self.PAGE)), PageDocument(self.PAGE))
+
+    def test_pages_with_different_json_differ(self):
+        self.assertNotEqual(PageDocument({**self.PAGE, "page": self.NUMBER + 1}), PageDocument(self.PAGE))
+
+    def test_json_is_a_copy_of_the_page(self):
+        document = PageDocument(self.PAGE)
+        document.as_json()["blocks"].clear()
+        self.assertEqual(document.as_json(), self.PAGE)
+
+    def test_page_with_new_concepts_leaves_the_old_page(self):
+        document = PageDocument(self.PAGE)
+        document.with_concepts([{"id": "yeni"}])
+        self.assertEqual(document.concepts(), [])
+
+    def test_unit_paths_start_at_the_page(self):
+        [(first_path, _), *_] = PageDocument({"blocks": [CODE, TABLE]}).unit_paths()
+        self.assertEqual(first_path, "blocks[1].rows[0][0]")
+
+    def test_summary_names_the_page_and_its_pdf_page(self):
+        summary = PageDocument(self.PAGE).summary()
+        self.assertEqual((summary["page"], summary["pdf_page"]), (self.NUMBER, self.PDF_PAGE))
+
     def test_summary_counts_block_kinds_in_order(self):
-        self.assertEqual(PageDocument(self.PAGE).block_summary(), "para:2, image:1, math:1")
+        self.assertEqual(PageDocument(self.PAGE).summary()["blocks"], "para:2, image:1, math:1")
 
     def test_media_sources_include_inline_equations(self):
         self.assertEqual(PageDocument(self.PAGE).media_sources(), ["a.png", "eq-1.png", "eq-2.png"])
 
-    def test_equation_count_adds_display_and_inline(self):
-        self.assertEqual(PageDocument(self.PAGE).equation_count(), 2)
+    def test_summary_counts_display_and_inline_equations(self):
+        self.assertEqual(PageDocument(self.PAGE).summary()["math"], 2)
 
     def test_page_with_only_images_is_blank(self):
         self.assertTrue(PageDocument({"blocks": [{"type": "image", "src": "a.png"}]}).is_blank())

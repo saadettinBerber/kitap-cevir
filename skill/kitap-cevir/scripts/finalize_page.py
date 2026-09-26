@@ -40,41 +40,52 @@ class PageFinalizer:
     def finalize(self, translated_path):
         """Sayfayı projeye işler; dönen özet, CLI'ın basacağı uyarıları taşır."""
         page = _read_page(translated_path)
-        written = {"page_js": self._pages.save(page), "images": self._copy_images(page)}
-        terms = self._rebuild_reader_data(page, self._register(page))
-        return {**written, "terms": terms, **self._notes(page)}
+        report = self._report(page)
+        self._write(page)
+        return report
+
+    def _report(self, page):
+        """Yazmadan önce sorulur: yeni terimler ancak sözlüğe eklenmeden önce sayılabilir."""
+        new_terms = Glossary(self._project.glossary_md()).unknown(page.new_terms())
+        return {"images": len(self._present_images(page)), "terms": len(new_terms), **self._notes(page)}
+
+    def _present_images(self, page):
+        """Sayfanın andığı görsellerden çevirmen girdisinde bulunanlar."""
+        work_images = self._work_images(page)
+        return [src for src in page.media_sources() if work_images.has(src)]
+
+    def _work_images(self, page):
+        return ImageFolder(self._project.work_images(page.number()))
+
+    def _write(self, page):
+        self._pages.save(page)
+        self._copy_images(page)
+        self._register(page)
+        self._rebuild_reader_data(page)
 
     def _copy_images(self, page):
-        """Sayfanın andığı görsellerden çevirmen girdisinde bulunanlar kopyalanır; kopyalanan sayısı."""
-        sources = page.media_sources()
-        if not sources:
-            return 0
-        work_images = ImageFolder(self._project.work_images(page.number()))
-        present = [src for src in sources if work_images.has(src)]
-        work_images.copy(present, self._pages.images_dir(page.number()))
-        return len(present)
+        """Görsel anmayan sayfaya görsel klasörü kurulmaz."""
+        if page.media_sources():
+            self._work_images(page).copy(self._present_images(page), self._pages.images_dir(page.number()))
 
     def _register(self, page):
         """Sayfayı progress.json'a kaydeder, last_translated_page'i ilerletir."""
         progress = self._project.load_progress()
-        progress.record_translation(page.data)
+        progress.record_translation(page)
         self._project.save_progress(progress)
-        return progress
 
-    def _rebuild_reader_data(self, page, progress):
-        """Yeni terimleri sözlüğe ekler, toc.js ve glossary.js'i yeniden yazar; eklenen terim sayısı."""
+    def _rebuild_reader_data(self, page):
+        """Yeni terimleri sözlüğe ekler, toc.js ve glossary.js'i kaydedilmiş ilerlemeden yeniden yazar."""
         glossary = Glossary(self._project.glossary_md())
-        new_terms = glossary.unknown(page.data.get("glossary_new", []))
-        glossary.add(new_terms)
+        glossary.add(page.new_terms())
         reader_data = ReaderData(self._project)
-        reader_data.write_toc(progress)
+        reader_data.write_toc(self._project.load_progress())
         reader_data.write_glossary(glossary)
-        return len(new_terms)
 
     def _notes(self, page):
         cards = page.concepts()
-        return {"untranslated": page.missing_translations(), "page": page.number(),
-                "cards_pending": not cards, "card_problems": self._card_problems(cards)}
+        return {"page_js": self._project.page_js(page.number()), "untranslated": page.missing_translations(),
+                "page": page.number(), "cards_pending": not cards, "card_problems": self._card_problems(cards)}
 
     def _card_problems(self, cards):
         """Kartlar çeviriden sonra ayrı üretilir; kartsız sayfa sorun değil, bekleyen iştir."""

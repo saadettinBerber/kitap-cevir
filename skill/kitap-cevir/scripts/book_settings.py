@@ -30,6 +30,10 @@ class BookSettings:
     def book(self):
         return {**DEFAULT_BOOK, **self._data.get("book", {})}
 
+    def slug(self):
+        """Kitabın dosya adlarında geçen kısa adı."""
+        return self.book()["slug"]
+
     def translator_has_vision(self):
         """Çevirmen model görsel okuyabiliyor mu (denklem PNG'sinden latex üretimi)."""
         return bool(self._data.get("translator", {}).get("vision", True))

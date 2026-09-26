@@ -66,6 +66,12 @@ class CardInputsTest(_BookTestCase):
         self.assertEqual({key: document[key] for key in ("id", "page", "chapter", "section", "title")},
                          {key: PAGE_DATA[key] for key in ("id", "page", "chapter", "section", "title")})
 
+    def test_heading_fields_missing_on_the_page_are_empty(self):
+        heading_fields = ("chapter", "section", "title")
+        bare_page = {key: value for key, value in PAGE_DATA.items() if key not in heading_fields}
+        document = self.inputs.card_input(PageDocument(bare_page))
+        self.assertEqual([document[key] for key in heading_fields], [{}, {}, {}])
+
     def test_card_input_flattens_text_blocks(self):
         document = self.inputs.card_input(PageDocument(PAGE_DATA))
         self.assertEqual(document["content"], [
@@ -97,21 +103,16 @@ class CardOutputsTest(_BookTestCase):
             json.dump({"concepts": cards}, handle)
 
     def _saved_page(self):
-        return self.pages.get(PAGE).data
+        return self.pages.get(PAGE)
 
     def test_valid_cards_have_no_problems(self):
         self._write_output([_explain("a"), _explain("b")])
         self.assertEqual(self.outputs.apply([PAGE]), {PAGE: []})
 
-    def test_valid_cards_replace_the_old_ones(self):
+    def test_valid_cards_replace_only_the_old_cards(self):
         self._write_output([_explain("a"), _explain("b")])
         self.outputs.apply([PAGE])
-        self.assertEqual([card["id"] for card in self._saved_page()["concepts"]], ["a", "b"])
-
-    def test_applying_cards_leaves_the_page_text(self):
-        self._write_output([_explain("a"), _explain("b")])
-        self.outputs.apply([PAGE])
-        self.assertEqual(self._saved_page()["blocks"], PAGE_DATA["blocks"])
+        self.assertEqual(self._saved_page(), PageDocument({**PAGE_DATA, "concepts": [_explain("a"), _explain("b")]}))
 
     def test_invalid_cards_are_reported(self):
         self._write_output([_explain("a")])
@@ -120,7 +121,7 @@ class CardOutputsTest(_BookTestCase):
     def test_invalid_cards_leave_the_page(self):
         self._write_output([_explain("a")])
         self.outputs.apply([PAGE])
-        self.assertEqual(self._saved_page()["concepts"], PAGE_DATA["concepts"])
+        self.assertEqual(self._saved_page(), PageDocument(PAGE_DATA))
 
     def test_apply_reports_missing_output(self):
         self.assertEqual(self.outputs.apply([PAGE]), {PAGE: ["çıktı yok: _work/cards/out/page-4.json"]})

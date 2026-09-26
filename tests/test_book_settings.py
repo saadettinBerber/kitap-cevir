@@ -1,7 +1,7 @@
 import unittest
 
 import _paths  # noqa: F401
-from book_settings import CARD_KINDS, BookSettings, InvalidConceptSettings
+from book_settings import CARD_KINDS, DEFAULT_BOOK, BookSettings, InvalidConceptSettings
 from extraction.settings import DEFAULT_EXTRACTION
 
 
@@ -16,6 +16,12 @@ class BookSettingsTest(unittest.TestCase):
 
     def test_book_info_has_fallback_slug(self):
         self.assertEqual(BookSettings({}).book()["slug"], "kitap")
+
+    def test_configured_slug_names_the_book(self):
+        self.assertEqual(BookSettings({"book": {"slug": "demo"}}).slug(), "demo")
+
+    def test_unconfigured_slug_is_the_fallback(self):
+        self.assertEqual(BookSettings({}).slug(), DEFAULT_BOOK["slug"])
 
     def test_translator_reads_images_by_default(self):
         self.assertTrue(BookSettings({}).translator_has_vision())

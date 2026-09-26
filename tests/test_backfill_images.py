@@ -88,33 +88,41 @@ class PageImagesCopyTest(unittest.TestCase):
             self.assertFalse(os.path.exists(target))
 
 
+HEADING = {"type": "heading", "en": "Styles", "tr": "Tarzlar"}
+LAYERS = _para("Layers separate concerns.")
+SMALL = _para("Microservices are small.")
+
+
+def _page(*blocks):
+    return PageDocument({"blocks": list(blocks)})
+
+
 class ImagePlacementTest(unittest.TestCase):
     def setUp(self):
-        self.blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"},
-                       _para("Layers separate concerns."), _para("Microservices are small.")]
-        self.placement = ImagePlacement(self.blocks)
+        self.page = _page(HEADING, LAYERS, SMALL)
+        self.placement = ImagePlacement(self.page)
 
     def test_image_goes_below_the_matching_block(self):
         self.placement.add("fig.png", "layers separate concerns")
-        self.assertEqual(self.blocks[2], _image("fig.png"))
+        self.assertEqual(self.page, _page(HEADING, LAYERS, _image("fig.png"), SMALL))
 
     def test_unmatched_image_goes_below_page_headings(self):
         self.placement.add("fig.png", "")
-        self.assertEqual(self.blocks[1], _image("fig.png"))
+        self.assertEqual(self.page, _page(HEADING, _image("fig.png"), LAYERS, SMALL))
 
     def test_image_not_on_the_page_is_missing(self):
         self.assertEqual(self.placement.missing([("fig.png", ANCHOR)]), [("fig.png", ANCHOR)])
 
     def test_image_on_the_page_is_not_missing(self):
-        self.assertEqual(ImagePlacement(self.blocks + [_image("fig.png")]).missing([("fig.png", ANCHOR)]), [])
+        placement = ImagePlacement(_page(HEADING, LAYERS, _image("fig.png")))
+        self.assertEqual(placement.missing([("fig.png", ANCHOR)]), [])
 
     def test_repeated_image_keeps_its_first_anchor(self):
         self.assertEqual(self.placement.missing([("fig.png", ANCHOR), ("fig.png", "")]), [("fig.png", ANCHOR)])
 
     def test_unanchored_images_each_go_right_below_the_headings(self):
         self.placement.add_all([("fig.png", ""), ("fig-2.png", "")])
-        self.assertEqual(self.blocks[1:3], [_image("fig-2.png"), _image("fig.png")])
-
+        self.assertEqual(self.page, _page(HEADING, _image("fig-2.png"), _image("fig.png"), LAYERS, SMALL))
 
 
 class AnchorMatchTest(unittest.TestCase):
@@ -122,9 +130,12 @@ class AnchorMatchTest(unittest.TestCase):
 
     @staticmethod
     def _placed_at(anchor, *texts):
-        blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"}] + [_para(text) for text in texts]
-        ImagePlacement(blocks).add("fig.png", anchor)
-        return blocks.index(_image("fig.png"))
+        """Görselin başlık ve metin paragraflarından oluşan sayfada girdiği sıra."""
+        blocks = [HEADING] + [_para(text) for text in texts]
+        page = _page(*blocks)
+        ImagePlacement(page).add("fig.png", anchor)
+        return next(index for index in range(len(blocks) + 1)
+                    if page == _page(*blocks[:index], _image("fig.png"), *blocks[index:]))
 
     def test_markup_is_ignored(self):
         text = '<a href="chapter-4.html#layered-architecture">Layers</a> separate concerns'
@@ -152,9 +163,7 @@ class AnchorMatchTest(unittest.TestCase):
         self.assertEqual(self._placed_at("a" * 10, "Other.", "b" * 5 + "a" * 10), 3)
 
     def test_unmatched_image_on_a_page_of_headings_goes_last(self):
-        blocks = [{"type": "heading", "en": "Styles", "tr": "Tarzlar"}]
-        ImagePlacement(blocks).add("fig.png", "")
-        self.assertEqual(blocks[-1], _image("fig.png"))
+        self.assertEqual(self._placed_at(""), 1)
 
 
 class FakeExtractedImages:
@@ -187,11 +196,14 @@ class ImageBackfillerTest(unittest.TestCase):
     def _backfiller(self, extracted_blocks):
         return ImageBackfiller(self.pages, FakeExtractedImages(extracted_blocks, self.folder))
 
-    def _write_page(self, blocks):
-        self.pages.save(PageDocument({"page": self.PAGE, "blocks": blocks}))
+    def _page(self, blocks):
+        return PageDocument({"page": self.PAGE, "blocks": blocks})
 
-    def _page_blocks(self):
-        return self.pages.get(self.PAGE).data["blocks"]
+    def _write_page(self, blocks):
+        self.pages.save(self._page(blocks))
+
+    def _saved_page(self):
+        return self.pages.get(self.PAGE)
 
     def test_missing_image_is_counted(self):
         self._write_page([_para("Layers separate concerns."), _para("Microservices are small.")])
@@ -200,7 +212,8 @@ class ImageBackfillerTest(unittest.TestCase):
     def test_missing_image_goes_below_its_text(self):
         self._write_page([_para("Layers separate concerns."), _para("Microservices are small.")])
         self.backfiller.backfill_page(self.PAGE)
-        self.assertEqual(self._page_blocks()[1], _image("fig.png"))
+        self.assertEqual(self._saved_page(), self._page([_para("Layers separate concerns."), _image("fig.png"),
+                                                         _para("Microservices are small.")]))
 
     def test_added_image_is_copied_next_to_the_page(self):
         self._write_page([_para("Layers separate concerns.")])
@@ -214,7 +227,13 @@ class ImageBackfillerTest(unittest.TestCase):
     def test_second_run_adds_nothing(self):
         self._write_page([_para("Layers separate concerns.")])
         self.backfiller.backfill_page(self.PAGE)
-        self.assertEqual((self.backfiller.backfill_page(self.PAGE), len(self._page_blocks())), (0, 2))
+        self.assertEqual(self.backfiller.backfill_page(self.PAGE), 0)
+
+    def test_second_run_leaves_the_page(self):
+        self._write_page([_para("Layers separate concerns.")])
+        self.backfiller.backfill_page(self.PAGE)
+        self.backfiller.backfill_page(self.PAGE)
+        self.assertEqual(self._saved_page(), self._page([_para("Layers separate concerns."), _image("fig.png")]))
 
     def test_image_already_on_the_page_is_not_copied(self):
         self._write_page([_para("Layers separate concerns."), _image("fig.png")])

@@ -21,7 +21,7 @@ def image_href(page, src):
 
 
 class EpubBlockVisitor:
-    """Tek sayfanın ziyaretçisi; her visit_* bloğun parça listesini döner."""
+    """Tek sayfanın ziyaretçisi; her visit_* bloğun sözlüğünü alır, parça listesini döner."""
 
     def __init__(self, page_document):
         self._document = page_document
@@ -32,45 +32,45 @@ class EpubBlockVisitor:
     def fragments(self):
         return [fragment for block in self._document.blocks() for fragment in block.accept(self)]
 
-    def visit_unknown(self, block):
+    def visit_unknown(self, data):
         return []
 
-    def visit_chapter(self, block):
+    def visit_chapter(self, data):
         """Bölüm başlığını bölüm dosyası bir kez yazar."""
         return []
 
-    def visit_heading(self, block):
+    def visit_heading(self, data):
         anchor = f"h-{self._page}-{next(self._heading_numbers)}"
-        return [Heading(_heading_level(block.data), self._tr(block.data), anchor)]
+        return [Heading(_heading_level(data), self._tr(data), anchor)]
 
-    def visit_text_unit(self, block):
-        return [Paragraph(block.kind, self._passage(block.data))]
+    def visit_text_unit(self, data):
+        return [Paragraph(data["type"], self._passage(data))]
 
-    def visit_para(self, block):
-        css_class = " ".join(filter(None, ("para", block.data.get("style"))))
-        return [BodyParagraph(css_class, self._joined_passage(block.units()))]
+    def visit_para(self, data):
+        css_class = " ".join(filter(None, ("para", data.get("style"))))
+        return [BodyParagraph(css_class, self._joined_passage(data["sentences"]))]
 
-    def visit_list(self, block):
-        tag = "ol" if block.data.get("ordered") else "ul"
-        return [PassageList(tag, [self._passage(unit) for unit in block.units()])]
+    def visit_list(self, data):
+        tag = "ol" if data.get("ordered") else "ul"
+        return [PassageList(tag, [self._passage(unit) for unit in data["items"]])]
 
-    def visit_table(self, block):
-        rows, header_rows = block.data["rows"], block.data.get("header_rows", 0)
+    def visit_table(self, data):
+        rows, header_rows = data["rows"], data.get("header_rows", 0)
         head = "".join(self._row(row, "th") for row in rows[:header_rows])
         body = "".join(self._row(row, "td") for row in rows[header_rows:])
         thead = f"<thead>{head}</thead>" if head else ""
         return [Fragment(f'<table class="book-table">{thead}<tbody>{body}</tbody></table>')]
 
-    def visit_code(self, block):
-        caption = block.data.get("caption")
+    def visit_code(self, data):
+        caption = data.get("caption")
         heading = f'<p class="caption">{self._tr(caption)}</p>' if caption else ""
-        return [Fragment(heading + code_block(block.data["code"]))]
+        return [Fragment(heading + code_block(data["code"]))]
 
-    def visit_image(self, block):
-        return [Fragment(f'<div class="figure"><img src="{self._src(block.data["src"])}" alt=""/></div>')]
+    def visit_image(self, data):
+        return [Fragment(f'<div class="figure"><img src="{self._src(data["src"])}" alt=""/></div>')]
 
-    def visit_math(self, block):
-        return [Fragment(f'<div class="math">{self._equation_img(block.data, "math-display")}</div>')]
+    def visit_math(self, data):
+        return [Fragment(f'<div class="math">{self._equation_img(data, "math-display")}</div>')]
 
     def _passage(self, unit):
         return Passage(self._tr(unit), self._en(unit))

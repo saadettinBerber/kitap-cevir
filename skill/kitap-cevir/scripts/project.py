@@ -1,4 +1,4 @@
-"""Kitap projesinin kökünü bulur, progress.json'u okur/yazar ve yolları verir.
+"""Kitap projesinin diskteki düzeni: her dosyanın proje kökünden yeri.
 
 Proje kökü: içinde progress.json bulunan ilk dizin (çalışma dizininden yukarı
 doğru aranır). KITAP_ROOT ortam değişkeni ayarlıysa doğrudan o kullanılır.
@@ -42,7 +42,8 @@ def _nearest_project(directory):
 
 
 class Project:
-    """Bir kitap projesinin dosya yolları ve progress.json erişimi; her yol proje kökünden kurulur."""
+    """Kitap projesinin diskteki düzeni: her dosyanın, progress.json dahil, proje kökünden yeri.
+    progress.json'un yolu dışarı verilmez; içeriği onu saran nesneler olarak buradan yüklenip kaydedilir."""
 
     def __init__(self, root):
         self._root = root
@@ -79,8 +80,9 @@ class Project:
     def glossary_js(self):
         return self._path(DATA_DIR, "glossary.js")
 
-    def epub_file(self, slug):
-        return self._path(DIST_DIR, f"{slug}.epub")
+    def epub_file(self):
+        """EPUB kitabın kısa adıyla (book.slug) adlanır."""
+        return self._path(DIST_DIR, f"{self.load_settings().slug()}.epub")
 
     def page_js(self, page):
         return self._path(PAGES_DIR, _page_name(page, ".js"))

@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 import _paths  # noqa: F401
+from json_file import write_json
 from progress import Progress
 from project import Project
 from reader_data import Glossary, ReaderData
@@ -26,14 +27,19 @@ PROGRESS = {"book": {"slug": "demo", "title": "Dönüşüm", "subtitle_tr": "Alt
                       "2": {"blank": True, "pdf_page": 7}}}
 
 
+def _write_text(path, text):
+    with open(path, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
 class _ProjectTestCase(unittest.TestCase):
     """PROGRESS ve GLOSSARY_TEMPLATE'le kurulmuş bir kitap projesi; testi yoktur."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = self.tmp.name
-        open(os.path.join(root, "progress.json"), "w", encoding="utf-8").write(json.dumps(PROGRESS))
-        open(os.path.join(root, "glossary.md"), "w", encoding="utf-8").write(GLOSSARY_TEMPLATE)
+        write_json(os.path.join(root, "progress.json"), PROGRESS)
+        _write_text(os.path.join(root, "glossary.md"), GLOSSARY_TEMPLATE)
         self.project = Project(root)
 
     def tearDown(self):
@@ -41,7 +47,8 @@ class _ProjectTestCase(unittest.TestCase):
 
     @staticmethod
     def _js_payload(path, prefix):
-        raw = open(path, encoding="utf-8").read().strip()
+        with open(path, encoding="utf-8") as script:
+            raw = script.read().strip()
         return json.loads(raw[len(prefix):-1])
 
 

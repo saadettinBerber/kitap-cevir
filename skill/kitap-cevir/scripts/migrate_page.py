@@ -14,57 +14,33 @@ import sys
 
 from finalize_page import PageFinalizer
 from json_file import read_json, write_json
-from migrate_match import TranslationFiller, Translations
+from migrate_match import TranslationSource, Translations
 from page_document import PageDocument
 from page_input import PageInputBuilder
 from project import Project
 from translated_pages import TranslatedPages
 
-_COPY_FIELDS = ("title", "section", "concepts")
 FINALIZED = "sonlandırıldı"
 _PATH_STEP = re.compile(r"(\w+)|\[(\d+)\]")
 
 
 class PageMigration:
-    """Yeni çıkarılmış sayfa girdisine eski sayfanın çevirilerini, başlıklarını,
-    kartlarını ve denklem LaTeX'ini taşır."""
+    """Eski sayfanın (PageDocument) çevirilerini, başlıklarını, kartlarını ve denklem LaTeX'ini yeni
+    çıkarılmış sayfaya taşır; taşınmış sayfayı ve bekleyenleri ayrı sorgular verir."""
 
-    def __init__(self, document, old):
-        self._document = document
+    def __init__(self, old, fixes):
         self._old = old
+        self._source = TranslationSource(Translations.of_page(old, fixes))
 
-    def run(self, fixes):
+    def migrated(self, extracted):
+        """Yeni çıkarılmış sayfanın (PageDocument) taşınmış kopyası; verilen sayfa değişmez."""
+        document = PageDocument(extracted.as_json())
+        document.take_translation_of(self._old, self._source)
+        return document
+
+    def pending(self, document):
         """Bekleyenler: çevirisi bulunamayan birimler (units) ve LaTeX'i olmayan denklemler (latex)."""
-        filler = TranslationFiller(Translations.of_page(self._old, fixes))
-        for index, block in enumerate(self._document["blocks"]):
-            filler.fill_block(block, f"blocks[{index}]")
-        self._carry_fields()
-        self._carry_latex()
-        return {"units": filler.pending(), "latex": self._missing_latex()}
-
-    def _carry_fields(self):
-        """Başlık, kesit ve kartlar eski sayfadan gelir; bölümün Türkçesi yoksa bölüm de. Eski sayfanın
-        terimleri sözlükte olduğundan yeni terim listesi boşalır."""
-        for field in _COPY_FIELDS:
-            self._document[field] = self._old.get(field, self._document.get(field))
-        if not self._document.get("chapter", {}).get("tr"):
-            self._document["chapter"] = self._old.get("chapter", self._document["chapter"])
-        self._document["glossary_new"] = []
-
-    def _carry_latex(self):
-        """Eski sayfada aynı PNG için LaTeX yazılmışsa yeni yapıya taşınır; ayrı
-        satır denkleminin LaTeX'i satır içindekinden önceliklidir."""
-        old, new = PageDocument(self._old), PageDocument(self._document)
-        known = {item["src"]: item.get("latex", "") for item in old.inline_math() + old.display_math()}
-        for item in new.display_math() + new.inline_math():
-            item["latex"] = item.get("latex") or known.get(item["src"], "")
-
-    def _missing_latex(self):
-        page = PageDocument(self._document)
-        blocks = [{"path": f"blocks[{i}]", "src": equation["src"]} for i, block in enumerate(page.blocks())
-                  for equation in block.equations() if not equation["latex"]]
-        return blocks + [{"path": f"math[{i}]", "src": m["src"]}
-                         for i, m in enumerate(page.inline_math()) if not m["latex"]]
+        return {"units": self._source.pending(document.unit_paths()), "latex": document.missing_latex()}
 
 
 class Migrator:
@@ -81,12 +57,18 @@ class Migrator:
 
     def run(self, page):
         """Sayfayı yeniden çıkarıp eski çevirileri taşır; sonlandırmaz."""
-        old = self._pages.get(page).data
-        document = self._builder.build(page, self._project.work_images(page))
-        pending = PageMigration(document, old).run(self._builder.hyphen_fixes(document["pdf_page"]))
-        write_json(self._project.work_output(page), document)
+        document, pending = self._migrated(page)
+        write_json(self._project.work_output(page), document.as_json())
         self._write_pending(page, pending)
         return {"page": page, **_summary(document, pending)}
+
+    def _migrated(self, page):
+        """(taşınmış sayfa, bekleyenler); eski sayfa yeniden çıkarımdan önce okunur."""
+        old = self._pages.get(page)
+        extracted = self._builder.build(page, self._project.work_images(page))
+        migration = PageMigration(old, self._builder.hyphen_fixes(extracted["pdf_page"]))
+        document = migration.migrated(PageDocument(extracted))
+        return document, migration.pending(document)
 
     def _write_pending(self, page, pending):
         """Bekleyen yoksa eski bekleyenler dosyası da silinir: sayfa tamamlanmıştır."""
@@ -133,7 +115,7 @@ def node_at(document, path):
 
 
 def _summary(document, pending):
-    return {"units": len(PageDocument(document).text_units()), "pending": len(pending["units"]),
+    return {"units": len(document.text_units()), "pending": len(pending["units"]),
             "latex": len(pending["latex"]), "complete": not pending["units"] and not pending["latex"]}
 
 

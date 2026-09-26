@@ -1,7 +1,8 @@
 """Sayfa belgesindeki blokların türe göre davranışı (references/FORMAT.md → Blok tipleri).
 
 Blok türüne göre dallanma yalnız `Block.of` fabrikasındadır; diğer modüller
-polimorfik metotları çağırır. Bloklar JSON sözlüğünü sarar, veri biçimi değişmez.
+polimorfik metotları çağırır. Bloklar JSON sözlüğünü sarar, veri biçimi değişmez;
+ziyaretçi bloğun sözlüğünü `accept` üzerinden alır (Card gibi).
 """
 
 
@@ -9,7 +10,7 @@ class Block:
     """Çevrilecek metni olmayan blok; bilinmeyen türler de böyle davranır."""
 
     def __init__(self, data):
-        self.data = data
+        self._data = data
 
     @staticmethod
     def of(data):
@@ -17,7 +18,7 @@ class Block:
 
     @property
     def kind(self):
-        return self.data["type"]
+        return self._data["type"]
 
     def unit_paths(self):
         """(yol eki, {en, tr} birimi) çiftleri; yol eki bloğun kendi yoluna eklenir."""
@@ -26,9 +27,10 @@ class Block:
     def units(self):
         return [unit for _, unit in self.unit_paths()]
 
-    def fill(self, filler, path):
-        for suffix, unit in self.unit_paths():
-            filler.fill_unit(unit, path + suffix)
+    def fill(self, source):
+        """Birimlere eski çevirileri yazar; hangi çevirinin yazılacağını kaynak söyler."""
+        for unit in self.units():
+            unit["tr"] = source.translation(unit["en"])
 
     def card_unit(self):
         """Kart agent'ının okuyacağı tek {type, en, tr} birimi; metni yoksa boş."""
@@ -42,7 +44,7 @@ class Block:
 
     def anchor_text(self):
         """Görsel yerleştirirken bloğu tanıtan İngilizce metin."""
-        return self.data.get("en") or ""
+        return self._data.get("en") or ""
 
     def media_sources(self):
         return []
@@ -60,17 +62,17 @@ class Block:
 
     def accept(self, visitor):
         """VISITOR: türe göre çıktı (ör. EPUB) ziyaretçide yazılır, dallanma Block.of'ta kalır."""
-        return visitor.visit_unknown(self)
+        return visitor.visit_unknown(self._data)
 
 
 class TextBlock(Block):
     """caption, footnote: bloğun kendisi tek bir {en, tr} birimidir."""
 
     def unit_paths(self):
-        return [("", self.data)]
+        return [("", self._data)]
 
     def accept(self, visitor):
-        return visitor.visit_text_unit(self)
+        return visitor.visit_text_unit(self._data)
 
 
 class HeadingBlock(TextBlock):
@@ -78,79 +80,81 @@ class HeadingBlock(TextBlock):
         return True
 
     def accept(self, visitor):
-        return visitor.visit_heading(self)
+        return visitor.visit_heading(self._data)
 
 
 class ChapterBlock(HeadingBlock):
     def accept(self, visitor):
-        return visitor.visit_chapter(self)
+        return visitor.visit_chapter(self._data)
 
 
 class ParaBlock(Block):
     def unit_paths(self):
-        return [(f".sentences[{index}]", sentence) for index, sentence in enumerate(self.data["sentences"])]
+        return [(f".sentences[{index}]", sentence) for index, sentence in enumerate(self._data["sentences"])]
 
-    def fill(self, filler, path):
-        self.data["sentences"] = filler.fill_sentences(self.data["sentences"], path)
+    def fill(self, source):
+        """Eski bir birime eşit ardışık cümleler önce tek cümle olur."""
+        self._data["sentences"] = source.merged_sentences(self._data["sentences"])
+        super().fill(source)
 
     def anchor_text(self):
         return self._joined("en")
 
     def accept(self, visitor):
-        return visitor.visit_para(self)
+        return visitor.visit_para(self._data)
 
 
 class ListBlock(Block):
     def unit_paths(self):
-        return [(f".items[{index}]", item) for index, item in enumerate(self.data["items"])]
+        return [(f".items[{index}]", item) for index, item in enumerate(self._data["items"])]
 
     def anchor_text(self):
         return self._joined("en")
 
     def accept(self, visitor):
-        return visitor.visit_list(self)
+        return visitor.visit_list(self._data)
 
 
 class TableBlock(Block):
     def unit_paths(self):
         return [(f".rows[{r}][{c}]", cell)
-                for r, row in enumerate(self.data["rows"]) for c, cell in enumerate(row)]
+                for r, row in enumerate(self._data["rows"]) for c, cell in enumerate(row)]
 
     def accept(self, visitor):
-        return visitor.visit_table(self)
+        return visitor.visit_table(self._data)
 
 
 class CodeBlock(Block):
     """Kod çevrilmez; kart agent'ı onu olduğu gibi okur."""
 
     def card_unit(self):
-        return {"type": "code", "code": self.data["code"]}
+        return {"type": "code", "code": self._data["code"]}
 
     def accept(self, visitor):
-        return visitor.visit_code(self)
+        return visitor.visit_code(self._data)
 
 
 class MediaBlock(Block):
     """PNG'si sayfanın görsel klasörüne kopyalanan blok."""
 
     def media_sources(self):
-        return [self.data["src"]]
+        return [self._data["src"]]
 
 
 class ImageBlock(MediaBlock):
     def image_sources(self):
-        return [self.data["src"]]
+        return [self._data["src"]]
 
     def accept(self, visitor):
-        return visitor.visit_image(self)
+        return visitor.visit_image(self._data)
 
 
 class MathBlock(MediaBlock):
     def equations(self):
-        return [self.data]
+        return [self._data]
 
     def accept(self, visitor):
-        return visitor.visit_math(self)
+        return visitor.visit_math(self._data)
 
 
 _BLOCK_CLASSES = {

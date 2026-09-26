@@ -28,10 +28,10 @@ class BookExport:
         self._pages = pages
         self._epub_path = epub_path
 
-    def write(self, package, page_numbers):
-        """Verilen sayfalar pakete girer, paket EPUB olarak yazılır. Boş sayfaları progress.json zaten
-        dışarıda bırakır; tek görselli sayfa şekildir, kalır."""
-        documents = [self._pages.get(page) for page in page_numbers]
+    def write(self, package, progress):
+        """İlerleme kaydındaki çevrilmiş sayfalar pakete girer, paket EPUB olarak yazılır. Boş sayfaları
+        kayıt zaten dışarıda bırakır; tek görselli sayfa şekildir, kalır."""
+        documents = [self._pages.get(page) for page in progress.translated_pages()]
         for chapter in chapters_of(documents):
             package.add_chapter(chapter)
         for href, source in self._present(self._images(documents)):
@@ -81,15 +81,14 @@ def _read_text(path):
 
 def main():
     project = Project.discover()
-    book = project.load_settings().book()
-    epub_path = project.epub_file(book["slug"])
-    export = BookExport(TranslatedPages(project), epub_path)
-    export.write(_package(book), project.load_progress().translated_pages())
-    print("yazıldı:", project.relative_to_root(epub_path))
+    export = BookExport(TranslatedPages(project), project.epub_file())
+    export.write(_package(project.load_settings()), project.load_progress())
+    print("yazıldı:", project.relative_to_root(project.epub_file()))
 
 
-def _package(book):
-    metadata = EpubMetadata.for_book(book, datetime.now(timezone.utc))
+def _package(settings):
+    """Paketin künyesi kitap ayarlarından (progress.json -> book) gelir."""
+    metadata = EpubMetadata.for_book(settings.book(), datetime.now(timezone.utc))
     return EpubPackage(metadata, _read_text(STYLESHEET_PATH))
 
 

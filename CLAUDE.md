@@ -30,9 +30,11 @@ Bu depodaki karşılıkları:
 - **OOP:** durum etrafında kurulan sınıflar (`CardChecker(spec)`, `PageInputBuilder`, `PdfInspector(document)`). Aynı değişken fonksiyondan fonksiyona elden ele taşınıyorsa orada bir sınıf çıkmak istiyordur (Bl.10 · Cohesion).
 - **Prosedürel:** `extraction/text_utils.py`. Veri (metin) sabit, işlemler çoğalıyor, durum yok; sınıfa sarılmaz.
 - **VISITOR:** `Block.accept` + `epub/block_visitor.py`. EPUB çıktısı bloklara eklenen yeni bir işlemdir; tür dallanması yine yalnız `Block.of`'ta kalır.
+- **Melez yok:** `Block` verisi özeldir; ziyaretçi bloğun sözlüğünü `accept` üzerinden alır, `Card` gibi (Bl.6 · Hybrids).
 - **VISITOR:** `Card.of` (`concept_cards.py`) + `concept_check.CardRules` ve `epub/cards.EpubCardVisitor`. Kart türüne göre dallanma yalnız fabrikadadır; denetim ve EPUB çizimi karta eklenen işlemlerdir. Önceki sözlükle dağıtım (`kind_rules`, `_MIDDLE_PARTS`) aynı switch'in iki kopyasıydı.
 - **POJO:** `epub/` diski bilmez. Stil, görsel ve çıktı akışı dışarıdan verilir; disk sınırı `export_epub.BookExport`'tur.
 - **Veri yapısı:** sayfa JSON'u (`references/FORMAT.md`) bir veri taşıyıcıdır. Davranışı `PageDocument` ve `Block` sarmalayıcıları taşır.
+- **Veri yapısı:** `progress.json` bir veri taşıyıcıdır. `Progress` onu sarar; kayıt yalnız kendi metotlarıyla değişir, `as_json()` yazılacak kopyayı verir (Bl.6 · Data/Object Anti-Symmetry).
 
 ## Ölçüler: eşik alarmdır, ölçüt değildir
 

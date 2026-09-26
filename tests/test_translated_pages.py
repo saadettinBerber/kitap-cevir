@@ -21,10 +21,11 @@ class TranslatedPagesTest(unittest.TestCase):
 
     def test_saved_page_is_read_back_by_its_number(self):
         self.pages.save(PageDocument(PAGE))
-        self.assertEqual(self.pages.get(PAGE_NUMBER).data, PAGE)
+        self.assertEqual(self.pages.get(PAGE_NUMBER), PageDocument(PAGE))
 
     def test_page_number_comes_from_the_document(self):
-        self.assertEqual(self.pages.save(PageDocument(PAGE)), self.project.page_js(PAGE_NUMBER))
+        self.pages.save(PageDocument(PAGE))
+        self.assertTrue(os.path.isfile(self.project.page_js(PAGE_NUMBER)))
 
     def test_missing_page_is_an_error(self):
         with self.assertRaises(FileNotFoundError):
@@ -32,11 +33,17 @@ class TranslatedPagesTest(unittest.TestCase):
 
     def test_agent_only_fields_do_not_reach_the_reader(self):
         self.pages.save(PageDocument({**PAGE, "context": {"prev_tail": "gizli"}}))
-        self.assertNotIn("context", self.pages.get(PAGE_NUMBER).data)
+        self.assertEqual(self.pages.get(PAGE_NUMBER), PageDocument(PAGE))
 
     def test_page_file_is_a_reader_callback(self):
-        with open(self.pages.save(PageDocument(PAGE)), encoding="utf-8") as page_js:
+        self.pages.save(PageDocument(PAGE))
+        with open(self.project.page_js(PAGE_NUMBER), encoding="utf-8") as page_js:
             self.assertTrue(page_js.read().startswith("window.PAGE({"))
+
+    def test_replacing_cards_changes_only_the_cards(self):
+        self.pages.save(PageDocument(PAGE))
+        self.pages.replace_concepts(PAGE_NUMBER, [{"id": "yeni"}])
+        self.assertEqual(self.pages.get(PAGE_NUMBER), PageDocument({**PAGE, "concepts": [{"id": "yeni"}]}))
 
     def test_images_sit_next_to_the_page_file(self):
         self.assertEqual(os.path.dirname(self.pages.images_dir(PAGE_NUMBER)),

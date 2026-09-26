@@ -21,12 +21,15 @@ class TranslatedPages:
             return PageDocument(_page_data(handle.read()))
 
     def save(self, document):
-        """Sayfa numarası belgenin page alanından gelir; yazılan dosyanın yolu döner."""
+        """Sayfa numarası belgenin page alanından gelir; dosyanın yeri Project.page_js'tir."""
         path = self._project.page_js(document.number())
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as handle:
-            handle.write(_page_js(document.data))
-        return path
+            handle.write(_page_js(document.as_json()))
+
+    def replace_concepts(self, page, cards):
+        """Sayfanın kartları değişir; metnine dokunulmaz."""
+        self.save(self.get(page).with_concepts(cards))
 
     def images_dir(self, page):
         return self._project.page_images(page)
