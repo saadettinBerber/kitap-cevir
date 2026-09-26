@@ -46,19 +46,8 @@ class MathScanner:
         """Boş önek "bu kitapta denklem fontu yok" demektir; startswith("") her fontla eşleşirdi."""
         return bool(self._prefix) and span.font.startswith(self._prefix)
 
-    def _is_caption(self, line):
-        """Denklem başlığı ("Equation 3-3. Abstractness") denklemin hemen
-        üstündedir ama çevrilecek bir caption'dır, PNG'ye girmemeli."""
-        return bool(self._caption.match(line.text))
-
     def _display_rects(self, lines):
         return self._merge_adjacent([line.rect for line in lines if line.is_display()])
-
-    def _geometry_rects(self, lines, page):
-        if not self._uses_geometry:
-            return []
-        line_rects = [line.rect for line in lines if not self._is_caption(line)]
-        return FractionEquationFinder(line_rects).regions(page.drawings())
 
     @staticmethod
     def _merge_adjacent(rects):
@@ -69,6 +58,17 @@ class MathScanner:
             else:
                 merged.append(rect)
         return merged
+
+    def _geometry_rects(self, lines, page):
+        if not self._uses_geometry:
+            return []
+        line_rects = [line.rect for line in lines if not self._is_caption(line)]
+        return FractionEquationFinder(line_rects).regions(page.drawings())
+
+    def _is_caption(self, line):
+        """Denklem başlığı ("Equation 3-3. Abstractness") denklemin hemen
+        üstündedir ama çevrilecek bir caption'dır, PNG'ye girmemeli."""
+        return bool(self._caption.match(line.text))
 
 
 def _in_band(rect, bands):
