@@ -12,7 +12,6 @@ EDGE_TOLERANCE = 2.0
 WIDE_SPAN_RATIO = 1.2        # sütundan geniş parça = tablo dışı (caption, dipnot)
 MAX_BAND_GAP_RATIO = 3.0     # iki dolgu arası boşluk / bant yüksekliği: üstü ayrı tablodur
 RULE_MAX_HEIGHT = 2.0        # bundan kalını çizgi değil dolgudur
-MIN_COLUMNS = 2
 MIN_BACKGROUND_CELLS = 2     # arka plan en az bu kadar dolguyu içine alır
 
 

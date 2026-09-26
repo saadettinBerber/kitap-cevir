@@ -11,9 +11,10 @@ import itertools
 from extraction.pdf import geometry
 from extraction.tables.aligned_tables import AlignedTableFinder
 from extraction.tables.table_cell import SUPERSCRIPT_RATIO
-from extraction.tables.table_grid import MIN_COLUMNS, GridColumns, PageFills
+from extraction.tables.table_grid import GridColumns, PageFills
 
 MIN_ROWS = 2
+MIN_COLUMNS = 2              # baştaki/sondaki daha az dolu sütunlu satır tablo dışı metindir
 MIN_MULTILINE_CELLS = 2      # bu kadar hücresi çok satırlı satırın hücre içi satırları liste niteliğindedir
 CORNER_TOLERANCE = 1         # parçanın sol üst köşesi tablo alanının bu kadar dışında kalabilir
 
