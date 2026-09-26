@@ -518,6 +518,14 @@ class SingleColumnEdgeTest(unittest.TestCase):
         [found] = _scan_book(TermTableLayout(TABLE_TOP, [self.ROW, ("a Estimated.",)]).page())
         self.assertEqual(_texts(found), [list(TERM_HEADER), list(self.ROW)])
 
+    def test_fills_of_a_single_column_make_no_table(self):
+        """Tek sütunlu dolgu yığını (renkli not kutusu, kenar çubuğu) tablo değildir."""
+        left, right = TERM_COLUMNS[0]
+        tops = [TABLE_TOP + CELL_HEIGHT * index for index in range(len(ROWS))]
+        lines = [line for top, (text, *_) in zip(tops, ROWS) for line in _cell_lines(top, (text,))]
+        shapes = [fill(left, top, right, top + CELL_HEIGHT) for top in tops]
+        self.assertEqual(_scan_book(FakePdfPage(lines=lines, shapes=shapes)), [])
+
 
 class BottomRuleTest(unittest.TestCase):
     """Tablo altındaki ilk yatay çizgide biter. Çizgi sayılan: en çok RULE_MAX_HEIGHT kalınlığında, en az
