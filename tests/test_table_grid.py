@@ -186,6 +186,12 @@ class FilledColumnsTest(unittest.TestCase):
         self.assertEqual(_two_columns().filled_columns([_span_at(FIRST_LEFT + INSIDE), _span_at(NEAR_EDGE)]), 1)
 
 
+class RowInBandTest(unittest.TestCase):
+    def test_row_with_one_span_in_a_band_is_in_the_band(self):
+        grid = TableGrid([], [(TOP, BOTTOM)])
+        self.assertTrue(grid.in_band([_span_centred_on(TOP), _span_centred_on(BOTTOM + INSIDE)]))
+
+
 def _groups(*fills):
     return PageFills(list(fills), TEXT_BOTTOM).table_groups()
 
