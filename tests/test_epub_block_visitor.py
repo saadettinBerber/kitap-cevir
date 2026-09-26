@@ -62,6 +62,10 @@ class TextBlockTest(unittest.TestCase):
         fragment = _only({"type": "list", "items": [{"en": "a", "tr": "b"}]})
         self.assertEqual(fragment.english(), ["a"])
 
+    def test_every_list_item_is_written(self):
+        fragment = _only({"type": "list", "items": [{"en": "a", "tr": "b"}, {"en": "c", "tr": "d"}]})
+        self.assertEqual(fragment.english(), ["a", "c"])
+
 
 class HeadingTest(unittest.TestCase):
     def test_heading_anchor_carries_page_and_order(self):
