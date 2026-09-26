@@ -218,6 +218,10 @@ class LayoutReaderChoiceTest(unittest.TestCase):
     def test_odl_is_the_default(self):
         self.assertIsInstance(PageExtractor.for_settings(with_defaults({})).layout_reader, OdlLayoutReader)
 
+    def test_extractor_takes_its_reader_from_the_settings(self):
+        with self.assertRaises(InvalidLayoutReader):
+            PageExtractor.for_settings(with_defaults({"layout_reader": "pdfminer"}))
+
     @unittest.skipUnless(importlib.util.find_spec("liteparse"), "liteparse kurulu değil")
     def test_liteparse_is_chosen_by_name(self):
         reader = layout_reader_for({"layout_reader": "liteparse"})
