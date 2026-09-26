@@ -124,7 +124,7 @@ class TableColumns:
     def _cells(self, row):
         buckets = self.buckets(row)
         main_size = max((span.size for bucket in buckets for span in bucket), default=DEFAULT_MAIN_SIZE)
-        return [TableCell(bucket, column, main_size).unit(False) for bucket, column in zip(buckets, self._columns)]
+        return [TableCell(bucket, column, main_size).unit() for bucket, column in zip(buckets, self._columns)]
 
 
 class SpanRow:

@@ -36,12 +36,12 @@ def _right_at(fill):
 
 
 def _unit(*spans):
-    return TableCell(list(spans), COLUMN, MAIN_SIZE).unit(row_keeps_breaks=False)
+    return TableCell(list(spans), COLUMN, MAIN_SIZE).unit()
 
 
 def _unit_in_a_listing_row(*spans):
     """Satırı liste niteliğinde (birden çok çok satırlı hücreli) olan hücrenin birimi."""
-    return TableCell(list(spans), COLUMN, MAIN_SIZE).unit(row_keeps_breaks=True)
+    return TableCell(list(spans), COLUMN, MAIN_SIZE).listing_unit()
 
 
 class LinesTest(unittest.TestCase):

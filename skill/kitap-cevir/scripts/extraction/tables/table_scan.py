@@ -155,12 +155,13 @@ class TableRow:
         return self._grid.filled_columns(self._spans)
 
     def header_cells(self):
-        return [cell.unit(row_keeps_breaks=False) for cell in self._cells()]
+        return [cell.unit() for cell in self._cells()]
 
     def body_cells(self):
         cells = self._cells()
-        keeps_breaks = self._has_aligned_sublines(cells)
-        return [cell.unit(keeps_breaks) for cell in cells]
+        if self._has_aligned_sublines(cells):
+            return [cell.listing_unit() for cell in cells]
+        return [cell.unit() for cell in cells]
 
     def _cells(self):
         return self._grid.cells_of(self._spans, self._main_size)

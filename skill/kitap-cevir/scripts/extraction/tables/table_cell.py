@@ -28,14 +28,19 @@ class TableCell:
         fills = sorted((line.right - left) / (right - left) for line in lines[:-1])
         return fills[len(fills) // 2] >= WRAP_FILL_RATIO
 
-    def unit(self, row_keeps_breaks):
-        keep_breaks = row_keeps_breaks and not self.is_wrapped_prose()
-        lines, marks = self._lines(), self._marks()
-        if not marks and not keep_breaks:
-            return {"en": " ".join(line.text for line in lines)}
-        separator = "<br>" if keep_breaks else " "
-        text = separator.join(html.escape(line.text) for line in lines)
-        sups = "".join(f"<sup>{html.escape(mark)}</sup>" for mark in marks)
+    def unit(self):
+        """Satırlar boşlukla birleşir; üst simge varsa birim HTML olur."""
+        if not self._marks():
+            return {"en": " ".join(line.text for line in self._lines())}
+        return self._html_unit(" ")
+
+    def listing_unit(self):
+        """Liste niteliğindeki satırın hücresi satır sonlarını korur; sarılmış düz metin yine birleşir."""
+        return self.unit() if self.is_wrapped_prose() else self._html_unit("<br>")
+
+    def _html_unit(self, line_separator):
+        text = line_separator.join(html.escape(line.text) for line in self._lines())
+        sups = "".join(f"<sup>{html.escape(mark)}</sup>" for mark in self._marks())
         return {"en": text + sups, "html": True}
 
     def _lines(self):
