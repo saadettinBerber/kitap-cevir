@@ -57,12 +57,7 @@ class CardInputs:
     def card_input(self, document):
         """Kart agent'ının girdisi; kitabın kart ayarı (concepts_spec) da gider, agent kart
         türlerini ona göre seçer."""
-        page_data = document.data
-        content = [unit for unit in (block.card_unit() for block in document.blocks()) if unit]
-        return {"id": page_data["id"], "page": page_data["page"],
-                "chapter": page_data.get("chapter", {}), "section": page_data.get("section", {}),
-                "title": page_data.get("title", {}), "content": content,
-                "concepts_spec": self._spec, "concepts": []}
+        return {**document.card_source(), "concepts_spec": self._spec, "concepts": []}
 
 
 class CardOutputs:

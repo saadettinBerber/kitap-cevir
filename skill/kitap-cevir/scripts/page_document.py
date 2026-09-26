@@ -27,6 +27,12 @@ class PageDocument:
     def concepts(self):
         return self.data.get("concepts", [])
 
+    def card_source(self):
+        """Kartların yazılacağı sayfa: başlık alanları ile metin bloklarının kart birimleri (content)."""
+        content = [unit for unit in (block.card_unit() for block in self.blocks()) if unit]
+        return {"id": self.data["id"], "page": self.number(), "chapter": self.data.get("chapter", {}),
+                "section": self.data.get("section", {}), "title": self.data.get("title", {}), "content": content}
+
     def blocks(self):
         return [Block.of(data) for data in self.data["blocks"]]
 
