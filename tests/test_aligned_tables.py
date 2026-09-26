@@ -3,7 +3,7 @@ sayfa sonuna düşen parça ve sayfayı açan başlıksız devam."""
 import dataclasses
 import unittest
 
-from pdf_fakes import FakePdfPage, fill, span
+from pdf_fakes import SIZE, FakePdfPage, fill, span
 from extraction.pdf.geometry import Box
 from extraction.settings import DEFAULT_EXTRACTION, with_defaults
 from extraction.tables.aligned_tables import COLUMN_GUTTER, AlignedTableFinder, SpanRow, TableColumns
@@ -17,6 +17,8 @@ CHAR_WIDTH, LINE_HEIGHT = 6, 10
 SHIFT = 3
 A4_HEIGHT = 842
 HEADER = [{"en": "Method"}, {"en": "Purpose"}]
+MARK_X = 240                 # ikinci sütundaki "does 0"ın hemen sağı
+NEARLY_FULL = 0.9
 
 
 def _span(text, origin):
@@ -135,6 +137,22 @@ class AlignedTableFinderTest(unittest.TestCase):
         lowered = _shifted(SHIFT, _span("i", (260, last_y)))
         [table] = _tables(_table_spans(3) + [raised, lowered])
         self.assertEqual((table["y0"], table["y1"]), (FIRST_ROW_Y - SHIFT, last_y + SHIFT + LINE_HEIGHT))
+
+
+def _first_row_with_a_mark(size):
+    """Üç gövde satırlı tablo; ilk gövde satırının ikinci hücresinin sonunda size puntolu "a" var."""
+    mark = dataclasses.replace(_span("a", (MARK_X, FIRST_ROW_Y + ROW_GAP)), size=size)
+    return _rows(_table_spans(3) + [mark])[1]
+
+
+class CellMarkTest(unittest.TestCase):
+    """Üst simge, satırın en büyük parçasının puntosuna göre ölçülür."""
+
+    def test_piece_far_smaller_than_the_row_is_a_superscript(self):
+        self.assertEqual(_first_row_with_a_mark(SIZE / 2)[1], {"en": "does 0<sup>a</sup>", "html": True})
+
+    def test_piece_nearly_as_large_as_the_row_is_cell_text(self):
+        self.assertEqual(_first_row_with_a_mark(SIZE * NEARLY_FULL)[1], {"en": "does 0 a"})
 
 
 class SplitTableTest(unittest.TestCase):
